@@ -1,0 +1,23 @@
+.wrapper {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--mantine-color-blue-7) 0%, var(--mantine-color-cyan-5) 100%);
+}
+
+.form {
+    border-right: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-7));
+    min-height: 100vh;
+    max-width: 450px;
+    padding: 30px;
+    padding-top: 80px;
+    border-radius: 0;
+    background-color: var(--mantine-color-body);
+}
+
+.title {
+    color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+    font-family: Outfit, var(--mantine-font-family);
+    font-weight: 500;
+    text-align: center;
+    margin-top: var(--mantine-spacing-md);
+    margin-bottom: 50px;
+}
