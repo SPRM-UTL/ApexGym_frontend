@@ -12,6 +12,7 @@ import {
 } from '@mantine/core';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
 import classes from './Dashboard.module.css';
+import { Link } from 'react-router-dom';
 
 const links = [
     { icon: IconBulb, label: 'Activity', notifications: 3 },
@@ -20,15 +21,15 @@ const links = [
 ];
 
 const collections = [
-    { emoji: '👍', label: 'Sales' },
-    { emoji: '🚚', label: 'Deliveries' },
-    { emoji: '💸', label: 'Discounts' },
-    { emoji: '💰', label: 'Profits' },
-    { emoji: '✨', label: 'Reports' },
-    { emoji: '🛒', label: 'Orders' },
-    { emoji: '📅', label: 'Events' },
-    { emoji: '🙈', label: 'Debts' },
-    { emoji: '💁‍♀️', label: 'Customers' },
+    { emoji: '👍', label: 'Sales' , ruta :''},
+    { emoji: '🚚', label: 'Deliveries' , ruta :''},
+    { emoji: '💸', label: 'Discounts' , ruta :''},
+    { emoji: '💰', label: 'Profits' , ruta :''},
+    { emoji: '✨', label: 'Reports' , ruta :''},
+    { emoji: '🛒', label: 'Orders' , ruta :''},
+    { emoji: '📅', label: 'Events' , ruta :''},
+    { emoji: '🙈', label: 'Debts' , ruta :''},
+    { emoji: '💁‍♀️', label: 'Usuarios', ruta :'/usuarios' },
 ];
 
 export function Dashboard({ onLogout }) {
@@ -47,9 +48,8 @@ export function Dashboard({ onLogout }) {
     ));
 
     const collectionLinks = collections.map((collection) => (
-        <a
-            href="#"
-            onClick={(event) => event.preventDefault()}
+        <Link
+            to={collection.ruta}
             key={collection.label}
             className={classes.collectionLink}
         >
@@ -57,7 +57,7 @@ export function Dashboard({ onLogout }) {
                 {collection.emoji}
             </Box>{' '}
             {collection.label}
-        </a>
+        </Link>
     ));
 
     return (
