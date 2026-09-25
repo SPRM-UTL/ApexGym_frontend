@@ -1,15 +1,39 @@
 import { Button, PasswordInput, TextInput, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TableSort } from '../../components/TableSort/TableSort.jsx';
 
 export function Usuarios() {
-    const defaultUsuarios = [
-        { Nombre: "Raul", Correo: "correo@gmail.com", Rol: "Admin" },
-        { Nombre: "Raul2", Correo: "correo2@gmail.com", Rol: "Usuario" }
-    ];
 
-    const [usuarios, setUsuarios] = useState(defaultUsuarios);
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true); // Iniciamos carga (opcional si el estado inicial ya es true)
+
+            const response = await fetch("http://localhost:3000/api/usuarios");
+
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+
+            const jsonData = await response.json();
+            setUsers(jsonData.data);
+            setError(null);
+        } catch (err) {
+            setError(err.message);
+            setUsers(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
     const [abierto, setAbierto] = useState(false);
     const [usuarioEditando, setUsuarioEditando] = useState(null);
 
@@ -24,7 +48,7 @@ export function Usuarios() {
         return regex.test(email);
     };
 
-    const guardar = () => {
+    const guardar = async () => {
         const nuevosErrores = {};
 
         if (!nombre.trim()) nuevosErrores.nombre = "El nombre es requerido";
@@ -50,14 +74,55 @@ export function Usuarios() {
             return;
         }
 
-        if (usuarioEditando) {
-            setUsuarios(usuarios.map(u =>
-                u.Correo === usuarioEditando ? { Nombre: nombre, Correo: correo, Rol: rol } : u
-            ));
-            notifications.show({ title: 'Actualizado', message: 'Usuario actualizado correctamente.', color: 'green' });
-        } else {
-            setUsuarios([...usuarios, { Nombre: nombre, Correo: correo, Rol: rol }]);
-            notifications.show({ title: 'Guardado', message: 'Usuario agregado correctamente.', color: 'green' });
+        try {
+            setLoading(true);
+
+            const usuario = {
+                    nombre: nombre,
+                    email: correo,
+                    contrasenia: contrasena
+                }
+
+            const alerta = {
+                title: "Agregado",
+                message: "Usuario agregado correctamente",
+                color: "green"
+            }
+            
+            let ruta = "http://localhost:3000/api/usuarios/registrarUsuario";
+            let metodo = "POST";
+
+            if (usuarioEditando) {
+
+                usuario.id = usuarioEditando;
+                ruta = "http://localhost:3000/api/usuarios/actualizarUsuario";
+                metodo = "PUT";
+                alerta.title = "Actualizado";
+                alerta.message = "Usuario actualizado correctamente";
+
+            } 
+
+            const response = await fetch(
+                    ruta,
+                    {
+                        method: metodo,
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(usuario)
+                    }
+                );
+
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+
+            notifications.show({ title: alerta.title, message: alerta.message, color: alerta.color });
+            fetchData()
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
 
         limpiarFormulario();
@@ -74,22 +139,45 @@ export function Usuarios() {
     };
 
     const handleEditar = (usuario) => {
-        setUsuarioEditando(usuario.Correo);
-        setNombre(usuario.Nombre);
-        setCorreo(usuario.Correo);
-        setRol(usuario.Rol);
+        console.log("usuario: " + usuario.nombre)
+        setUsuarioEditando(usuario.id);
+        setNombre(usuario.nombre);
+        setCorreo(usuario.email);
+        setRol(usuario.rol);
         setContrasena(''); // No mostramos la contraseña actual por seguridad
         setErrores({});
         setAbierto(true);
     };
 
-    const handleEliminar = (usuario) => {
-        setUsuarios(usuarios.filter(u => u.Correo !== usuario.Correo));
-        notifications.show({ title: 'Eliminado', message: 'Usuario eliminado correctamente.', color: 'blue' });
+    const handleEliminar = async (usuario) => {
+        try {
+            setLoading(true);
+
+            const response = await fetch("http://localhost:3000/api/usuarios/eliminarUsuario", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    id: usuario.id
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+
+            fetchData()
+            notifications.show({ title: 'Eliminado', message: 'Usuario eliminado correctamente.', color: 'blue' });
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleReload = () => {
-        setUsuarios(defaultUsuarios);
+        fetchData()
         notifications.show({ title: 'Recargado', message: 'Datos recargados exitosamente.', color: 'teal' });
     };
 
@@ -175,7 +263,7 @@ export function Usuarios() {
 
                 <br />
                 <TableSort
-                    data={usuarios}
+                    data={users}
                     onEditar={handleEditar}
                     onEliminar={handleEliminar}
                 />
