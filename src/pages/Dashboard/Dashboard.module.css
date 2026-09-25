@@ -1,3 +1,14 @@
+.layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.content {
+    flex: 1;
+    padding: var(--mantine-spacing-md);
+    overflow: auto;
+}
+
 .navbar {
     background-color: var(--mantine-color-body);
     height: 100vh;
@@ -122,6 +133,7 @@
     }
 
     &[data-active] {
+
         &,
         &:hover {
             background-color: var(--mantine-color-blue-light);

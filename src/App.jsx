@@ -30,13 +30,25 @@ function App() {
         <Route
           path="/usuarios"
           element={
-            estaLogeadoEn ? <Usuarios onLogout={accionLogout}/> : <Login onLoginAceptado={accionLogin} />
+            estaLogeadoEn ? (
+              <Dashboard onLogout={accionLogout}>
+                <Usuarios />
+              </Dashboard>
+            ) : (
+              <Login onLoginAceptado={accionLogin} />
+            )
           }
         />
         <Route
           path="/*"
           element={
-            estaLogeadoEn ? <Dashboard onLogout={accionLogout} /> : <Navigate to="/login" replace />
+            estaLogeadoEn ? (
+              <Dashboard onLogout={accionLogout}>
+                <h2>Bienvenido al Dashboard</h2>
+              </Dashboard>
+            ) : (
+              <Navigate to="/login" replace />
+            )
           }
         />
       </Routes>
