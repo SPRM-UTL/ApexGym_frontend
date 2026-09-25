@@ -1,23 +1,24 @@
-import { Modal,Text } from '@mantine/core';
+import { Modal, Button, TextInput } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import classes from './Modal.module.css';
-import { useState } from 'react';
 
-export function ModalCrud({abierto, setAbierto, contenido: Contenido, titulo}) {
+export function ModalCrud({ abierto, setAbierto, contenido: Contenido, titulo }) {
     const cerrar = () => {
-        setAbierto(false)
-    }
+        setAbierto(false);
+    };
 
     return (
         <Modal
             className={classes.modal}
             opened={abierto}
-            onClose={() => cerrar()}
+            onClose={cerrar}
             title={titulo}
             zIndex={9999}
             withinPortal
             centered
         >
-            <Contenido/>
+            {/* Renderizamos el contenido pasando setAbierto por si quieren cerrar el modal desde adentro */}
+            <Contenido setAbierto={setAbierto} />
         </Modal>
-    )
+    );
 }
