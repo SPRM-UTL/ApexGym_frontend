@@ -1,4 +1,4 @@
-import { appUrl } from '../scripts/constantes.js';
+import { appUrl } from '../constantes.js';
 import { UsuarioService } from './UsuarioService.js';
 
 export class ApiService {

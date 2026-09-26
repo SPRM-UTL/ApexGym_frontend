@@ -1,5 +1,9 @@
 import { obtenerValor, guardarValor, eliminarValor, limpiarAlmacenamiento } from './globales.js';
 
+export const appUrl = 'http://localhost:3000';
+
+
+
 export const VariablesLocales = {
     TOKEN: 'token',
 };

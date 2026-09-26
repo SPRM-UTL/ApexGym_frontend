@@ -2,6 +2,7 @@ import { Button, PasswordInput, TextInput, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useState, useEffect } from 'react';
 import { TableSort } from '../../components/TableSort/TableSort.jsx';
+import { api } from '../../scripts/services/api.js';
 
 export function Usuarios() {
 
@@ -11,20 +12,19 @@ export function Usuarios() {
 
     const fetchData = async () => {
         try {
-            setLoading(true); // Iniciamos carga (opcional si el estado inicial ya es true)
+            setLoading(true);
 
-            const response = await fetch("http://localhost:3000/api/usuarios");
+            const response = await api.user.obtenerTodos();
 
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+            if (response.responseFlag !== 0) {
+                throw new Error(response.message || 'Error al obtener usuarios');
             }
 
-            const jsonData = await response.json();
-            setUsers(jsonData.data);
+            setUsers(response.data);
             setError(null);
         } catch (err) {
             setError(err.message);
-            setUsers(null);
+            setUsers([]);
         } finally {
             setLoading(false);
         }
@@ -77,50 +77,34 @@ export function Usuarios() {
         try {
             setLoading(true);
 
-            const usuario = {
-                    nombre: nombre,
-                    email: correo,
-                    contrasenia: contrasena
-                }
-
-            const alerta = {
-                title: "Agregado",
-                message: "Usuario agregado correctamente",
-                color: "green"
-            }
-            
-            let ruta = "http://localhost:3000/api/usuarios/registrarUsuario";
-            let metodo = "POST";
+            let response;
+            let alerta;
 
             if (usuarioEditando) {
-
-                usuario.id = usuarioEditando;
-                ruta = "http://localhost:3000/api/usuarios/actualizarUsuario";
-                metodo = "PUT";
-                alerta.title = "Actualizado";
-                alerta.message = "Usuario actualizado correctamente";
-
-            } 
-
-            const response = await fetch(
-                    ruta,
-                    {
-                        method: metodo,
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(usuario)
-                    }
+                response = await api.user.actualizarUsuario(
+                    usuarioEditando,
+                    nombre,
+                    correo,
+                    contrasena || undefined
                 );
-
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+                alerta = { title: "Actualizado", message: "Usuario actualizado correctamente", color: "green" };
+            } else {
+                response = await api.user.register(nombre, correo, contrasena);
+                alerta = { title: "Agregado", message: "Usuario agregado correctamente", color: "green" };
             }
 
-            notifications.show({ title: alerta.title, message: alerta.message, color: alerta.color });
-            fetchData()
+            if (response.responseFlag !== 0) {
+                throw new Error(response.message || 'Error al guardar usuario');
+            }
+
+            notifications.show(alerta);
+            await fetchData();
         } catch (err) {
-            setError(err.message);
+            notifications.show({
+                title: 'Error',
+                message: err.message || 'Error al guardar usuario',
+                color: 'red',
+            });
         } finally {
             setLoading(false);
         }
@@ -139,11 +123,10 @@ export function Usuarios() {
     };
 
     const handleEditar = (usuario) => {
-        console.log("usuario: " + usuario.nombre)
         setUsuarioEditando(usuario.id);
         setNombre(usuario.nombre);
         setCorreo(usuario.email);
-        setRol(usuario.rol);
+        setRol(usuario.rol ?? '');
         setContrasena(''); // No mostramos la contraseña actual por seguridad
         setErrores({});
         setAbierto(true);
@@ -153,31 +136,27 @@ export function Usuarios() {
         try {
             setLoading(true);
 
-            const response = await fetch("http://localhost:3000/api/usuarios/eliminarUsuario", {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    id: usuario.id
-                }),
-            });
+            const response = await api.user.eliminarUsuario(usuario.id);
 
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+            if (response.responseFlag !== 0) {
+                throw new Error(response.message || 'Error al eliminar usuario');
             }
 
-            fetchData()
+            await fetchData();
             notifications.show({ title: 'Eliminado', message: 'Usuario eliminado correctamente.', color: 'blue' });
         } catch (err) {
-            setError(err.message);
+            notifications.show({
+                title: 'Error',
+                message: err.message || 'Error al eliminar usuario',
+                color: 'red',
+            });
         } finally {
             setLoading(false);
         }
     };
 
     const handleReload = () => {
-        fetchData()
+        fetchData();
         notifications.show({ title: 'Recargado', message: 'Datos recargados exitosamente.', color: 'teal' });
     };
 

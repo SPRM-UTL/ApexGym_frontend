@@ -14,6 +14,8 @@ import { useState } from 'react';
 import classes from './Login.module.css';
 import { cambioNombreWeb } from '../../scripts/globales';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../scripts/services/api.js';
+
 
 export function Login({ onLoginAceptado }) {
     const navigate = useNavigate();
@@ -68,22 +70,18 @@ export function Login({ onLoginAceptado }) {
         setCargando(true);
 
         try {
-            let response = await new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({ responseFlag: 0, message: 'Éxito' });
-                }, 1000);
-            });
+            const response = await api.user.login(correo, contrasena);
 
             if (response.responseFlag !== 0) {
                 throw new Error(response.message || 'Error al iniciar sesión');
-            } else {
-                notifications.show({
-                    title: '¡Bienvenido!',
-                    message: 'Has iniciado sesión correctamente.',
-                    color: 'green',
-                });
-                onLoginAceptado("TOKEN_DE_EJEMPLO", esPersistente);
             }
+
+            notifications.show({
+                title: '¡Bienvenido!',
+                message: 'Has iniciado sesión correctamente.',
+                color: 'green',
+            });
+            onLoginAceptado(response.data.token, esPersistente);
         } catch (error) {
             notifications.show({
                 title: 'Error',
@@ -94,6 +92,7 @@ export function Login({ onLoginAceptado }) {
             setCargando(false);
         }
     };
+
 
     return (
         <div className={classes.wrapper}>
