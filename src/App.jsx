@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
 import { estaAutenticado, guardarToken, eliminarToken } from './scripts/constantes.js';
 import { useState } from 'react';
+import { chartsDynamic } from './components/ReportComponent/ReporFile.jsx';
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(() => estaAutenticado());
@@ -17,6 +18,13 @@ function App() {
     eliminarToken();
     setEstaLogeadoEn(false);
   }
+
+  const dataStatistics = [
+        { fecha: 'Enero', Activos: 10, Inactivos: 2 },
+        { fecha: 'Febrero', Activos: 25, Inactivos: 5 },
+        { fecha: 'Marzo', Activos: 40, Inactivos: 3 },
+        { fecha: 'Abril', Activos: 55, Inactivos: 8 },
+    ];
 
   return (
     <BrowserRouter>
@@ -45,6 +53,8 @@ function App() {
             estaLogeadoEn ? (
               <Dashboard onLogout={accionLogout}>
                 <h2>Bienvenido al Dashboard</h2>
+
+                {chartsDynamic(dataStatistics, 350, 'fecha')}
               </Dashboard>
             ) : (
               <Navigate to="/login" replace />

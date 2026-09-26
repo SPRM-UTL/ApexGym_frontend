@@ -1,13 +1,16 @@
 import { Button, PasswordInput, TextInput, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState ,useRef} from 'react';
 import { TableSort } from '../../components/TableSort/TableSort.jsx';
+import { exportXLSX, exportCSV, exportPDF, exportPDFCanvas } from '../../components/ReportComponent/ReporFile.jsx';
 
 export function Usuarios() {
     const defaultUsuarios = [
         { Nombre: "Raul", Correo: "correo@gmail.com", Rol: "Admin" },
         { Nombre: "Raul2", Correo: "correo2@gmail.com", Rol: "Usuario" }
     ];
+
+    const tablaRef = useRef(null);
 
     const [usuarios, setUsuarios] = useState(defaultUsuarios);
     const [abierto, setAbierto] = useState(false);
@@ -171,14 +174,21 @@ export function Usuarios() {
                     <Button variant="light" onClick={handleReload}>
                         Recargar
                     </Button>
+                    <Button variant='ontline' color='green' onClick={()=> exportXLSX(usuarios,'Reporte-Usuarios')}>XLSX</Button>
+                    <Button variant='ontline' color='green' onClick={()=> exportCSV(usuarios,'Reporte-Usuarios')}>CSV</Button>
+                    <Button variant='ontline' color='green' onClick={()=> exportPDF(usuarios,'Reporte-Usuarios', 'Usuarios del GYM')}>PDF</Button>
+                    <Button variant='ontline' color='green' onClick={()=> exportPDFCanvas(tablaRef.current,'Reporte-Usuarios')}>PDF CANVAS</Button>
                 </div>
 
                 <br />
-                <TableSort
+                <div ref={tablaRef} className='pdf-export-container'>
+                    <TableSort
                     data={usuarios}
                     onEditar={handleEditar}
                     onEliminar={handleEliminar}
                 />
+                </div>
+                
             </div>
         </>
     );

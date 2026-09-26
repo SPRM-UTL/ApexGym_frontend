@@ -1,0 +1,29 @@
+
+.pdf-export-container {
+  background-color: #ffffff; 
+  padding: 20px;             
+  border-radius: 8px;       
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); 
+  width: 100%;              
+  max-width: 800px;          
+  margin: 0 auto;           
+}
+
+.pdf-export-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.pdf-export-container th, 
+.pdf-export-container td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #eaeaea;
+  color: #333333; 
+}
+
+.pdf-export-container th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
