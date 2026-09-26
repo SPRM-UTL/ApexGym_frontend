@@ -1,19 +1,163 @@
+.wrapper {
+  background: var(--ag-color-surface-elevated);
+  border: 1px solid var(--ag-color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(5, 6, 10, 0.06);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  border-bottom: 1px solid var(--ag-color-border);
+  background: var(--ag-color-surface-elevated);
+}
+
+.toolbarLeft,
+.toolbarRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+}
+
+.tableControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  background: rgba(215, 227, 255, 0.25);
+  border-bottom: 1px solid var(--ag-color-border);
+}
+
+.controlLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ag-color-secondary);
+}
+
+.searchInput {
+  min-width: 220px;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  min-width: 100%;
+}
+
 .th {
   padding: 0;
+  background: rgba(255, 204, 102, 0.35);
+  border-bottom: 2px solid var(--ag-color-primary);
+}
+
+.thLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ag-color-secondary);
 }
 
 .control {
   width: 100%;
-  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  padding: 10px var(--mantine-spacing-md);
 
-  @mixin hover {
-    background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  &:hover {
+    background-color: rgba(255, 106, 0, 0.08);
   }
 }
 
 .icon {
-  width: 21px;
-  height: 21px;
-  border-radius: 21px;
+  width: 20px;
+  height: 20px;
+  color: var(--ag-color-primary);
 }
 
+.filterRow {
+  background: rgba(27, 31, 58, 0.04);
+}
+
+.filterCell {
+  padding: 6px var(--mantine-spacing-sm);
+}
+
+.filterInput input {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.bodyRow {
+  border-bottom: 1px solid var(--ag-color-border);
+  transition: background-color 120ms ease;
+
+  &:hover {
+    background-color: rgba(255, 204, 102, 0.12);
+  }
+
+  &[data-selected='true'] {
+    background-color: rgba(255, 106, 0, 0.1);
+  }
+}
+
+.bodyCell {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ag-color-black);
+  padding: 10px var(--mantine-spacing-md);
+}
+
+.actionsCell {
+  white-space: nowrap;
+}
+
+.editAction {
+  color: var(--ag-color-primary) !important;
+  background: rgba(255, 106, 0, 0.12);
+
+  &:hover {
+    background: var(--ag-color-tertiary) !important;
+    color: var(--ag-color-black) !important;
+  }
+}
+
+.deleteAction {
+  color: #c92a2a !important;
+}
+
+.emptyCell {
+  padding: var(--mantine-spacing-xl);
+  text-align: center;
+  color: var(--ag-color-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+  border-top: 1px solid var(--ag-color-border);
+  background: var(--ag-color-surface);
+  font-size: 12px;
+  color: var(--ag-color-secondary);
+  font-weight: 600;
+}

@@ -9,10 +9,11 @@ import '@mantine/notifications/styles.css';
 import './index.css';
 
 import App from './App.jsx';
+import { apexTheme } from './theme/apexTheme.js';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <MantineProvider>
+    <MantineProvider theme={apexTheme} defaultColorScheme="light">
       <Notifications position="top-right" />
       <App />
     </MantineProvider>

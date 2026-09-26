@@ -1,14 +1,48 @@
-import { Button, PasswordInput, TextInput, Modal } from '@mantine/core';
+import { Button, Group, Loader, Modal, PasswordInput, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+    IconPencil,
+    IconPlus,
+    IconReload,
+} from '@tabler/icons-react';
 import { TableSort } from '../../components/TableSort/TableSort.jsx';
 import { api } from '../../scripts/services/api.js';
+import classes from './Usuarios.module.css';
+
+const COLUMNAS_USUARIOS = [
+    { key: 'id', label: 'ID', sortable: true, filterable: true },
+    { key: 'nombre', label: 'Nombre', sortable: true, filterable: true },
+    { key: 'email', label: 'Correo', sortable: true, filterable: true },
+];
+
+function exportarCsv(filas, columnas) {
+    const headers = columnas.map((c) => c.label).join(',');
+    const body = filas
+        .map((fila) =>
+            columnas
+                .map((c) => {
+                    const valor = String(fila[c.key] ?? '').replace(/"/g, '""');
+                    return `"${valor}"`;
+                })
+                .join(',')
+        )
+        .join('\n');
+
+    const blob = new Blob([`${headers}\n${body}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `usuarios_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+}
 
 export function Usuarios() {
-
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [seleccionados, setSeleccionados] = useState([]);
 
     const fetchData = async () => {
         try {
@@ -20,7 +54,7 @@ export function Usuarios() {
                 throw new Error(response.message || 'Error al obtener usuarios');
             }
 
-            setUsers(response.data);
+            setUsers(response.data ?? []);
             setError(null);
         } catch (err) {
             setError(err.message);
@@ -40,8 +74,17 @@ export function Usuarios() {
     const [nombre, setNombre] = useState('');
     const [correo, setCorreo] = useState('');
     const [contrasena, setContrasena] = useState('');
-    const [rol, setRol] = useState('');
     const [errores, setErrores] = useState({});
+
+    const datosTabla = useMemo(
+        () =>
+            users.map(({ id, nombre: n, email }) => ({
+                id,
+                nombre: n,
+                email,
+            })),
+        [users]
+    );
 
     const verificarCorreo = (email) => {
         const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,18 +94,17 @@ export function Usuarios() {
     const guardar = async () => {
         const nuevosErrores = {};
 
-        if (!nombre.trim()) nuevosErrores.nombre = "El nombre es requerido";
+        if (!nombre.trim()) nuevosErrores.nombre = 'El nombre es requerido';
 
         if (!correo.trim()) {
-            nuevosErrores.correo = "El correo es requerido";
+            nuevosErrores.correo = 'El correo es requerido';
         } else if (!verificarCorreo(correo)) {
-            nuevosErrores.correo = "El correo no es válido";
+            nuevosErrores.correo = 'El correo no es válido';
         }
 
-        // Si estamos editando, la contraseña es opcional
-        if (!contrasena.trim() && !usuarioEditando) nuevosErrores.contrasena = "La contraseña es requerida";
-
-        if (!rol.trim()) nuevosErrores.rol = "El rol es requerido";
+        if (!contrasena.trim() && !usuarioEditando) {
+            nuevosErrores.contrasena = 'La contraseña es requerida';
+        }
 
         if (Object.keys(nuevosErrores).length > 0) {
             setErrores(nuevosErrores);
@@ -87,10 +129,18 @@ export function Usuarios() {
                     correo,
                     contrasena || undefined
                 );
-                alerta = { title: "Actualizado", message: "Usuario actualizado correctamente", color: "green" };
+                alerta = {
+                    title: 'Actualizado',
+                    message: 'Usuario actualizado correctamente',
+                    color: 'green',
+                };
             } else {
                 response = await api.user.register(nombre, correo, contrasena);
-                alerta = { title: "Agregado", message: "Usuario agregado correctamente", color: "green" };
+                alerta = {
+                    title: 'Agregado',
+                    message: 'Usuario agregado correctamente',
+                    color: 'green',
+                };
             }
 
             if (response.responseFlag !== 0) {
@@ -117,19 +167,38 @@ export function Usuarios() {
         setNombre('');
         setCorreo('');
         setContrasena('');
-        setRol('');
         setErrores({});
         setUsuarioEditando(null);
     };
 
-    const handleEditar = (usuario) => {
-        setUsuarioEditando(usuario.id);
-        setNombre(usuario.nombre);
-        setCorreo(usuario.email);
-        setRol(usuario.rol ?? '');
-        setContrasena(''); // No mostramos la contraseña actual por seguridad
-        setErrores({});
+    const abrirAgregar = () => {
+        limpiarFormulario();
         setAbierto(true);
+    };
+
+    const handleEditar = useCallback(
+        (usuario) => {
+            const completo = users.find((u) => u.id === usuario.id) ?? usuario;
+            setUsuarioEditando(completo.id);
+            setNombre(completo.nombre ?? '');
+            setCorreo(completo.email ?? '');
+            setContrasena('');
+            setErrores({});
+            setAbierto(true);
+        },
+        [users]
+    );
+
+    const editarSeleccionado = () => {
+        if (seleccionados.length !== 1) {
+            notifications.show({
+                title: 'Selección requerida',
+                message: 'Selecciona un solo usuario para editar.',
+                color: 'orange',
+            });
+            return;
+        }
+        handleEditar(seleccionados[0]);
     };
 
     const handleEliminar = async (usuario) => {
@@ -143,7 +212,11 @@ export function Usuarios() {
             }
 
             await fetchData();
-            notifications.show({ title: 'Eliminado', message: 'Usuario eliminado correctamente.', color: 'blue' });
+            notifications.show({
+                title: 'Eliminado',
+                message: 'Usuario eliminado correctamente.',
+                color: 'green',
+            });
         } catch (err) {
             notifications.show({
                 title: 'Error',
@@ -155,9 +228,22 @@ export function Usuarios() {
         }
     };
 
-    const handleReload = () => {
-        fetchData();
-        notifications.show({ title: 'Recargado', message: 'Datos recargados exitosamente.', color: 'teal' });
+    const handleExport = () => {
+        const filas = seleccionados.length > 0 ? seleccionados : datosTabla;
+        exportarCsv(filas, COLUMNAS_USUARIOS);
+        notifications.show({
+            title: 'Exportación',
+            message: 'Archivo CSV generado.',
+            color: 'teal',
+        });
+    };
+
+    const handleSettings = () => {
+        notifications.show({
+            title: 'Configuración',
+            message: 'Opciones avanzadas del módulo próximamente.',
+            color: 'gray',
+        });
     };
 
     return (
@@ -168,7 +254,7 @@ export function Usuarios() {
                     setAbierto(false);
                     limpiarFormulario();
                 }}
-                title={usuarioEditando ? "Editar Usuario" : "Agregar Usuario"}
+                title={usuarioEditando ? 'Editar usuario' : 'Agregar usuario'}
                 zIndex={999999}
                 centered
             >
@@ -198,7 +284,7 @@ export function Usuarios() {
                     error={errores.correo}
                 />
                 <PasswordInput
-                    label={usuarioEditando ? "Nueva Contraseña (opcional)" : "Contraseña"}
+                    label={usuarioEditando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
                     placeholder="Tu contraseña"
                     mt="md"
                     size="md"
@@ -210,42 +296,52 @@ export function Usuarios() {
                     }}
                     error={errores.contrasena}
                 />
-                <TextInput
-                    label="Rol"
-                    placeholder="Admin"
-                    size="md"
-                    radius="md"
-                    mt="md"
-                    value={rol}
-                    onChange={(e) => {
-                        setRol(e.target.value);
-                        setErrores((prev) => ({ ...prev, rol: null }));
-                    }}
-                    error={errores.rol}
-                />
                 <Button fullWidth onClick={guardar} mt="xl">
-                    {usuarioEditando ? "Actualizar" : "Guardar"}
+                    {usuarioEditando ? 'Actualizar' : 'Guardar'}
                 </Button>
             </Modal>
 
-            <div>
-                <h2>Usuarios</h2>
-
-                <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-                    <Button onClick={() => setAbierto(true)}>
-                        Agregar
-                    </Button>
-                    <Button variant="light" onClick={handleReload}>
-                        Recargar
-                    </Button>
+            <div className={classes.crudLayout}>
+                <div className={classes.actionBar}>
+                    <div className={classes.actionGroup}>
+                        <Button
+                            className={classes.btnAdd}
+                            onClick={abrirAgregar}
+                        >
+                            <IconPlus size={16} stroke={2} />   
+                        </Button>
+                    </div>
+                    <div className={classes.actionGroup}>
+                        <Button
+                            className={classes.btnSettings}
+                            px="sm"
+                            aria-label="Configuración"
+                            onClick={handleSettings}
+                        >
+                            <IconReload size={18} stroke={1.8} />
+                        </Button>
+                    </div>
                 </div>
 
-                <br />
-                <TableSort
-                    data={users}
-                    onEditar={handleEditar}
-                    onEliminar={handleEliminar}
-                />
+                {error && <div className={classes.errorBanner}>{error}</div>}
+
+                {loading && users.length === 0 ? (
+                    <div className={classes.loadingBanner}>
+                        <Group justify="center" gap="sm">
+                            <Loader size="sm" color="apex" />
+                            Cargando usuarios…
+                        </Group>
+                    </div>
+                ) : (
+                    <TableSort
+                        data={datosTabla}
+                        columns={COLUMNAS_USUARIOS}
+                        onEditar={handleEditar}
+                        onEliminar={handleEliminar}
+                        onSelectionChange={setSeleccionados}
+                        pageSizeOptions={[10, 25, 50, 100]}
+                    />
+                )}
             </div>
         </>
     );

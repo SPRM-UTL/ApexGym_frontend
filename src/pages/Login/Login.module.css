@@ -1,23 +1,34 @@
 .wrapper {
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--mantine-color-blue-7) 0%, var(--mantine-color-cyan-5) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--ag-color-secondary) 0%,
+        var(--ag-color-black) 55%,
+        #0d1020 100%
+    );
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
 }
 
 .form {
-    border-right: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-7));
+    border-right: 1px solid var(--ag-color-border);
     min-height: 100vh;
-    max-width: 450px;
+    width: 100%;
+    max-width: 460px;
     padding: 30px;
     padding-top: 80px;
     border-radius: 0;
-    background-color: var(--mantine-color-body);
+    background-color: var(--ag-color-surface-elevated);
+    box-shadow: 8px 0 32px rgba(5, 6, 10, 0.2);
 }
 
 .title {
-    color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
-    font-family: Outfit, var(--mantine-font-family);
-    font-weight: 500;
+    color: var(--ag-color-primary);
+    font-family: inherit;
+    font-weight: 800;
     text-align: center;
     margin-top: var(--mantine-spacing-md);
     margin-bottom: 50px;
+    letter-spacing: -0.02em;
 }

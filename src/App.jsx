@@ -27,6 +27,8 @@ function App() {
             estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
           }
         />
+
+        {/* Rutas de módulos específicos: pasan children al Dashboard */}
         <Route
           path="/usuarios"
           element={
@@ -39,17 +41,23 @@ function App() {
             )
           }
         />
+
+        {/* Ruta raíz: muestra el grid de secciones (sin children) */}
         <Route
-          path="/*"
+          path="/"
           element={
             estaLogeadoEn ? (
-              <Dashboard onLogout={accionLogout}>
-                <h2>Bienvenido al Dashboard</h2>
-              </Dashboard>
+              <Dashboard onLogout={accionLogout} />
             ) : (
               <Navigate to="/login" replace />
             )
           }
+        />
+
+        {/* Cualquier otra ruta no reconocida redirige a inicio */}
+        <Route
+          path="*"
+          element={<Navigate to={estaLogeadoEn ? "/" : "/login"} replace />}
         />
       </Routes>
     </BrowserRouter>
