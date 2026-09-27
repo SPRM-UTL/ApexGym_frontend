@@ -106,34 +106,3 @@
     background-color: rgba(255, 106, 0, 0.12) !important;
     color: var(--ag-color-primary) !important;
 }
-
-.moduloCard {
-    background-color: var(--ag-color-surface-elevated);
-    border-radius: var(--mantine-radius-md);
-    padding: var(--mantine-spacing-lg);
-    cursor: pointer;
-    border: 1px solid var(--ag-color-border);
-    transition:
-        transform 150ms ease,
-        box-shadow 150ms ease,
-        border-color 150ms ease,
-        background-color 150ms ease;
-    text-align: left;
-
-    &:hover:not([data-disabled]) {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(27, 31, 58, 0.12);
-        border-color: var(--ag-color-primary);
-        background-color: rgba(255, 204, 102, 0.12);
-    }
-
-    &[data-disabled] {
-        opacity: 0.55;
-        cursor: not-allowed;
-    }
-}
-
-.moduloIcon {
-    background-color: var(--ag-color-secondary) !important;
-    color: var(--ag-color-floating) !important;
-}

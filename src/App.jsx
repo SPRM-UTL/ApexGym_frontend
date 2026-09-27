@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
+import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { estaAutenticado, guardarToken, eliminarToken } from './scripts/constantes.js';
 import { useState } from 'react';
 
@@ -19,8 +20,10 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <>
+      <ApiLoading />
+      <BrowserRouter>
+        <Routes>
         <Route
           path="/login"
           element={
@@ -59,8 +62,9 @@ function App() {
           path="*"
           element={<Navigate to={estaLogeadoEn ? "/" : "/login"} replace />}
         />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </>
   )
 }
 

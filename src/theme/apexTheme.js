@@ -34,7 +34,7 @@ export const apexTheme = createTheme({
         Modal: {
             styles: {
                 header: {
-                    backgroundColor: 'var(--ag-color-primary)',
+                    backgroundColor: 'var(--ag-color-secondary)',
                     padding: 'var(--mantine-spacing-md) var(--mantine-spacing-lg)',
                 },
                 title: {

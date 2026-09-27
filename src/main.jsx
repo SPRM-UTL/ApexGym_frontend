@@ -14,7 +14,7 @@ import { apexTheme } from './theme/apexTheme.js';
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <MantineProvider theme={apexTheme} defaultColorScheme="light">
-      <Notifications position="top-right" />
+      <Notifications position="top-right" zIndex={1000001} />
       <App />
     </MantineProvider>
   </StrictMode>

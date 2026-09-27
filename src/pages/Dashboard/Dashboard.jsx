@@ -20,6 +20,7 @@ import {
     IconUsers,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
 import { api } from '../../scripts/services/api.js';
 import { resolverModuloPorRuta, rutaModulo } from '../../scripts/modulosRutas.js';
@@ -168,6 +169,7 @@ export function Dashboard({ children, onLogout }) {
         if (!seccionActiva) {
             return (
                 <>
+                    <Text className={classes.pageTitle}>Secciones</Text>
                     {secciones.length === 0 ? (
                         <div className={classes.emptyState}>
                             <ThemeIcon
@@ -218,36 +220,13 @@ export function Dashboard({ children, onLogout }) {
                             const tieneRuta = !!rutaModulo(mod.nombre);
 
                             return (
-                                <UnstyledButton
+                                <ModuloCard
                                     key={mod.id}
-                                    className={classes.moduloCard}
+                                    modulo={mod}
+                                    icon={Icono}
                                     onClick={() => abrirModulo(mod)}
                                     disabled={!tieneRuta}
-                                    data-disabled={!tieneRuta || undefined}
-                                >
-                                    <ThemeIcon
-                                        size={44}
-                                        variant="light"
-                                        radius="md"
-                                        mb="sm"
-                                        className={classes.moduloIcon}
-                                    >
-                                        <Icono size={24} stroke={1.5} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm" c="var(--ag-color-black)">
-                                        {mod.nombre}
-                                    </Text>
-                                    {mod.descripcion && (
-                                        <Text size="xs" c="dimmed" mt={4} lineClamp={2}>
-                                            {mod.descripcion}
-                                        </Text>
-                                    )}
-                                    {!tieneRuta && (
-                                        <Text size="xs" c="dimmed" mt={6}>
-                                            Ruta no configurada
-                                        </Text>
-                                    )}
-                                </UnstyledButton>
+                                />
                             );
                         })}
                     </SimpleGrid>

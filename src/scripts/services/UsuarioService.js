@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { ResponseModel } from './models/ResponseModel.js';
 import { httpClient } from './httpClient.js';
 
@@ -10,7 +9,7 @@ export class UsuarioService {
 
     async login(email, contrasenia) {
         try {
-            const response = await axios.post(`${this.urlApi}/verificarCredenciales`, {
+            const response = await httpClient.post(`${this.urlApi}/verificarCredenciales`, {
                 email,
                 contrasenia,
             });
@@ -85,6 +84,53 @@ export class UsuarioService {
                 error.response?.data || null,
                 1,
                 error.response?.data?.message || 'Error al eliminar usuario',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async obtenerRoles() {
+        try {
+            const response = await httpClient.get(`${this.urlBase}/api/roles/`);
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener roles',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async asignarRol(usuarioId, rolId) {
+        try {
+            const response = await httpClient.post(`${this.urlApi}/asignarRol`, {
+                usuarioId,
+                rolId,
+            });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al asignar rol',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async removerRol(usuarioId, rolId) {
+        try {
+            const response = await httpClient.delete(`${this.urlApi}/removerRol`, {
+                data: { usuarioId, rolId },
+            });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al remover rol',
                 error.response?.status || 500
             );
         }

@@ -32,8 +32,8 @@
   justify-content: space-between;
   gap: var(--mantine-spacing-md);
   padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
-  background: rgba(215, 227, 255, 0.25);
-  border-bottom: 1px solid var(--ag-color-border);
+  background: var(--ag-color-secondary-light);
+  border-bottom: 1px solid var(--ag-color-primary);
 }
 
 .controlLabel {
@@ -41,7 +41,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--ag-color-secondary);
+  color: #ffffff;
 }
 
 .searchInput {
@@ -58,7 +58,7 @@
 
 .th {
   padding: 0;
-  background: rgba(255, 204, 102, 0.35);
+  background: var(--ag-color-secondary-light);
   border-bottom: 2px solid var(--ag-color-primary);
 }
 
@@ -67,7 +67,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ag-color-secondary);
+  color: #ffffff;
 }
 
 .control {
@@ -75,18 +75,18 @@
   padding: 10px var(--mantine-spacing-md);
 
   &:hover {
-    background-color: rgba(255, 106, 0, 0.08);
+    background-color: rgba(255, 255, 255, 0.1);
   }
 }
 
 .icon {
   width: 20px;
   height: 20px;
-  color: var(--ag-color-primary);
+  color: #ffffff;
 }
 
 .filterRow {
-  background: rgba(27, 31, 58, 0.04);
+  background: var(--ag-color-secondary-light);
 }
 
 .filterCell {
@@ -122,20 +122,46 @@
 
 .actionsCell {
   white-space: nowrap;
+  min-width: 128px;
+  padding: 8px var(--mantine-spacing-md);
 }
 
 .editAction {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 106, 0, 0.35);
+  border-radius: 8px;
   color: var(--ag-color-primary) !important;
-  background: rgba(255, 106, 0, 0.12);
+  background: rgba(255, 106, 0, 0.14) !important;
 
   &:hover {
     background: var(--ag-color-tertiary) !important;
     color: var(--ag-color-black) !important;
   }
+
+  &:focus-visible {
+    outline: 3px solid rgba(255, 106, 0, 0.35);
+    outline-offset: 2px;
+  }
 }
 
 .deleteAction {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(201, 42, 42, 0.3);
+  border-radius: 8px;
   color: #c92a2a !important;
+  background: rgba(201, 42, 42, 0.08) !important;
+
+  &:hover {
+    background: #c92a2a !important;
+    color: #ffffff !important;
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(201, 42, 42, 0.3);
+    outline-offset: 2px;
+  }
 }
 
 .emptyCell {

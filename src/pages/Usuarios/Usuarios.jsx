@@ -1,60 +1,35 @@
-import { Button, Group, Loader, Modal, PasswordInput, TextInput } from '@mantine/core';
+import { Group, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    IconPencil,
-    IconPlus,
-    IconReload,
-} from '@tabler/icons-react';
-import { TableSort } from '../../components/TableSort/TableSort.jsx';
+import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
+import { ModalFormulario } from '../../components/ModalFormulario/ModalFormulario.jsx';
+import { TablaRegistros } from '../../components/TablaRegistros/TablaRegistros.jsx';
+import { BarraAcciones } from '../../components/BarraAcciones/BarraAcciones.jsx';
 import { api } from '../../scripts/services/api.js';
 import classes from './Usuarios.module.css';
 
 const COLUMNAS_USUARIOS = [
-    { key: 'id', label: 'ID', sortable: true, filterable: true },
     { key: 'nombre', label: 'Nombre', sortable: true, filterable: true },
     { key: 'email', label: 'Correo', sortable: true, filterable: true },
+    { key: 'rolesLabel', label: 'Rol(es)', sortable: false, filterable: true },
 ];
-
-function exportarCsv(filas, columnas) {
-    const headers = columnas.map((c) => c.label).join(',');
-    const body = filas
-        .map((fila) =>
-            columnas
-                .map((c) => {
-                    const valor = String(fila[c.key] ?? '').replace(/"/g, '""');
-                    return `"${valor}"`;
-                })
-                .join(',')
-        )
-        .join('\n');
-
-    const blob = new Blob([`${headers}\n${body}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `usuarios_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-}
 
 export function Usuarios() {
     const [users, setUsers] = useState([]);
+    const [roles, setRoles] = useState([]);
+    const [loadingRoles, setLoadingRoles] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [seleccionados, setSeleccionados] = useState([]);
 
+    // ── Carga de usuarios ────────────────────────────────────────────────────
     const fetchData = async () => {
         try {
             setLoading(true);
-
-            const response = await api.user.obtenerTodos();
-
-            if (response.responseFlag !== 0) {
-                throw new Error(response.message || 'Error al obtener usuarios');
+            const resUsuarios = await api.user.obtenerTodos();
+            if (resUsuarios.responseFlag !== 0) {
+                throw new Error(resUsuarios.message || 'Error al obtener usuarios');
             }
-
-            setUsers(response.data ?? []);
+            setUsers(resUsuarios.data ?? []);
             setError(null);
         } catch (err) {
             setError(err.message);
@@ -64,24 +39,58 @@ export function Usuarios() {
         }
     };
 
+    // ── Carga de roles ───────────────────────────────────────────────────────
+    const fetchRoles = async () => {
+        try {
+            setLoadingRoles(true);
+            const res = await api.rol.obtenerTodos();
+            setRoles(res.data ?? []);
+        } catch (err) {
+            console.warn('[Roles] No se pudieron cargar los roles:', err?.message ?? err);
+            setRoles([]);
+        } finally {
+            setLoadingRoles(false);
+        }
+    };
+
     useEffect(() => {
         fetchData();
+        fetchRoles();
     }, []);
 
     const [abierto, setAbierto] = useState(false);
     const [usuarioEditando, setUsuarioEditando] = useState(null);
+    const [registroPendiente, setRegistroPendiente] = useState(null);
+    const [eliminando, setEliminando] = useState(false);
 
     const [nombre, setNombre] = useState('');
     const [correo, setCorreo] = useState('');
     const [contrasena, setContrasena] = useState('');
+    const [rolSeleccionado, setRolSeleccionado] = useState(null);
+    const [fotoUsuario, setFotoUsuario] = useState(null);
+    const [fotoPreview, setFotoPreview] = useState(null);
     const [errores, setErrores] = useState({});
+
+    useEffect(
+        () => () => {
+            if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+        },
+        [fotoPreview]
+    );
+
+    // Opciones para el Select de rol
+    const opcionesRoles = useMemo(
+        () => roles.map((r) => ({ value: String(r.id), label: r.nombre })),
+        [roles]
+    );
 
     const datosTabla = useMemo(
         () =>
-            users.map(({ id, nombre: n, email }) => ({
+            users.map(({ id, nombre: n, email, roles: userRoles = [] }) => ({
                 id,
                 nombre: n,
                 email,
+                rolesLabel: userRoles.map((r) => r.nombre).join(', ') || '—',
             })),
         [users]
     );
@@ -89,6 +98,43 @@ export function Usuarios() {
     const verificarCorreo = (email) => {
         const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return regex.test(email);
+    };
+
+    const limpiarFormulario = () => {
+        setNombre('');
+        setCorreo('');
+        setContrasena('');
+        setRolSeleccionado(null);
+        setFotoUsuario(null);
+        setFotoPreview(null);
+        setErrores({});
+        setUsuarioEditando(null);
+    };
+
+    const manejarCambioFormulario = (campo, valor) => {
+        const setters = {
+            nombre: setNombre,
+            correo: setCorreo,
+            contrasena: setContrasena,
+            rolSeleccionado: setRolSeleccionado,
+        };
+
+        setters[campo]?.(valor);
+        setErrores((prev) => ({ ...prev, [campo]: null }));
+    };
+
+    const manejarFoto = (archivos) => {
+        const archivo = archivos[0] ?? null;
+        setFotoUsuario(archivo);
+        setFotoPreview(archivo ? URL.createObjectURL(archivo) : null);
+    };
+
+    const rechazarFoto = () => {
+        notifications.show({
+            title: 'Imagen no válida',
+            message: 'Selecciona una imagen de máximo 5 MB.',
+            color: 'red',
+        });
     };
 
     const guardar = async () => {
@@ -106,6 +152,10 @@ export function Usuarios() {
             nuevosErrores.contrasena = 'La contraseña es requerida';
         }
 
+        if (!usuarioEditando && !rolSeleccionado) {
+            nuevosErrores.rol = 'Selecciona un rol';
+        }
+
         if (Object.keys(nuevosErrores).length > 0) {
             setErrores(nuevosErrores);
             notifications.show({
@@ -121,6 +171,7 @@ export function Usuarios() {
 
             let response;
             let alerta;
+            let usuarioId = usuarioEditando;
 
             if (usuarioEditando) {
                 response = await api.user.actualizarUsuario(
@@ -141,10 +192,27 @@ export function Usuarios() {
                     message: 'Usuario agregado correctamente',
                     color: 'green',
                 };
+                usuarioId = response.data?.id;
             }
 
             if (response.responseFlag !== 0) {
                 throw new Error(response.message || 'Error al guardar usuario');
+            }
+
+            // Gestionar rol si hay un ID de usuario
+            if (usuarioId) {
+                const usuarioActual = users.find((u) => u.id === usuarioId);
+                const rolActualId = String((usuarioActual?.roles ?? [])[0]?.id ?? '');
+                const rolNuevoId = rolSeleccionado ?? '';
+
+                if (rolNuevoId !== rolActualId) {
+                    if (rolActualId) {
+                        await api.user.removerRol(usuarioId, Number(rolActualId)).catch(() => null);
+                    }
+                    if (rolNuevoId) {
+                        await api.user.asignarRol(usuarioId, Number(rolNuevoId)).catch(() => null);
+                    }
+                }
             }
 
             notifications.show(alerta);
@@ -163,14 +231,6 @@ export function Usuarios() {
         setAbierto(false);
     };
 
-    const limpiarFormulario = () => {
-        setNombre('');
-        setCorreo('');
-        setContrasena('');
-        setErrores({});
-        setUsuarioEditando(null);
-    };
-
     const abrirAgregar = () => {
         limpiarFormulario();
         setAbierto(true);
@@ -183,29 +243,30 @@ export function Usuarios() {
             setNombre(completo.nombre ?? '');
             setCorreo(completo.email ?? '');
             setContrasena('');
+            const primerRol = (completo.roles ?? [])[0];
+            setRolSeleccionado(primerRol ? String(primerRol.id) : null);
             setErrores({});
             setAbierto(true);
         },
         [users]
     );
 
-    const editarSeleccionado = () => {
-        if (seleccionados.length !== 1) {
-            notifications.show({
-                title: 'Selección requerida',
-                message: 'Selecciona un solo usuario para editar.',
-                color: 'orange',
-            });
-            return;
-        }
-        handleEditar(seleccionados[0]);
+    const solicitarEliminacion = (usuario) => {
+        setRegistroPendiente(usuario);
     };
 
-    const handleEliminar = async (usuario) => {
+    const cancelarEliminacion = () => {
+        if (!eliminando) setRegistroPendiente(null);
+    };
+
+    const confirmarEliminacion = async () => {
+        if (!registroPendiente) return;
+
         try {
+            setEliminando(true);
             setLoading(true);
 
-            const response = await api.user.eliminarUsuario(usuario.id);
+            const response = await api.user.eliminarUsuario(registroPendiente.id);
 
             if (response.responseFlag !== 0) {
                 throw new Error(response.message || 'Error al eliminar usuario');
@@ -224,104 +285,54 @@ export function Usuarios() {
                 color: 'red',
             });
         } finally {
+            setEliminando(false);
             setLoading(false);
         }
+
+        setRegistroPendiente(null);
     };
 
-    const handleExport = () => {
-        const filas = seleccionados.length > 0 ? seleccionados : datosTabla;
-        exportarCsv(filas, COLUMNAS_USUARIOS);
-        notifications.show({
-            title: 'Exportación',
-            message: 'Archivo CSV generado.',
-            color: 'teal',
-        });
-    };
-
-    const handleSettings = () => {
-        notifications.show({
-            title: 'Configuración',
-            message: 'Opciones avanzadas del módulo próximamente.',
-            color: 'gray',
-        });
+    const handleReload = () => {
+        fetchData();
+        fetchRoles();
     };
 
     return (
         <>
-            <Modal
-                opened={abierto}
+            <ModalConfirmacion
+                opened={Boolean(registroPendiente)}
+                onClose={cancelarEliminacion}
+                onConfirm={confirmarEliminacion}
+                loading={eliminando}
+                title="Confirmar eliminación"
+                message={`¿Deseas eliminar el registro de ${registroPendiente?.nombre ?? 'este usuario'}? Esta acción no se puede deshacer.`}
+            />
+            <ModalFormulario
+                abierto={abierto}
+                usuarioEditando={usuarioEditando}
+                loadingRoles={loadingRoles}
+                opcionesRoles={opcionesRoles}
+                form={{
+                    nombre,
+                    correo,
+                    contrasena,
+                    rolSeleccionado,
+                    fotoUsuario,
+                    fotoPreview,
+                }}
+                errores={errores}
                 onClose={() => {
                     setAbierto(false);
                     limpiarFormulario();
                 }}
-                title={usuarioEditando ? 'Editar usuario' : 'Agregar usuario'}
-                zIndex={999999}
-                centered
-            >
-                <TextInput
-                    label="Nombre"
-                    placeholder="Juán Pérez"
-                    size="md"
-                    radius="md"
-                    value={nombre}
-                    onChange={(e) => {
-                        setNombre(e.target.value);
-                        setErrores((prev) => ({ ...prev, nombre: null }));
-                    }}
-                    error={errores.nombre}
-                />
-                <TextInput
-                    label="Correo electrónico"
-                    placeholder="hola@gmail.com"
-                    size="md"
-                    radius="md"
-                    mt="md"
-                    value={correo}
-                    onChange={(e) => {
-                        setCorreo(e.target.value);
-                        setErrores((prev) => ({ ...prev, correo: null }));
-                    }}
-                    error={errores.correo}
-                />
-                <PasswordInput
-                    label={usuarioEditando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
-                    placeholder="Tu contraseña"
-                    mt="md"
-                    size="md"
-                    radius="md"
-                    value={contrasena}
-                    onChange={(e) => {
-                        setContrasena(e.target.value);
-                        setErrores((prev) => ({ ...prev, contrasena: null }));
-                    }}
-                    error={errores.contrasena}
-                />
-                <Button fullWidth onClick={guardar} mt="xl">
-                    {usuarioEditando ? 'Actualizar' : 'Guardar'}
-                </Button>
-            </Modal>
+                onGuardar={guardar}
+                onChange={manejarCambioFormulario}
+                onFotoDrop={manejarFoto}
+                onFotoReject={rechazarFoto}
+            />
 
             <div className={classes.crudLayout}>
-                <div className={classes.actionBar}>
-                    <div className={classes.actionGroup}>
-                        <Button
-                            className={classes.btnAdd}
-                            onClick={abrirAgregar}
-                        >
-                            <IconPlus size={16} stroke={2} />   
-                        </Button>
-                    </div>
-                    <div className={classes.actionGroup}>
-                        <Button
-                            className={classes.btnSettings}
-                            px="sm"
-                            aria-label="Configuración"
-                            onClick={handleSettings}
-                        >
-                            <IconReload size={18} stroke={1.8} />
-                        </Button>
-                    </div>
-                </div>
+                <BarraAcciones onAdd={abrirAgregar} onReload={handleReload} />
 
                 {error && <div className={classes.errorBanner}>{error}</div>}
 
@@ -333,13 +344,13 @@ export function Usuarios() {
                         </Group>
                     </div>
                 ) : (
-                    <TableSort
+                    <TablaRegistros
                         data={datosTabla}
                         columns={COLUMNAS_USUARIOS}
                         onEditar={handleEditar}
-                        onEliminar={handleEliminar}
-                        onSelectionChange={setSeleccionados}
+                        onEliminar={solicitarEliminacion}
                         pageSizeOptions={[10, 25, 50, 100]}
+                        loading={loading}
                     />
                 )}
             </div>

@@ -305,26 +305,28 @@ export function TableSort({
                                             <Table.Td className={`${classes.bodyCell} ${classes.actionsCell}`}>
                                                 <Group gap={6} wrap="nowrap">
                                                     {onEditar && (
-                                                        <Tooltip label="Editar">
+                                                        <Tooltip label="Editar usuario" withArrow openDelay={250}>
                                                             <ActionIcon
                                                                 variant="light"
-                                                                size="sm"
+                                                                size="lg"
+                                                                aria-label="Editar usuario"
                                                                 className={classes.editAction}
                                                                 onClick={() => onEditar(fila)}
                                                             >
-                                                                <IconEdit size={16} stroke={1.5} />
+                                                                <IconEdit size={20} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}
                                                     {onEliminar && (
-                                                        <Tooltip label="Eliminar">
+                                                        <Tooltip label="Eliminar usuario" withArrow openDelay={250}>
                                                             <ActionIcon
-                                                                variant="subtle"
-                                                                size="sm"
+                                                                variant="light"
+                                                                size="lg"
+                                                                aria-label="Eliminar usuario"
                                                                 className={classes.deleteAction}
                                                                 onClick={() => onEliminar(fila)}
                                                             >
-                                                                <IconTrash size={16} stroke={1.5} />
+                                                                <IconTrash size={20} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}

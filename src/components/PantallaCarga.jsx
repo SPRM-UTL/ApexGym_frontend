@@ -12,7 +12,7 @@ export function PantallaCarga() {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            zIndex: 999999
+            zIndex: 1000002
         }}>
             <Loader color="blue" size="xl" type="bars" />
         </div>

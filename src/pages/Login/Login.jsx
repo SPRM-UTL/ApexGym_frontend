@@ -9,7 +9,6 @@ import {
     Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import PantallaCarga from '../../components/PantallaCarga';
 import { useState } from 'react';
 import classes from './Login.module.css';
 import { cambioNombreWeb } from '../../scripts/globales';
@@ -21,8 +20,6 @@ export function Login({ onLoginAceptado }) {
     const navigate = useNavigate();
 
     cambioNombreWeb('Iniciar sesión');
-
-    const [cargando, setCargando] = useState(false);
 
     const [errorCorreo, setErrorCorreo] = useState(false);
     const [errorContrasena, setErrorContrasena] = useState(false);
@@ -67,8 +64,6 @@ export function Login({ onLoginAceptado }) {
     const verificarLogin = async () => {
         if (!verificarDatos()) return;
 
-        setCargando(true);
-
         try {
             const response = await api.user.login(correo, contrasena);
 
@@ -88,8 +83,6 @@ export function Login({ onLoginAceptado }) {
                 message: error.message || 'Error al iniciar sesión',
                 color: 'red',
             });
-        } finally {
-            setCargando(false);
         }
     };
 
@@ -139,7 +132,6 @@ export function Login({ onLoginAceptado }) {
                 <Button fullWidth mt="xl" size="md" radius="md" onClick={verificarLogin}>
                     Iniciar sesión
                 </Button>
-                {cargando && <PantallaCarga />}
             </Paper>
         </div>
     );
