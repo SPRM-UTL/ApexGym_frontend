@@ -1,0 +1,41 @@
+.layout {
+    display: grid;
+    gap: var(--mantine-spacing-md);
+}
+
+.form {
+    color: var(--ag-color-black);
+}
+
+.formColumns {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: var(--mantine-spacing-xl);
+    align-items: start;
+}
+
+.permissionsPanel {
+    min-width: 0;
+}
+
+@media (max-width: 48em) {
+    .formColumns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.modalTitle {
+    color: #ffffff !important;
+}
+
+.loading,
+.error {
+    padding: var(--mantine-spacing-lg);
+    text-align: center;
+    border: 1px solid var(--ag-color-border);
+    background: var(--ag-color-surface-elevated);
+}
+
+.error {
+    color: #c92a2a;
+}

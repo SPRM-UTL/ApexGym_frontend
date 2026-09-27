@@ -12,13 +12,10 @@ import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 import classes from './Login.module.css';
 import { cambioNombreWeb } from '../../scripts/globales';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../scripts/services/api.js';
 
 
 export function Login({ onLoginAceptado }) {
-    const navigate = useNavigate();
-
     cambioNombreWeb('Iniciar sesión');
 
     const [errorCorreo, setErrorCorreo] = useState(false);
@@ -76,7 +73,7 @@ export function Login({ onLoginAceptado }) {
                 message: 'Has iniciado sesión correctamente.',
                 color: 'green',
             });
-            onLoginAceptado(response.data.token, esPersistente);
+            onLoginAceptado(response.data.token, esPersistente, response.data.usuario);
         } catch (error) {
             notifications.show({
                 title: 'Error',

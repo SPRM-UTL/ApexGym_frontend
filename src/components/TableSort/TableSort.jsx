@@ -106,6 +106,7 @@ export function TableSort({
     enableSelection = true,
     pageSizeOptions = [10, 25, 50, 100],
     onSelectionChange,
+    entityLabel = 'registro',
 }) {
     const columns = useMemo(() => {
         if (columnsProp?.length) return columnsProp;
@@ -144,7 +145,6 @@ export function TableSort({
             selectedIds.has(rowId(row, index))
         );
         onSelectionChange(seleccionados);
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- rowId estable por fila
     }, [selectedIds, data, onSelectionChange]);
 
     const toggleRow = (id) => {
@@ -305,11 +305,11 @@ export function TableSort({
                                             <Table.Td className={`${classes.bodyCell} ${classes.actionsCell}`}>
                                                 <Group gap={6} wrap="nowrap">
                                                     {onEditar && (
-                                                        <Tooltip label="Editar usuario" withArrow openDelay={250}>
+                                                        <Tooltip label={`Editar ${entityLabel}`} withArrow openDelay={250}>
                                                             <ActionIcon
                                                                 variant="light"
                                                                 size="lg"
-                                                                aria-label="Editar usuario"
+                                                                aria-label={`Editar ${entityLabel}`}
                                                                 className={classes.editAction}
                                                                 onClick={() => onEditar(fila)}
                                                             >
@@ -318,11 +318,11 @@ export function TableSort({
                                                         </Tooltip>
                                                     )}
                                                     {onEliminar && (
-                                                        <Tooltip label="Eliminar usuario" withArrow openDelay={250}>
+                                                        <Tooltip label={`Eliminar ${entityLabel}`} withArrow openDelay={250}>
                                                             <ActionIcon
                                                                 variant="light"
                                                                 size="lg"
-                                                                aria-label="Eliminar usuario"
+                                                                aria-label={`Eliminar ${entityLabel}`}
                                                                 className={classes.deleteAction}
                                                                 onClick={() => onEliminar(fila)}
                                                             >

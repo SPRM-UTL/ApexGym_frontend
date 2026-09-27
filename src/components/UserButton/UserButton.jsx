@@ -1,28 +1,38 @@
-import { IconChevronRight } from '@tabler/icons-react';
 import { Avatar, Group, Text, UnstyledButton } from '@mantine/core';
 import classes from './UserButton.module.css';
 
-export function UserButton() {
-    return (
-        <UnstyledButton className={classes.user}>
-            <Group>
-                <Avatar
-                    src="https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-8.png"
-                    radius="xl"
-                    alt="User"
-                />
+const obtenerIniciales = (nombre = '') => nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join('') || 'AG';
 
-                <div style={{ flex: 1 }}>
-                    <Text size="sm" fw={500}>
-                        Usuario ApexGym
+export function UserButton({ usuario }) {
+    const rol = usuario?.roles?.[0]?.nombre || 'Sin rol asignado';
+
+    return (
+        <UnstyledButton className={classes.user} aria-label="Información del usuario actual">
+            <Group gap="sm" wrap="nowrap">
+                <Avatar
+                    src={usuario?.fotoUrl || null}
+                    radius="xl"
+                    color="apex"
+                    alt={usuario?.nombre || 'Usuario actual'}
+                    className={classes.avatar}
+                >
+                    {obtenerIniciales(usuario?.nombre)}
+                </Avatar>
+
+                <div className={classes.details}>
+                    <Text size="sm" fw={700} className={classes.name} truncate>
+                        {usuario?.nombre || 'Usuario actual'}
                     </Text>
 
-                    <Text c="dimmed" size="xs">
-                        usuario@apexgym.com
+                    <Text size="xs" className={classes.meta} truncate>
+                        {rol}
                     </Text>
                 </div>
-
-                <IconChevronRight size={14} stroke={1.5} />
             </Group>
         </UnstyledButton>
     );

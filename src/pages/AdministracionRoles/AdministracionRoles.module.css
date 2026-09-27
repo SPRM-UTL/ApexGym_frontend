@@ -1,0 +1,86 @@
+.permissionsPanel {
+    min-width: 0;
+}
+
+.search {
+    flex: 1;
+    max-width: 260px;
+}
+
+.search input {
+    border-color: var(--ag-color-border);
+}
+
+.accordion {
+    display: grid;
+    gap: var(--mantine-spacing-sm);
+}
+
+.accordion :global(.mantine-Accordion-item) {
+    overflow: hidden;
+    border: 1px solid var(--ag-color-secondary);
+    border-radius: 8px;
+    background: var(--ag-color-surface-elevated);
+}
+
+.accordion :global(.mantine-Accordion-control) {
+    color: #ffffff;
+    background: var(--ag-color-secondary);
+}
+
+.accordion :global(.mantine-Accordion-control:hover) {
+    background: #252a50;
+}
+
+.accordion :global(.mantine-Accordion-label) {
+    color: #ffffff;
+}
+
+.accordion :global(.mantine-Accordion-chevron) {
+    color: #ffffff;
+}
+
+.accordion :global(.mantine-Accordion-panel) {
+    background: var(--ag-color-surface-elevated);
+}
+
+.moduleAccordion {
+    display: grid;
+    gap: var(--mantine-spacing-xs);
+}
+
+.moduleAccordion :global(.mantine-Accordion-item) {
+    border: 1px solid var(--ag-color-border);
+    border-radius: 6px;
+    background: var(--ag-color-surface-elevated);
+}
+
+.moduleAccordion :global(.mantine-Accordion-control) {
+    color: var(--ag-color-secondary);
+    background: #f4f6fb;
+}
+
+.moduleAccordion :global(.mantine-Accordion-control:hover) {
+    background: #e8ebf5;
+}
+
+.moduleAccordion :global(.mantine-Accordion-label),
+.moduleAccordion :global(.mantine-Accordion-chevron) {
+    color: var(--ag-color-secondary);
+}
+
+.permissionBadge {
+    color: var(--ag-color-secondary) !important;
+    background: var(--ag-color-tertiary) !important;
+}
+
+.loadingPermissions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mantine-spacing-sm);
+    min-height: 180px;
+    border: 1px solid var(--ag-color-border);
+    border-radius: 8px;
+    background: var(--ag-color-surface-elevated);
+}

@@ -1,6 +1,9 @@
 /** Mapa explícito nombre de módulo (BD) → ruta del frontend */
 const RUTAS_POR_MODULO = {
     Usuarios: '/usuarios',
+    'Tipos de Actividad': '/tipos-actividad',
+    'Configuración del Sistema': '/configuracion-sistema',
+    'Administración de roles': '/administracion-roles',
 };
 
 /**

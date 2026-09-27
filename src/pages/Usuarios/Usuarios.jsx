@@ -349,6 +349,7 @@ export function Usuarios() {
                         columns={COLUMNAS_USUARIOS}
                         onEditar={handleEditar}
                         onEliminar={solicitarEliminacion}
+                        entityLabel="usuario"
                         pageSizeOptions={[10, 25, 50, 100]}
                         loading={loading}
                     />

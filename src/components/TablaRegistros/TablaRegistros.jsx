@@ -32,6 +32,7 @@ export function TablaRegistros({
     onEliminar,
     pageSizeOptions,
     loading = false,
+    entityLabel = 'registro',
 }) {
     return (
         <div className={classes.frame} aria-busy={loading}>
@@ -42,6 +43,7 @@ export function TablaRegistros({
                 onEliminar={onEliminar}
                 enableSelection={false}
                 pageSizeOptions={pageSizeOptions}
+                entityLabel={entityLabel}
             />
             {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar ? 1 : 0)} />}
         </div>

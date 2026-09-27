@@ -6,6 +6,7 @@ export const appUrl = 'http://localhost:3000';
 
 export const VariablesLocales = {
     TOKEN: 'token',
+    USUARIO: 'usuario_actual',
 };
 
 export const estaAutenticado = () => {
@@ -23,9 +24,23 @@ export const guardarToken = (valor, persistente = false) => {
     guardarValor(VariablesLocales.TOKEN, valor, tipo);
 }
 
+export const guardarUsuarioActual = (usuario, persistente = false) => {
+    const tipo = persistente ? 'local' : 'session';
+    eliminarValor(VariablesLocales.USUARIO);
+    guardarValor(VariablesLocales.USUARIO, usuario, tipo);
+};
+
+export const obtenerUsuarioActual = () => {
+    return obtenerValor(VariablesLocales.USUARIO, 'session') || obtenerValor(VariablesLocales.USUARIO, 'local');
+};
+
 export const eliminarToken = () => {
     eliminarValor(VariablesLocales.TOKEN);
 }
+
+export const eliminarUsuarioActual = () => {
+    eliminarValor(VariablesLocales.USUARIO);
+};
 
 export const limpiarSesionCompleta = () => {
     limpiarAlmacenamiento();

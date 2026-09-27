@@ -20,9 +20,11 @@ import {
     IconUsers,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { UserButton } from '../../components/UserButton/UserButton.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
 import { api } from '../../scripts/services/api.js';
+import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 import { resolverModuloPorRuta, rutaModulo } from '../../scripts/modulosRutas.js';
 import classes from './Dashboard.module.css';
 
@@ -42,6 +44,7 @@ const iconoModulo = (nombre) => {
 export function Dashboard({ children, onLogout }) {
     const navigate = useNavigate();
     const location = useLocation();
+    const usuarioActual = obtenerUsuarioActual();
 
     const [secciones, setSecciones] = useState([]);
     const [cargando, setCargando] = useState(true);
@@ -242,7 +245,8 @@ export function Dashboard({ children, onLogout }) {
                     Apex<span className={classes.logoAccent}>Gym</span>
                 </UnstyledButton>
 
-                <Group gap="xs">
+                <Group gap="sm" wrap="nowrap">
+                    <UserButton usuario={usuarioActual} />
                     <Button
                         variant="subtle"
                         color="gray"
