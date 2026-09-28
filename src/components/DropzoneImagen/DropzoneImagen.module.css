@@ -1,0 +1,40 @@
+.dropzone {
+    min-height: 270px;
+    border: 2px dashed var(--ag-color-primary) !important;
+    background: rgba(255, 106, 0, 0.06);
+    color: var(--ag-color-secondary);
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.dropzone:hover {
+    background: rgba(255, 106, 0, 0.12);
+    border-color: #e55f00 !important;
+}
+
+.content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    color: var(--ag-color-secondary) !important;
+}
+
+.icon {
+    color: var(--ag-color-primary) !important;
+}
+
+.primaryText {
+    color: var(--ag-color-secondary) !important;
+}
+
+.rejectText {
+    color: #c92a2a !important;
+}
+
+.secondaryText {
+    color: rgba(27, 31, 58, 0.68) !important;
+}
+
+.rejectIcon {
+    color: var(--ag-color-primary) !important;
+}

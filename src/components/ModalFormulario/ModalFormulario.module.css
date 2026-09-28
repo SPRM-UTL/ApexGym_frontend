@@ -1,0 +1,15 @@
+.content {
+    color: var(--ag-color-black);
+}
+
+.title {
+    color: #ffffff !important;
+}
+
+.submitButton {
+    background-color: var(--ag-color-primary);
+}
+
+.submitButton:hover {
+    background-color: #e55f00;
+}

@@ -1,5 +1,5 @@
-import axios from 'axios';
 import { ResponseModel } from './models/ResponseModel.js';
+import { httpClient } from './httpClient.js';
 
 export class UsuarioService {
     constructor(urlBase) {
@@ -7,18 +7,18 @@ export class UsuarioService {
         this.urlApi = urlBase + '/api/usuarios';
     }
 
-    async login(email, password) {
+    async login(email, contrasenia) {
         try {
-            const response = await axios.post(`${this.urlApi}/verificarCredenciales`, {
+            const response = await httpClient.post(`${this.urlApi}/verificarCredenciales`, {
                 email,
-                password
+                contrasenia,
             });
             return response.data;
         } catch (error) {
             throw new ResponseModel(
                 error.response?.data || null,
                 1,
-                error.response?.data?.message || 'Error en el login',
+                error.response?.data?.message || 'Error al iniciar sesión',
                 error.response?.status || 500
             );
         }
@@ -26,17 +26,111 @@ export class UsuarioService {
 
     async register(nombre, email, contrasenia) {
         try {
-            const response = await axios.post(`${this.urlApi}/registrarUsuario`, {
+            const response = await httpClient.post(`${this.urlApi}/registrarUsuario`, {
                 nombre,
                 email,
-                contrasenia
+                contrasenia,
             });
             return response.data;
         } catch (error) {
             throw new ResponseModel(
                 error.response?.data || null,
                 1,
-                error.response?.data?.message || 'Error en el registro',
+                error.response?.data?.message || 'Error al registrar usuario',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async obtenerTodos() {
+        try {
+            const response = await httpClient.get(`${this.urlApi}/`);
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener usuarios',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async actualizarUsuario(id, nombre, email, contrasenia) {
+        try {
+            const body = { id, nombre, email };
+            if (contrasenia) body.contrasenia = contrasenia;
+
+            const response = await httpClient.put(`${this.urlApi}/actualizarUsuario`, body);
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al actualizar usuario',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async eliminarUsuario(id) {
+        try {
+            const response = await httpClient.delete(`${this.urlApi}/eliminarUsuario`, {
+                data: { id },
+            });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al eliminar usuario',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async obtenerRoles() {
+        try {
+            const response = await httpClient.get(`${this.urlBase}/api/roles/`);
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener roles',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async asignarRol(usuarioId, rolId) {
+        try {
+            const response = await httpClient.post(`${this.urlApi}/asignarRol`, {
+                usuarioId,
+                rolId,
+            });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al asignar rol',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async removerRol(usuarioId, rolId) {
+        try {
+            const response = await httpClient.delete(`${this.urlApi}/removerRol`, {
+                data: { usuarioId, rolId },
+            });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al remover rol',
                 error.response?.status || 500
             );
         }

@@ -1,14 +1,33 @@
 .user {
     display: block;
-    width: 100%;
-    padding: var(--mantine-spacing-md);
-    color: light-dark(var(--mantine-color-black), var(--mantine-color-dark-0));
+    max-width: 280px;
+    padding: 4px 8px;
+    color: #ffffff;
     background: transparent;
     border: none;
     cursor: pointer;
     text-align: left;
+    border-radius: 8px;
 
     &:hover {
-        background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+        background-color: rgba(255, 255, 255, 0.08);
     }
+}
+
+.avatar {
+    flex: 0 0 auto;
+    border: 2px solid var(--ag-color-tertiary);
+}
+
+.details {
+    min-width: 0;
+}
+
+.name,
+.meta {
+    color: #ffffff !important;
+}
+
+.meta {
+    opacity: 0.78;
 }

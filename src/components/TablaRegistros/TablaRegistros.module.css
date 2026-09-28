@@ -1,0 +1,51 @@
+.frame {
+    position: relative;
+}
+
+.skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+    padding-bottom: var(--mantine-spacing-md);
+    background: var(--ag-color-surface-elevated);
+    pointer-events: all;
+}
+
+.skeletonToolbar,
+.skeletonHeader,
+.skeletonRow {
+    display: grid;
+    align-items: center;
+    gap: var(--mantine-spacing-md);
+    padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+
+.skeletonToolbar {
+    grid-template-columns: 1fr 220px;
+    min-height: 72px;
+    background: var(--ag-color-secondary-light);
+}
+
+.skeletonHeader,
+.skeletonRow {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+}
+
+.skeletonHeader {
+    min-height: 44px;
+    background: var(--ag-color-secondary-light);
+}
+
+.skeletonRow {
+    min-height: 48px;
+    border-bottom: 1px solid var(--ag-color-border);
+    background: var(--ag-color-surface-elevated);
+}
+
+.skeleton :global(.mantine-Skeleton-root) {
+    background-color: rgba(215, 227, 255, 0.8);
+}

@@ -1,0 +1,31 @@
+.title {
+    flex: 1;
+    color: #ffffff !important;
+    text-align: center;
+}
+
+.content {
+    width: 100%;
+    padding-top: var(--mantine-spacing-md);
+}
+
+.message {
+    max-width: 430px;
+    line-height: 1.6;
+}
+
+.actions {
+    width: 100%;
+}
+
+.actionButton {
+    min-width: 132px;
+}
+
+.confirmButton {
+    background-color: #c92a2a;
+}
+
+.confirmButton:hover {
+    background-color: #a61e1e;
+}

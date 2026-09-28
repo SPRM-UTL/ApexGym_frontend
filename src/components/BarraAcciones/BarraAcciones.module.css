@@ -1,0 +1,28 @@
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mantine-spacing-md);
+    padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+    background: var(--ag-color-surface-elevated);
+    border: 1px solid var(--ag-color-border);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(5, 6, 10, 0.05);
+}
+
+.addButton {
+    background-color: var(--ag-color-primary) !important;
+}
+
+.addButton:hover {
+    background-color: #e55f00 !important;
+}
+
+.reloadButton {
+    background-color: var(--ag-color-secondary) !important;
+    color: var(--ag-color-floating) !important;
+}
+
+.reloadButton:hover {
+    background-color: #252a50 !important;
+}
