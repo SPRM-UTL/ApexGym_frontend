@@ -12,6 +12,7 @@ import { EmpleadoService } from './EmpleadoService.js';
 import { AperturaCajaService } from './AperturaCajaService.js';
 import { MovimientoCajaService } from './MovimientoCajaService.js';
 import { CorteCajaService } from './CorteCajaService.js';
+import { CategoriaProductoService } from './CategoriaProductoService.js';
 
 export class ApiService {
     constructor() {
@@ -26,6 +27,7 @@ export class ApiService {
         this.puesto = new PuestoService(this.urlBase);
         this.estadoEmpleado = new EstadoEmpleadoService(this.urlBase);
         this.empleado = new EmpleadoService(this.urlBase);
+        this.categoriaProducto = new CategoriaProductoService(this.urlBase);
         this.aperturaCaja = new AperturaCajaService(this.urlBase);
         this.movimientoCaja = new MovimientoCajaService(this.urlBase);
         this.corteCaja = new CorteCajaService(this.urlBase);

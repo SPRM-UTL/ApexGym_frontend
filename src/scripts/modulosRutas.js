@@ -12,6 +12,7 @@ const RUTAS_POR_MODULO = {
     'Apertura de Caja': '/apertura-caja',
     'Movimientos de Caja': '/movimientos-caja',
     'Corte de Caja': '/corte-caja',
+    'Categorías de Productos': '/categorias-productos',
 };
 
 /**
