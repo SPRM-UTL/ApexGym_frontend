@@ -45,3 +45,16 @@ export const eliminarUsuarioActual = () => {
 export const limpiarSesionCompleta = () => {
     limpiarAlmacenamiento();
 }
+
+export const resolverUrlImagen = (ruta) => {
+    if (!ruta) return null;
+    if (
+        ruta.startsWith('http://') ||
+        ruta.startsWith('https://') ||
+        ruta.startsWith('blob:') ||
+        ruta.startsWith('data:')
+    ) {
+        return ruta;
+    }
+    return `${appUrl}${ruta.startsWith('/') ? '' : '/'}${ruta}`;
+};

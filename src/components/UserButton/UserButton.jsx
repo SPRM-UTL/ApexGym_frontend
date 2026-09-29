@@ -1,4 +1,5 @@
 import { Avatar, Group, Text, UnstyledButton } from '@mantine/core';
+import { resolverUrlImagen } from '../../scripts/constantes.js';
 import classes from './UserButton.module.css';
 
 const obtenerIniciales = (nombre = '') => nombre
@@ -15,7 +16,7 @@ export function UserButton({ usuario }) {
         <UnstyledButton className={classes.user} aria-label="Información del usuario actual">
             <Group gap="sm" wrap="nowrap">
                 <Avatar
-                    src={usuario?.fotoUrl || null}
+                    src={resolverUrlImagen(usuario?.fotoUrl)}
                     radius="xl"
                     color="apex"
                     alt={usuario?.nombre || 'Usuario actual'}

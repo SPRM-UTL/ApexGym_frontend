@@ -24,13 +24,20 @@ export class UsuarioService {
         }
     }
 
-    async register(nombre, email, contrasenia) {
+    async register(nombre, email, contrasenia, rolId = null, foto = null) {
         try {
-            const response = await httpClient.post(`${this.urlApi}/registrarUsuario`, {
-                nombre,
-                email,
-                contrasenia,
-            });
+            const formData = new FormData();
+            formData.append('nombre', nombre);
+            formData.append('email', email);
+            formData.append('contrasenia', contrasenia);
+            if (rolId !== null && rolId !== undefined && rolId !== '') {
+                formData.append('rolId', String(rolId));
+            }
+            if (foto) {
+                formData.append('foto', foto);
+            }
+
+            const response = await httpClient.post(`${this.urlApi}/registrarUsuario`, formData);
             return response.data;
         } catch (error) {
             throw new ResponseModel(
@@ -56,12 +63,23 @@ export class UsuarioService {
         }
     }
 
-    async actualizarUsuario(id, nombre, email, contrasenia) {
+    async actualizarUsuario(id, nombre, email, contrasenia, rolId = null, foto = null) {
         try {
-            const body = { id, nombre, email };
-            if (contrasenia) body.contrasenia = contrasenia;
+            const formData = new FormData();
+            formData.append('id', String(id));
+            formData.append('nombre', nombre);
+            formData.append('email', email);
+            if (contrasenia) {
+                formData.append('contrasenia', contrasenia);
+            }
+            if (rolId !== undefined) {
+                formData.append('rolId', rolId ? String(rolId) : '');
+            }
+            if (foto) {
+                formData.append('foto', foto);
+            }
 
-            const response = await httpClient.put(`${this.urlApi}/actualizarUsuario`, body);
+            const response = await httpClient.put(`${this.urlApi}/actualizarUsuario`, formData);
             return response.data;
         } catch (error) {
             throw new ResponseModel(
@@ -98,39 +116,6 @@ export class UsuarioService {
                 error.response?.data || null,
                 1,
                 error.response?.data?.message || 'Error al obtener roles',
-                error.response?.status || 500
-            );
-        }
-    }
-
-    async asignarRol(usuarioId, rolId) {
-        try {
-            const response = await httpClient.post(`${this.urlApi}/asignarRol`, {
-                usuarioId,
-                rolId,
-            });
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al asignar rol',
-                error.response?.status || 500
-            );
-        }
-    }
-
-    async removerRol(usuarioId, rolId) {
-        try {
-            const response = await httpClient.delete(`${this.urlApi}/removerRol`, {
-                data: { usuarioId, rolId },
-            });
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al remover rol',
                 error.response?.status || 500
             );
         }
