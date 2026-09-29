@@ -9,6 +9,9 @@ const RUTAS_POR_MODULO = {
     Puestos: '/puestos',
     'Estados de Empleado': '/estados-empleado',
     Empleados: '/empleados',
+    'Apertura de Caja': '/apertura-caja',
+    'Movimientos de Caja': '/movimientos-caja',
+    'Corte de Caja': '/corte-caja',
 };
 
 /**

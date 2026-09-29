@@ -10,6 +10,9 @@ import { AreasTrabajo } from './pages/AreasTrabajo/AreasTrabajo.jsx';
 import { Puestos } from './pages/Puestos/Puestos.jsx';
 import { EstadosEmpleado } from './pages/EstadosEmpleado/EstadosEmpleado.jsx';
 import { Empleados } from './pages/Empleados/Empleados.jsx';
+import { AperturaCaja } from './pages/AperturaCaja/AperturaCaja.jsx';
+import { MovimientosCaja } from './pages/MovimientosCaja/MovimientosCaja.jsx';
+import { CorteCaja } from './pages/CorteCaja/CorteCaja.jsx';
 import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { estaAutenticado, guardarToken, guardarUsuarioActual, eliminarToken, eliminarUsuarioActual } from './scripts/constantes.js';
 import { useState } from 'react';
@@ -63,6 +66,9 @@ function App() {
           <Route path="/puestos" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Puestos /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/estados-empleado" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosEmpleado /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/empleados" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empleados /></Dashboard> : <Login onLogout={accionLogout} />} />
+          <Route path="/apertura-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AperturaCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+          <Route path="/movimientos-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><MovimientosCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+          <Route path="/corte-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><CorteCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
 
           {/* Ruta raíz: muestra el grid de secciones (sin children) */}
           <Route
