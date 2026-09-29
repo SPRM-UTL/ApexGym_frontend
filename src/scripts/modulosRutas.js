@@ -4,6 +4,11 @@ const RUTAS_POR_MODULO = {
     'Tipos de Actividad': '/tipos-actividad',
     'Configuración del Sistema': '/configuracion-sistema',
     'Administración de roles': '/administracion-roles',
+    Cajas: '/cajas',
+    'Áreas de Trabajo': '/areas-trabajo',
+    Puestos: '/puestos',
+    'Estados de Empleado': '/estados-empleado',
+    Empleados: '/empleados',
 };
 
 /**
