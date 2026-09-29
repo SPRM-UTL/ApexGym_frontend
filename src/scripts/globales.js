@@ -18,8 +18,10 @@ const decodificar = (valorGuardado) => {
 
 export const cambioNombreWeb = (nombre) => {
     useEffect(() => {
-        document.title = `${nombre} | ApexGym`;
-    }, []);
+        if (nombre) {
+            document.title = `${nombre} | ApexGym`;
+        }
+    }, [nombre]);
 };
 
 export const guardarValor = (clave, valor, tipo = 'session') => {

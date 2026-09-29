@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { api } from '../../scripts/services/api.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 const CAMPOS = [
@@ -46,6 +47,8 @@ const COLUMNAS = [
 const INICIAL = { clave: '', valor: '', tipoDato: 'string', descripcion: '' };
 
 export function ConfiguracionSistema() {
+    cambioNombreWeb('Configuración del Sistema');
+
     const mapRecordToForm = useMemo(() => (record) => ({
         clave: record.clave ?? '',
         valor: record.valor ?? '',
