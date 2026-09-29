@@ -8,6 +8,7 @@ import { AdministracionRoles } from './pages/AdministracionRoles/AdministracionR
 import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { estaAutenticado, guardarToken, guardarUsuarioActual, eliminarToken, eliminarUsuarioActual } from './scripts/constantes.js';
 import { useState } from 'react';
+import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(() => estaAutenticado());
@@ -49,7 +50,7 @@ function App() {
             )
           }
         />
-
+  
         <Route path="/tipos-actividad" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposActividad /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
         <Route path="/configuracion-sistema" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ConfiguracionSistema /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
         <Route path="/administracion-roles" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AdministracionRoles /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
@@ -62,6 +63,18 @@ function App() {
               <Dashboard onLogout={accionLogout} />
             ) : (
               <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/categorias-productos"
+          element={
+            estaLogeadoEn ? (
+              <Dashboard onLogout={accionLogout}>
+                <CategoriaProducto />
+              </Dashboard>
+            ) : (
+              <Login onLoginAceptado={accionLogin} />
             )
           }
         />

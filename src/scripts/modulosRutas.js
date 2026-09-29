@@ -4,6 +4,7 @@ const RUTAS_POR_MODULO = {
     'Tipos de Actividad': '/tipos-actividad',
     'Configuración del Sistema': '/configuracion-sistema',
     'Administración de roles': '/administracion-roles',
+    'Categorías de Productos': '/categorias-productos',
 };
 
 /**
