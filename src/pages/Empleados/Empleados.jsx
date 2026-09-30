@@ -271,6 +271,23 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                     </ThemeIcon>
                     <Title order={5}>Foto de usuario</Title>
                 </div>
+
+                {form.imagenUrl && (
+                    <Button
+                        variant="light"
+                        color="red"
+                        size="xs"
+                        fullWidth
+                        radius="md"
+                        mb="xs"
+                        leftSection={<IconTrash size={15} stroke={1.8} />}
+                        onClick={() => onChange('imagenUrl', '')}
+                        style={{ fontWeight: 600 }}
+                    >
+                        Quitar imagen
+                    </Button>
+                )}
+
                 <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <DropzoneImagen
                         archivo={null}
@@ -280,21 +297,6 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                         h="100%"
                     />
                 </Box>
-                {form.imagenUrl && (
-                    <Group justify="center" mt="xs">
-                        <Button
-                            variant="light"
-                            color="red"
-                            size="xs"
-                            radius="md"
-                            leftSection={<IconTrash size={15} stroke={1.8} />}
-                            onClick={() => onChange('imagenUrl', '')}
-                            style={{ fontWeight: 600 }}
-                        >
-                            Quitar imagen
-                        </Button>
-                    </Group>
-                )}
             </Box>
         </Group>
     );
