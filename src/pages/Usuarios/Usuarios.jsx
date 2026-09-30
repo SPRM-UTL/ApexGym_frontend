@@ -352,7 +352,8 @@ export function Usuarios() {
             />
 
             <div className={classes.crudLayout}>
-                <BarraAcciones onAdd={abrirAgregar} onReload={handleReload} />
+              
+                 <BarraAcciones onAdd={abrirAgregar} title='Gestion de Usuarios'/>
 
                 {error && <div className={classes.errorBanner}>{error}</div>}
 
@@ -372,6 +373,7 @@ export function Usuarios() {
                         entityLabel="usuario"
                         pageSizeOptions={[10, 25, 50, 100]}
                         loading={loading}
+                        onReload={handleReload}
                     />
                 )}
             </div>
