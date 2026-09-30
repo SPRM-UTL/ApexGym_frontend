@@ -1,20 +1,26 @@
-import { Button } from '@mantine/core';
-import { IconPlus, IconReload } from '@tabler/icons-react';
+import { Button, Text } from '@mantine/core';
+import { IconPlus, IconUser } from '@tabler/icons-react';
 import classes from './BarraAcciones.module.css';
 
-export function BarraAcciones({ onAdd, onReload, entityLabel = 'registros' }) {
+export function BarraAcciones({ onAdd, title, entityLabel = 'registros' }) {
     return (
         <div className={classes.toolbar}>
-            <Button className={classes.addButton} onClick={onAdd} aria-label={`Agregar ${entityLabel}`}>
-                <IconPlus size={16} stroke={2} />
-            </Button>
-            <Button
-                className={classes.reloadButton}
-                px="sm"
-                aria-label={`Recargar ${entityLabel}`}
-                onClick={onReload}
+            <div className={classes.leftGroup}>
+                <div className={classes.iconBox}>
+                    <IconUser size={22} stroke={2} />
+                </div>
+                <Text size="lg" fw={700}>
+                    {title}
+                </Text>
+            </div>
+
+            <Button 
+                className={classes.addButton} 
+                onClick={onAdd} 
+                aria-label={`Agregar ${entityLabel}`}
+                leftSection={<IconPlus size={16} stroke={2} />}
             >
-                <IconReload size={18} stroke={1.8} />
+                Agregar
             </Button>
         </div>
     );
