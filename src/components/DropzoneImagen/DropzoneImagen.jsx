@@ -1,4 +1,4 @@
-import { Box, Image, Stack, Text } from '@mantine/core';
+import { Avatar, Box, Stack, Text } from '@mantine/core';
 import { Dropzone, IMAGE_MIME_TYPE } from '@mantine/dropzone';
 import '@mantine/dropzone/styles.css';
 import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
@@ -18,18 +18,20 @@ export function DropzoneImagen({ archivo, preview, onDrop, onReject, h: height }
             h={height ?? 220}
             radius="md"
             className={classes.dropzone}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
         >
-            <Stack align="center" justify="center" gap={4} style={{ width: '100%' }} className={classes.content}>
+            <Stack align="center" justify="center" gap={4} style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }} className={classes.content}>
                 {urlFinal ? (
-                    <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 8 }}>
-                        <Image
+                    <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 8, maxWidth: '100%' }}>
+                        <Avatar
                             src={urlFinal}
                             alt="Foto del empleado"
-                            h={150}
-                            w="auto"
-                            fit="contain"
-                            radius="md"
+                            size={140}
+                            radius="100%"
+                            style={{
+                                border: '3px solid var(--ag-color-primary, #FF6A00)',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                            }}
                         />
                         <Text size="xs" ta="center" className={classes.secondaryText}>
                             Arrastra una foto o haz clic para cambiarla
