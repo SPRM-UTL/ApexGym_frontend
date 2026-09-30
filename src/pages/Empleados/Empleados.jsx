@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
     Box,
+    Button,
     Group,
     NativeSelect,
     SimpleGrid,
@@ -19,6 +20,7 @@ import {
     IconMail,
     IconMapPin,
     IconPhone,
+    IconTrash,
     IconUser,
     IconUsers,
 } from '@tabler/icons-react';
@@ -279,14 +281,19 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                     />
                 </Box>
                 {form.imagenUrl && (
-                    <Text
-                        size="xs"
-                        c="red"
-                        style={{ cursor: 'pointer', marginTop: 6 }}
-                        onClick={() => onChange('imagenUrl', '')}
-                    >
-                        Quitar imagen
-                    </Text>
+                    <Group justify="center" mt="xs">
+                        <Button
+                            variant="light"
+                            color="red"
+                            size="xs"
+                            radius="md"
+                            leftSection={<IconTrash size={15} stroke={1.8} />}
+                            onClick={() => onChange('imagenUrl', '')}
+                            style={{ fontWeight: 600 }}
+                        >
+                            Quitar imagen
+                        </Button>
+                    </Group>
                 )}
             </Box>
         </Group>
