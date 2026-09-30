@@ -298,7 +298,9 @@ export function TableSort({
                                         )}
                                         {columns.map((col) => (
                                             <Table.Td key={col.key} className={classes.bodyCell}>
-                                                {String(fila[col.key] ?? '')}
+                                                {typeof fila[col.key] === 'object' && fila[col.key] !== null
+                                                    ? fila[col.key]
+                                                    : String(fila[col.key] ?? '')}
                                             </Table.Td>
                                         ))}
                                         {(onEditar || onEliminar) && (
