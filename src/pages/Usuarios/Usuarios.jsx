@@ -6,6 +6,13 @@ import { ModalFormulario } from '../../components/ModalFormulario/ModalFormulari
 import { TablaRegistros } from '../../components/TablaRegistros/TablaRegistros.jsx';
 import { BarraAcciones } from '../../components/BarraAcciones/BarraAcciones.jsx';
 import { api } from '../../scripts/services/api.js';
+import {
+    guardarUsuarioActual,
+    obtenerUsuarioActual,
+    resolverUrlImagen,
+    VariablesLocales,
+} from '../../scripts/constantes.js';
+import { cambioNombreWeb, obtenerValor } from '../../scripts/globales.js';
 import classes from './Usuarios.module.css';
 
 const COLUMNAS_USUARIOS = [
@@ -15,6 +22,8 @@ const COLUMNAS_USUARIOS = [
 ];
 
 export function Usuarios() {
+    cambioNombreWeb('Usuarios');
+
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(false);
@@ -73,7 +82,9 @@ export function Usuarios() {
 
     useEffect(
         () => () => {
-            if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+            if (fotoPreview && fotoPreview.startsWith('blob:')) {
+                URL.revokeObjectURL(fotoPreview);
+            }
         },
         [fotoPreview]
     );
@@ -178,7 +189,9 @@ export function Usuarios() {
                     usuarioEditando,
                     nombre,
                     correo,
-                    contrasena || undefined
+                    contrasena || undefined,
+                    rolSeleccionado,
+                    fotoUsuario
                 );
                 alerta = {
                     title: 'Actualizado',
@@ -186,7 +199,13 @@ export function Usuarios() {
                     color: 'green',
                 };
             } else {
-                response = await api.user.register(nombre, correo, contrasena);
+                response = await api.user.register(
+                    nombre,
+                    correo,
+                    contrasena,
+                    rolSeleccionado,
+                    fotoUsuario
+                );
                 alerta = {
                     title: 'Agregado',
                     message: 'Usuario agregado correctamente',
@@ -199,19 +218,18 @@ export function Usuarios() {
                 throw new Error(response.message || 'Error al guardar usuario');
             }
 
-            // Gestionar rol si hay un ID de usuario
+            // Si el usuario editado es el usuario en sesión, actualizar su información local
             if (usuarioId) {
-                const usuarioActual = users.find((u) => u.id === usuarioId);
-                const rolActualId = String((usuarioActual?.roles ?? [])[0]?.id ?? '');
-                const rolNuevoId = rolSeleccionado ?? '';
-
-                if (rolNuevoId !== rolActualId) {
-                    if (rolActualId) {
-                        await api.user.removerRol(usuarioId, Number(rolActualId)).catch(() => null);
-                    }
-                    if (rolNuevoId) {
-                        await api.user.asignarRol(usuarioId, Number(rolNuevoId)).catch(() => null);
-                    }
+                const sesionUsuario = obtenerUsuarioActual();
+                if (sesionUsuario && Number(sesionUsuario.id) === Number(usuarioId)) {
+                    const esPersistente = Boolean(obtenerValor(VariablesLocales.USUARIO, 'local'));
+                    guardarUsuarioActual(
+                        {
+                            ...sesionUsuario,
+                            ...response.data,
+                        },
+                        esPersistente
+                    );
                 }
             }
 
@@ -245,6 +263,8 @@ export function Usuarios() {
             setContrasena('');
             const primerRol = (completo.roles ?? [])[0];
             setRolSeleccionado(primerRol ? String(primerRol.id) : null);
+            setFotoUsuario(null);
+            setFotoPreview(resolverUrlImagen(completo.fotoUrl));
             setErrores({});
             setAbierto(true);
         },

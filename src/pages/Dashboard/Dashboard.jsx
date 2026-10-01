@@ -25,6 +25,7 @@ import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
 import { api } from '../../scripts/services/api.js';
 import { obtenerUsuarioActual } from '../../scripts/constantes.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
 import { resolverModuloPorRuta, rutaModulo } from '../../scripts/modulosRutas.js';
 import classes from './Dashboard.module.css';
 
@@ -80,6 +81,8 @@ export function Dashboard({ children, onLogout }) {
 
     const mostrarChildren = !!children;
     const enInicio = location.pathname === '/';
+
+    cambioNombreWeb(!mostrarChildren ? (seccionActiva?.nombre || 'Inicio') : moduloEnRuta?.modulo?.nombre || null);
 
     const irInicio = () => {
         setSeccionActiva(null);

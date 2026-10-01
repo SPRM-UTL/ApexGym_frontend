@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Accordion, Badge, Group, Loader, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import classes from './AdministracionRoles.module.css';
 
@@ -18,6 +19,8 @@ const COLUMNAS = [
 const INICIAL = { nombre: '', descripcion: '', permisosIds: [] };
 
 export function AdministracionRoles() {
+    cambioNombreWeb('Administración de roles');
+
     const [permisos, setPermisos] = useState([]);
     const [cargandoPermisos, setCargandoPermisos] = useState(true);
     const [busqueda, setBusqueda] = useState('');

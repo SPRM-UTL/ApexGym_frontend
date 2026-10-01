@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { api } from '../../scripts/services/api.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 const CAMPOS = [
@@ -37,6 +38,8 @@ const COLUMNAS = [
 const INICIAL = { areaTrabajoId: '', nombre: '', descripcion: '', estado: 'ACTIVO' };
 
 export function TiposActividad() {
+    cambioNombreWeb('Tipos de Actividad');
+
     const mapRecordToForm = useMemo(() => (record) => ({
         areaTrabajoId: record.areaTrabajo?.id ? String(record.areaTrabajo.id) : '',
         nombre: record.nombre ?? '',
