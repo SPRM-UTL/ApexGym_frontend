@@ -9,6 +9,7 @@ import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { estaAutenticado, guardarToken, guardarUsuarioActual, eliminarToken, eliminarUsuarioActual } from './scripts/constantes.js';
 import { useState } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
+import { Productos } from './pages/Productos/Productos.jsx';
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(() => estaAutenticado());
@@ -72,6 +73,18 @@ function App() {
             estaLogeadoEn ? (
               <Dashboard onLogout={accionLogout}>
                 <CategoriaProducto />
+              </Dashboard>
+            ) : (
+              <Login onLoginAceptado={accionLogin} />
+            )
+          }
+        />
+        <Route
+          path="/productos"
+          element={
+            estaLogeadoEn ? (
+              <Dashboard onLogout={accionLogout}>
+                <Productos/>
               </Dashboard>
             ) : (
               <Login onLoginAceptado={accionLogin} />
