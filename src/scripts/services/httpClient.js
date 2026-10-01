@@ -5,7 +5,11 @@ import { apiLoadingStore } from '../apiLoading.js';
 /**
  * Cliente HTTP compartido: adjunta Bearer token cuando existe sesión activa.
  */
-export const httpClient = axios.create();
+
+/** El navegador no guarda las cookies que le devuelve el servidor esto es por que intenta 
+ * no acepptar ninguna cookie sin permiso de esta manera le decimos a axios que hacepte la peticion de guardar la cookie
+ */
+export const httpClient = axios.create({withCredentials: true});
 
 httpClient.interceptors.request.use((config) => {
     apiLoadingStore.iniciar();
