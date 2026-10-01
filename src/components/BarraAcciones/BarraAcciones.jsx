@@ -7,6 +7,7 @@ export function BarraAcciones({ onAdd, title, entityLabel = 'registros' }) {
         <div className={classes.toolbar}>
             <div className={classes.leftGroup}>
                 <div className={classes.iconBox}>
+                    
                     <IconUser size={22} stroke={2} />
                 </div>
                 <Text size="lg" fw={700}>
