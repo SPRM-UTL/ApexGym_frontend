@@ -88,6 +88,7 @@ export function Dashboard({ children, onLogout }) {
 
     const abrirModulo = (modulo) => {
         const ruta = rutaModulo(modulo.nombre);
+        console.log("Ruta: " + ruta);
         if (ruta) {
             navigate(ruta);
         }
