@@ -14,6 +14,8 @@ const COLUMNAS_CATEGORIAS = [
     { key: 'descripcion', label: 'Descripción', sortable: false, filterable: true },
 ];
 
+const titulo="Administración de Categorias de Productos"
+
 export function CategoriaProducto() {
     const [categorias, setCategorias] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -231,7 +233,7 @@ export function CategoriaProducto() {
             />
 
             <div className={classes.crudLayout}>
-                <BarraAcciones onAdd={abrirAgregar} onReload={handleReload} />
+                <BarraAcciones  onAdd={abrirAgregar} title={titulo} entityLabel={titulo.toLowerCase()}  />
 
                 {error && <div className={classes.errorBanner}>{error}</div>}
 
@@ -251,6 +253,7 @@ export function CategoriaProducto() {
                         entityLabel="categoría"
                         pageSizeOptions={[10, 25, 50]}
                         loading={loading}
+                        onReload={handleReload}
                     />
                 )}
             </div>

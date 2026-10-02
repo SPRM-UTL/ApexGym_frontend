@@ -62,7 +62,7 @@ export function Login({ onLoginAceptado }) {
         if (!verificarDatos()) return;
 
         try {
-            const response = await api.user.login(correo, contrasena);
+            const response = await api.user.login(correo, contrasena, esPersistente);
 
             if (response.responseFlag !== 0) {
                 throw new Error(response.message || 'Error al iniciar sesión');
@@ -73,7 +73,7 @@ export function Login({ onLoginAceptado }) {
                 message: 'Has iniciado sesión correctamente.',
                 color: 'green',
             });
-            onLoginAceptado(response.data.token, esPersistente, response.data.usuario);
+            onLoginAceptado(/**response.data.token,**/ esPersistente, response.data.usuario); //Evitamos que ya no conteste con el token
         } catch (error) {
             notifications.show({
                 title: 'Error',

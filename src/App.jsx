@@ -14,28 +14,63 @@ import { AperturaCaja } from './pages/AperturaCaja/AperturaCaja.jsx';
 import { MovimientosCaja } from './pages/MovimientosCaja/MovimientosCaja.jsx';
 import { CorteCaja } from './pages/CorteCaja/CorteCaja.jsx';
 import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
-import { estaAutenticado, guardarToken, guardarUsuarioActual, eliminarToken, eliminarUsuarioActual } from './scripts/constantes.js';
-import { useState } from 'react';
+import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
+/**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
+ * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
+ * revisar las cookies  si la peticion exitosa recarga a la pantalla de la aplicacion
+ * **/
+import { useState , useEffect} from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
 import { Clientes } from './pages/Clientes/Clientes.jsx';
 import { EstadosMembresia } from './pages/EstadosMembresia/EstadosMembresia.jsx';
 import { TiposMembresia } from './pages/TiposMembresia/TiposMembresia.jsx';
 import { TiposVisita } from './pages/TiposVisita/TiposVisita.jsx';
-
+import { api } from './scripts/services/api.js';
 function App() {
-  const [estaLogeadoEn, setEstaLogeadoEn] = useState(() => estaAutenticado());
+  const [estaLogeadoEn, setEstaLogeadoEn] = useState(/**() => estaAutenticado()*/); //evitamos que guarde el token
 
-  const accionLogin = (tokenRecibido, esPersistente = false, usuario = null) => {
-    guardarToken(tokenRecibido, esPersistente);
+
+  /**de esta manera le decimos que revise con obtenerMisSecciones y este nos diga si
+   *  tiene algun token para poder entrar de manera automatica de esta manera le 
+   * decimos a la funcion de que si esta logueado*/
+   useEffect(()=>{
+    api.seccion.obtenerMisSecciones()
+    .then((res)=>{
+      setEstaLogeadoEn(res.responseFlag === 0)
+    }).catch(() =>{
+      setEstaLogeadoEn(false)
+    });
+  }, []);
+
+  /**En caso de no estarlo solo le recarga la pantalla para que el inicie session o muestra la apliccion en caso de ser acceptado*/
+  if(estaLogeadoEn === null){
+    return <PantallaCarga/>
+  }
+  /**Aqui solo comente las lineas y evitar que guarde cualquier token */
+  const accionLogin = (/**tokenRecibido,*/ esPersistente = false, usuario = null) => {
+    /**guardarToken(tokenRecibido, esPersistente);*/
     guardarUsuarioActual(usuario, esPersistente);
     setEstaLogeadoEn(true);
+    api.seccion
   };
 
-  const accionLogout = () => {
-    eliminarToken();
+  const accionLogout = async () => {
+    /**eliminarToken();*/ //Evitamos que llame el token que no esta almacenado en LocalStore
+    try{
+    const usuario = obtenerUsuarioActual()
+    if(usuario && usuario.id){
+
+        const res = await api.user.logout(usuario.id);
+    }
+    
+    }catch(error){
+      console.error("error al serrar sesion", error)
+    }
+
     eliminarUsuarioActual();
     setEstaLogeadoEn(false);
+
   }
 
   return (
