@@ -2,8 +2,6 @@ import { obtenerValor, guardarValor, eliminarValor, limpiarAlmacenamiento } from
 
 export const appUrl = 'http://localhost:3000';
 
-
-
 export const VariablesLocales = {
     TOKEN: 'token',
     USUARIO: 'usuario_actual',
