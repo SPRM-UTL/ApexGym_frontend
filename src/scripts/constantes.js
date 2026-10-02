@@ -9,17 +9,21 @@ export const VariablesLocales = {
 
 export const estaAutenticado = () => {
     const token = obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
-    return !!token;
+    return !!token && token !== 'undefined' && token !== 'null';
 }
 
 export const obtenerToken = () => {
-    return obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
+    const token = obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
+    if (!token || token === 'undefined' || token === 'null') return null;
+    return token;
 }
 
 export const guardarToken = (valor, persistente = false) => {
     const tipo = persistente ? 'local' : 'session';
     eliminarToken();
-    guardarValor(VariablesLocales.TOKEN, valor, tipo);
+    if (valor && valor !== 'undefined' && valor !== 'null') {
+        guardarValor(VariablesLocales.TOKEN, valor, tipo);
+    }
 }
 
 export const guardarUsuarioActual = (usuario, persistente = false) => {
