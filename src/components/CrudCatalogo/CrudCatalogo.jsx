@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import {
+    Avatar,
     Button,
+    FileInput,
     Group,
     Modal,
     NativeSelect,
     NumberInput,
+    SimpleGrid,
     Stack,
     Switch,
     Textarea,
     TextInput,
     Title,
 } from '@mantine/core';
+import { IconUpload } from '@tabler/icons-react';
+import { DropzoneImagen } from '../DropzoneImagen/DropzoneImagen.jsx';
 import { ModalConfirmacion } from '../ModalConfirmacion/ModalConfirmacion.jsx';
 import { TablaRegistros } from '../TablaRegistros/TablaRegistros.jsx';
 import { BarraAcciones } from '../BarraAcciones/BarraAcciones.jsx';
@@ -26,6 +31,69 @@ function Field({ campo, value, options, error, onChange, form }) {
         size: 'md',
         radius: 'md',
     };
+
+    if (tipo === 'dropzone') {
+        const handleDrop = (archivos) => {
+            const archivo = archivos[0] ?? null;
+            if (!archivo) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                onChange(e.target?.result ?? '');
+            };
+            reader.readAsDataURL(archivo);
+        };
+        const handleReject = () => {
+            notifications.show({
+                title: 'Imagen no válida',
+                message: 'Selecciona una imagen válida de máximo 5 MB.',
+                color: 'red',
+            });
+        };
+        return (
+            <DropzoneImagen
+                archivo={null}
+                preview={value || null}
+                onDrop={handleDrop}
+                onReject={handleReject}
+            />
+        );
+    }
+
+    if (tipo === 'file' || tipo === 'image') {
+        const handleFileChange = (file) => {
+            if (!file) {
+                onChange('');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                onChange(e.target?.result ?? '');
+            };
+            reader.readAsDataURL(file);
+        };
+
+        return (
+            <Stack gap="xs">
+                <FileInput
+                    {...common}
+                    label={campo.label}
+                    placeholder={campo.placeholder ?? 'Selecciona una imagen de tu equipo'}
+                    accept={campo.accept ?? 'image/*'}
+                    leftSection={<IconUpload size={18} />}
+                    clearable
+                    onChange={handleFileChange}
+                />
+                {value ? (
+                    <Group gap="sm" align="center">
+                        <Avatar src={value} size="lg" radius="md" />
+                        <Button variant="subtle" color="red" size="xs" onClick={() => onChange('')}>
+                            Quitar imagen
+                        </Button>
+                    </Group>
+                ) : null}
+            </Stack>
+        );
+    }
 
     if (tipo === 'textarea') {
         return <Textarea {...common} minRows={campo.minRows ?? 3} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
@@ -45,7 +113,7 @@ function Field({ campo, value, options, error, onChange, form }) {
         return <Switch label={campo.label} error={error} size="md" color="apex" checked={value === true || value === 'true'} onChange={(event) => onChange(event.currentTarget.checked)} />;
     }
 
-    return <TextInput {...common} placeholder={campo.placeholder} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
+    return <TextInput {...common} type={campo.type} placeholder={campo.placeholder} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
 }
 
 export function CrudCatalogo({
@@ -55,10 +123,12 @@ export function CrudCatalogo({
     columnas,
     campos,
     valoresIniciales,
+    icon: IconoHeader,
     mapRecordToForm = (record) => record,
     mapFormToPayload = (form) => form,
     mapRecordToRow = (record) => record,
     renderFormExtra,
+    renderForm,
     validateForm,
     formLayout = 'stack',
 }) {
@@ -104,7 +174,6 @@ export function CrudCatalogo({
     useEffect(() => {
         fetchData();
         fetchOptions();
-        // La configuración de campos es estable por cada pantalla.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -181,6 +250,9 @@ export function CrudCatalogo({
 
     const tableData = useMemo(() => records.map(mapRecordToRow), [records, mapRecordToRow]);
 
+    const leftFields = useMemo(() => campos.filter((c) => c.side !== 'right'), [campos]);
+    const rightFields = useMemo(() => campos.filter((c) => c.side === 'right'), [campos]);
+
     return (
         <>
             <ModalConfirmacion
@@ -195,28 +267,47 @@ export function CrudCatalogo({
             <Modal
                 opened={modalOpen}
                 onClose={() => !loading && setModalOpen(false)}
-                title={<Title order={4} className={classes.modalTitle}>{editingId ? `Editar ${singular.toLowerCase()}` : `Agregar ${singular.toLowerCase()}`}</Title>}
+                title={
+                    <Group gap="sm">
+                        {IconoHeader && <IconoHeader size={22} stroke={1.8} />}
+                        <Title order={4} className={classes.modalTitle}>
+                            {editingId ? `Editar ${singular.toLowerCase()}` : `Agregar ${singular.toLowerCase()}`}
+                        </Title>
+                    </Group>
+                }
                 fullScreen
                 radius={0}
                 zIndex={999999}
                 transitionProps={{ transition: 'slide-up', duration: 200 }}
             >
-                <Stack maw={780} mx="auto" mt="xl" gap="xl" className={classes.form}>
-                    <div className={formLayout === 'columns' ? classes.formColumns : undefined}>
+                <Stack maw={renderForm ? 1200 : formLayout === 'columns' ? 980 : 780} mx="auto" mt="md" gap="md" className={classes.form}>
+                    {renderForm ? (
+                        renderForm({ form, errors, onChange: updateField, fieldOptions })
+                    ) : formLayout === 'columns' ? (
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
+                            <Stack gap="xs">
+                                {leftFields.map((campo) => (
+                                    <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                ))}
+                            </Stack>
+                            <Stack gap="xs">
+                                {rightFields.map((campo) => (
+                                    <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                ))}
+                                {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                            </Stack>
+                        </SimpleGrid>
+                    ) : (
                         <Stack gap="md">
                             {campos.map((campo) => (
                                 <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
                             ))}
+                            {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
                         </Stack>
-                        {renderFormExtra && (
-                            <div className={formLayout === 'columns' ? classes.permissionsPanel : undefined}>
-                                {renderFormExtra({ form, errors, onChange: updateField })}
-                            </div>
-                        )}
-                    </div>
+                    )}
                     <Group grow mt="sm">
                         <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading}>Cancelar</Button>
-                        <Button onClick={save} loading={loading}>Guardar</Button>
+                        <Button onClick={save} loading={loading}>{editingId ? 'Actualizar' : 'Guardar'}</Button>
                     </Group>
                 </Stack>
             </Modal>
@@ -231,3 +322,5 @@ export function CrudCatalogo({
         </>
     );
 }
+
+export default CrudCatalogo;
