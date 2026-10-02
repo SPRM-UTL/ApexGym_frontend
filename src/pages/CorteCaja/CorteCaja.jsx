@@ -1,3 +1,10 @@
+/**
+ * Sistema: ApexGym Frontend
+ * Modificación: 01/10/2026 - Emmanuelle Hernández Oropeza
+ * Descripción: Control operativo de caja: arqueo de billetes interactivo en 2 columnas,
+ *              modal de detalle de ventas, KPIs y movimientos de corte, validación de corte,
+ *              generación de reporte PDF de auditoría y restricciones de edición/eliminación.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActionIcon,
