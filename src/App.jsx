@@ -17,6 +17,11 @@ import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { estaAutenticado, guardarToken, guardarUsuarioActual, eliminarToken, eliminarUsuarioActual } from './scripts/constantes.js';
 import { useState } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
+import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
+import { Clientes } from './pages/Clientes/Clientes.jsx';
+import { EstadosMembresia } from './pages/EstadosMembresia/EstadosMembresia.jsx';
+import { TiposMembresia } from './pages/TiposMembresia/TiposMembresia.jsx';
+import { TiposVisita } from './pages/TiposVisita/TiposVisita.jsx';
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(() => estaAutenticado());
@@ -58,6 +63,27 @@ function App() {
               )
             }
           />
+
+        <Route
+          path="/estados-cliente"
+          element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosCliente /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
+        />
+        <Route
+          path="/clientes"
+          element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Clientes /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
+        />
+        <Route
+          path="/estados-membresia"
+          element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosMembresia /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
+        />
+        <Route
+          path="/tipos-membresia"
+          element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposMembresia /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
+        />
+        <Route
+          path="/tipos-visita"
+          element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposVisita /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
+        />
 
           <Route path="/tipos-actividad" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposActividad /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/configuracion-sistema" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ConfiguracionSistema /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
