@@ -22,6 +22,7 @@ import { Clientes } from './pages/Clientes/Clientes.jsx';
 import { EstadosMembresia } from './pages/EstadosMembresia/EstadosMembresia.jsx';
 import { TiposMembresia } from './pages/TiposMembresia/TiposMembresia.jsx';
 import { TiposVisita } from './pages/TiposVisita/TiposVisita.jsx';
+import { Productos } from './pages/Productos/Productos.jsx';
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(() => estaAutenticado());
@@ -114,6 +115,18 @@ function App() {
               estaLogeadoEn ? (
                 <Dashboard onLogout={accionLogout}>
                   <CategoriaProducto />
+                </Dashboard>
+              ) : (
+                <Login onLoginAceptado={accionLogin} />
+              )
+            }
+          />
+          <Route
+            path="/productos"
+            element={
+              estaLogeadoEn ? (
+                <Dashboard onLogout={accionLogout}>
+                  <Productos />
                 </Dashboard>
               ) : (
                 <Login onLoginAceptado={accionLogin} />
