@@ -10,11 +10,13 @@ export const VariablesLocales = {
 /**  Ya no se ocupan para evitar que las guarde
 export const estaAutenticado = () => {
     const token = obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
-    return !!token;
+    return !!token && token !== 'undefined' && token !== 'null';
 }
 
 export const obtenerToken = () => {
-    return obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
+    const token = obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
+    if (!token || token === 'undefined' || token === 'null') return null;
+    return token;
 }
 
 export const guardarToken = (valor, persistente = false) => {

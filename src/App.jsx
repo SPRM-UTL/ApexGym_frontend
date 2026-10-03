@@ -28,6 +28,8 @@ import { TiposMembresia } from './pages/TiposMembresia/TiposMembresia.jsx';
 import { TiposVisita } from './pages/TiposVisita/TiposVisita.jsx';
 import { api } from './scripts/services/api.js';
 import PantallaCarga from './components/PantallaCarga.jsx';
+import { Productos } from './pages/Productos/Productos.jsx';
+
 function App() {
 
 const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
@@ -36,7 +38,6 @@ const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
    *  tiene algun token para poder entrar de manera automatica de esta manera le 
    * decimos a la funcion de que si esta logueado*/
 
-  
        useEffect(()=>{
         let activo = true;
         const validarSesion = async () => {
@@ -176,6 +177,18 @@ const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
               estaLogeadoEn ? (
                 <Dashboard onLogout={accionLogout}>
                   <CategoriaProducto />
+                </Dashboard>
+              ) : (
+                <Login onLoginAceptado={accionLogin} />
+              )
+            }
+          />
+          <Route
+            path="/productos"
+            element={
+              estaLogeadoEn ? (
+                <Dashboard onLogout={accionLogout}>
+                  <Productos />
                 </Dashboard>
               ) : (
                 <Login onLoginAceptado={accionLogin} />
