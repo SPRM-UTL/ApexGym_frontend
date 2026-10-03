@@ -29,6 +29,16 @@ export const guardarUsuarioActual = (usuario, persistente = false) => {
     guardarValor(VariablesLocales.USUARIO, usuario, tipo);
 };
 
+export const obtenerEsPersistente = () => {
+    const usuarioDeSesion = obtenerValor(VariablesLocales.USUARIO, 'session');
+
+    if (usuarioDeSesion !== null) {
+        return false;
+    }
+
+    return obtenerValor(VariablesLocales.USUARIO, 'local') !== null;
+};
+
 export const obtenerUsuarioActual = () => {
     return obtenerValor(VariablesLocales.USUARIO, 'session') || obtenerValor(VariablesLocales.USUARIO, 'local');
 };

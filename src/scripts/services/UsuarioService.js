@@ -8,6 +8,7 @@ export class UsuarioService {
     }
 
     async login(email, contrasenia, checkbox) {
+        
         try {
             const response = await httpClient.post(`${this.urlApi}/verificarCredenciales`, {
                 email,
