@@ -2,11 +2,12 @@ import { obtenerValor, guardarValor, eliminarValor, limpiarAlmacenamiento } from
 
 export const appUrl = 'http://localhost:3000';
 
+/**Solo me encargue de comentar todo tipo de cosas que almacenen el token */
 export const VariablesLocales = {
-    TOKEN: 'token',
+    /**TOKEN: 'token',**/
     USUARIO: 'usuario_actual',
 };
-
+/**  Ya no se ocupan para evitar que las guarde
 export const estaAutenticado = () => {
     const token = obtenerValor(VariablesLocales.TOKEN, 'session') || obtenerValor(VariablesLocales.TOKEN, 'local');
     return !!token && token !== 'undefined' && token !== 'null';
@@ -21,10 +22,8 @@ export const obtenerToken = () => {
 export const guardarToken = (valor, persistente = false) => {
     const tipo = persistente ? 'local' : 'session';
     eliminarToken();
-    if (valor && valor !== 'undefined' && valor !== 'null') {
-        guardarValor(VariablesLocales.TOKEN, valor, tipo);
-    }
-}
+    guardarValor(VariablesLocales.TOKEN, valor, tipo);
+}*/
 
 export const guardarUsuarioActual = (usuario, persistente = false) => {
     const tipo = persistente ? 'local' : 'session';
@@ -32,14 +31,24 @@ export const guardarUsuarioActual = (usuario, persistente = false) => {
     guardarValor(VariablesLocales.USUARIO, usuario, tipo);
 };
 
+export const obtenerEsPersistente = () => {
+    const usuarioDeSesion = obtenerValor(VariablesLocales.USUARIO, 'session');
+
+    if (usuarioDeSesion !== null) {
+        return false;
+    }
+
+    return obtenerValor(VariablesLocales.USUARIO, 'local') !== null;
+};
+
 export const obtenerUsuarioActual = () => {
     return obtenerValor(VariablesLocales.USUARIO, 'session') || obtenerValor(VariablesLocales.USUARIO, 'local');
 };
-
+/** 
 export const eliminarToken = () => {
     eliminarValor(VariablesLocales.TOKEN);
 }
-
+*/
 export const eliminarUsuarioActual = () => {
     eliminarValor(VariablesLocales.USUARIO);
 };

@@ -316,29 +316,9 @@ export function CrudCatalogo({
             </Modal>
 
             <div className={classes.layout}>
-                <BarraAcciones onAdd={openCreate} onReload={() => { fetchData(); fetchOptions(); }} entityLabel={titulo.toLowerCase()} />
-                {loading && records.length === 0 ? (
-                    <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
-                ) : (
-                    <TablaRegistros
-                        data={tableData}
-                        columns={columnas}
-                        onEditar={permitirEditar ? openEdit : null}
-                        onEliminar={permitirEliminar ? setPendingDelete : null}
-                        renderAcciones={
-                            renderAccionesFila
-                                ? (fila) =>
-                                      renderAccionesFila(fila, records.find((r) => r.id === fila.id), {
-                                          reload: fetchData,
-                                          records,
-                                      })
-                                : null
-                        }
-                        entityLabel={singular.toLowerCase()}
-                        loading={loading}
-                    />
-                )}
-            </div>
+                <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
+                {error && <div className={classes.error}>{error}</div>}
+                {loading && records.length === 0 ? <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div> : <TablaRegistros data={tableData} columns={columnas} onEditar={openEdit} onEliminar={setPendingDelete} entityLabel={singular.toLowerCase()} loading={loading} onReload={() => { fetchData(); fetchOptions(); }} />}</div>
         </>
     );
 }
