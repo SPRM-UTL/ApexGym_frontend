@@ -1,20 +1,27 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+    Alert,
     Badge,
     Box,
+    Group,
     NativeSelect,
     NumberInput,
+    Paper,
     SimpleGrid,
     Stack,
+    Text,
     Textarea,
     TextInput,
     ThemeIcon,
     Title,
 } from '@mantine/core';
 import {
+    IconAlertCircle,
     IconArrowsExchange,
     IconCash,
+    IconInfoCircle,
     IconUser,
+    IconWallet,
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
@@ -31,7 +38,7 @@ const CAMPOS = [
                 .filter((a) => a.estado === 'ABIERTA')
                 .map((a) => ({
                     value: String(a.id),
-                    label: `${a.caja?.nombre ?? 'Caja'} - $${Number(a.montoInicial).toFixed(2)}`,
+                    label: `${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
                 }));
         },
     },
@@ -88,6 +95,41 @@ const sectionHeader = {
 
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function MovimientoForm({ form, errors, onChange, fieldOptions }) {
+    const [resumen, setResumen] = useState(null);
+    const [cargandoResumen, setCargandoResumen] = useState(false);
+
+    useEffect(() => {
+        if (!form.aperturaCajaId) {
+            setResumen(null);
+            return;
+        }
+
+        let isMounted = true;
+        setCargandoResumen(true);
+        api.movimientoCaja
+            .obtenerResumenApertura(form.aperturaCajaId)
+            .then((res) => {
+                if (isMounted && res.responseFlag === 0) {
+                    setResumen(res.data);
+                }
+            })
+            .catch(() => {
+                if (isMounted) setResumen(null);
+            })
+            .finally(() => {
+                if (isMounted) setCargandoResumen(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [form.aperturaCajaId]);
+
+    const saldoDisponible = resumen ? Number(resumen.saldoDisponible ?? 0) : null;
+    const esSalida = form.tipo === 'SALIDA';
+    const montoNum = Number(form.monto || 0);
+    const superaSaldo = esSalida && saldoDisponible !== null && montoNum > saldoDisponible;
+
     return (
         <Stack gap="md">
             <Box>
@@ -97,6 +139,40 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                     </ThemeIcon>
                     <Title order={5}>Detalle del movimiento</Title>
                 </div>
+
+                {/* Banner de Saldo Disponible en Tiempo Real */}
+                {resumen && (
+                    <Paper
+                        p="sm"
+                        radius="md"
+                        mb="md"
+                        withBorder
+                        style={{
+                            backgroundColor: superaSaldo ? '#fff5f5' : '#f8f9fa',
+                            borderColor: superaSaldo ? '#fa5252' : '#dee2e6',
+                        }}
+                    >
+                        <Group justify="space-between" align="center">
+                            <Group gap="xs">
+                                <ThemeIcon color={superaSaldo ? 'red' : 'blue'} variant="light" radius="md">
+                                    <IconWallet size={18} />
+                                </ThemeIcon>
+                                <div>
+                                    <Text size="xs" c="dimmed">Saldo disponible actual en caja</Text>
+                                    <Text fw={700} size="md" c={superaSaldo ? 'red' : 'dark'}>
+                                        ${saldoDisponible.toFixed(2)}
+                                    </Text>
+                                </div>
+                            </Group>
+                            <Group gap="xs">
+                                <Badge variant="outline" color="gray" size="sm">Fondo: ${Number(resumen.montoInicial).toFixed(2)}</Badge>
+                                <Badge variant="outline" color="green" size="sm">Entradas: +${Number(resumen.totalEntradas).toFixed(2)}</Badge>
+                                <Badge variant="outline" color="red" size="sm">Salidas: -${Number(resumen.totalSalidas).toFixed(2)}</Badge>
+                            </Group>
+                        </Group>
+                    </Paper>
+                )}
+
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
                     {/* Col 1 */}
                     <NativeSelect
@@ -121,6 +197,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
                         onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
                     />
+
                     {/* Col 2 */}
                     <NativeSelect
                         label="Tipo"
@@ -131,8 +208,8 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         radius="md"
                         leftSection={<IconArrowsExchange size={16} stroke={1.5} />}
                         data={[
-                            { value: 'ENTRADA', label: 'Entrada' },
-                            { value: 'SALIDA',  label: 'Salida'  },
+                            { value: 'ENTRADA', label: 'Entrada (Ingreso manual)' },
+                            { value: 'SALIDA',  label: 'Salida (Retiro / Gasto menor)'  },
                         ]}
                         onChange={(e) => onChange('tipo', e.currentTarget.value)}
                     />
@@ -143,17 +220,31 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         min={0.01}
                         decimalScale={2}
                         value={form.monto ?? ''}
-                        error={errors.monto}
+                        error={superaSaldo ? `Supera el saldo disponible ($${saldoDisponible.toFixed(2)})` : errors.monto}
                         size="md"
                         radius="md"
                         leftSection={<IconCash size={16} stroke={1.5} />}
                         onChange={(v) => onChange('monto', v)}
                     />
+
+                    {/* Alerta de exceso de retiro */}
+                    {superaSaldo && (
+                        <Alert
+                            icon={<IconAlertCircle size={16} />}
+                            title="Operación no permitida"
+                            color="red"
+                            radius="md"
+                            style={{ gridColumn: '1 / -1' }}
+                        >
+                            No puedes retirar más dinero del que realmente hay en la caja. El saldo disponible es de <b>${saldoDisponible.toFixed(2)}</b>.
+                        </Alert>
+                    )}
+
                     {/* Full width — concepto */}
                     <TextInput
                         label="Concepto"
                         withAsterisk
-                        placeholder="Describe el movimiento"
+                        placeholder="Ej. Retiro parcial por seguridad / Pago de papelería"
                         value={form.concepto ?? ''}
                         error={errors.concepto}
                         size="md"
@@ -161,6 +252,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         style={{ gridColumn: '1 / -1' }}
                         onChange={(e) => onChange('concepto', e.currentTarget.value)}
                     />
+
                     {/* Full width — observaciones */}
                     <Textarea
                         label="Observaciones"
@@ -224,6 +316,31 @@ export function MovimientosCaja() {
         };
     };
 
+    const validateForm = async (form) => {
+        const errors = {};
+        if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una apertura';
+        if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
+        if (!form.monto || Number(form.monto) <= 0) errors.monto = 'El monto debe ser mayor a 0';
+        if (!form.concepto?.trim()) errors.concepto = 'El concepto es requerido';
+
+        // Validar saldo si es salida
+        if (form.tipo === 'SALIDA' && form.aperturaCajaId && Number(form.monto) > 0) {
+            try {
+                const res = await api.movimientoCaja.obtenerResumenApertura(form.aperturaCajaId);
+                if (res.responseFlag === 0) {
+                    const saldo = Number(res.data?.saldoDisponible ?? 0);
+                    if (Number(form.monto) > saldo) {
+                        errors.monto = `Saldo insuficiente en caja ($${saldo.toFixed(2)})`;
+                    }
+                }
+            } catch (e) {
+                // Si falla la consulta, la validación final la hace el backend
+            }
+        }
+
+        return errors;
+    };
+
     return (
         <CrudCatalogo
             titulo="Movimientos de Caja"
@@ -237,6 +354,7 @@ export function MovimientosCaja() {
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <MovimientoForm {...props} />}
+            validateForm={validateForm}
         />
     );
 }

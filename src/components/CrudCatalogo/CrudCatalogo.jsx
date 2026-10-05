@@ -131,6 +131,9 @@ export function CrudCatalogo({
     renderForm,
     validateForm,
     formLayout = 'stack',
+    permitirEditar = true,
+    permitirEliminar = true,
+    renderAccionesFila,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);

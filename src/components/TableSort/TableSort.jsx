@@ -112,6 +112,7 @@ export function TableSort({
     columns: columnsProp,
     onEditar,
     onEliminar,
+    renderAcciones,
     enableSelection = true,
     pageSizeOptions = [10, 25, 50, 100],
     onSelectionChange,
@@ -440,7 +441,7 @@ const clearFilters = () => {
                                     {col.label}
                                 </Th>
                             ))}
-                            {(onEditar || onEliminar) && (
+                            {(onEditar || onEliminar || renderAcciones) && (
                                 <Table.Th className={classes.th}>
                                     <div className={classes.control}>
                                         <Text className={classes.thLabel}>Acciones</Text>
@@ -499,9 +500,10 @@ const clearFilters = () => {
                                                     : String(fila[col.key] ?? '')}
                                             </Table.Td>
                                         ))}
-                                        {(onEditar || onEliminar) && (
+                                        {(onEditar || onEliminar || renderAcciones) && (
                                             <Table.Td className={`${classes.bodyCell} ${classes.actionsCell}`}>
                                                 <Group gap={6} wrap="nowrap">
+                                                    {renderAcciones && renderAcciones(fila)}
                                                     {onEditar && (
                                                         <Tooltip label={`Editar ${entityLabel}`} withArrow openDelay={250}>
                                                             <ActionIcon
@@ -540,7 +542,7 @@ const clearFilters = () => {
                                     colSpan={
                                         columns.length +
                                         (enableSelection ? 1 : 0) +
-                                        (onEditar || onEliminar ? 1 : 0)
+                                        (onEditar || onEliminar || renderAcciones ? 1 : 0)
                                     }
                                     className={classes.emptyCell}
                                 >

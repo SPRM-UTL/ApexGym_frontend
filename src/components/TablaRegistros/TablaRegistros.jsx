@@ -42,12 +42,13 @@ export function TablaRegistros({
                 columns={columns}
                 onEditar={onEditar}
                 onEliminar={onEliminar}
+                renderAcciones={renderAcciones}
                 enableSelection={false}
                 pageSizeOptions={pageSizeOptions}
                 entityLabel={entityLabel}
                 onReload={ onReload}
             />
-            {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar ? 1 : 0)} />}
+            {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />}
         </div>
     );
 }
