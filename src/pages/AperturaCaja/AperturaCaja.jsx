@@ -26,8 +26,20 @@ const CAMPOS = [
         label: 'Caja',
         required: true,
         loadOptions: async () => {
-            const r = await api.caja.obtenerTodos();
-            return (r.data ?? []).map((c) => ({ value: String(c.id), label: c.nombre }));
+            const [cajasRes, aperturasRes] = await Promise.all([
+                api.caja.obtenerTodos(),
+                api.aperturaCaja.obtenerTodos(),
+            ]);
+            const cajasAbiertas = new Set(
+                (aperturasRes.data ?? [])
+                    .filter((a) => a.estado === 'ABIERTA')
+                    .map((a) => a.cajaId)
+            );
+            return (cajasRes.data ?? []).map((c) => ({
+                value: String(c.id),
+                label: cajasAbiertas.has(c.id) ? `${c.nombre} (Ya abierta)` : c.nombre,
+                disabled: cajasAbiertas.has(c.id),
+            }));
         },
     },
     {

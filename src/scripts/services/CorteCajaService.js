@@ -11,4 +11,10 @@ export class CorteCajaService extends CatalogoService {
             'Error al obtener corte'
         );
     }
+    validar(id) {
+        return this.ejecutar(
+            () => httpClient.put(`${this.urlApi}/${id}/validar`),
+            'Error al validar el corte de caja'
+        );
+    }
 }
