@@ -30,6 +30,7 @@ export function TablaRegistros({
     columns,
     onEditar,
     onEliminar,
+    renderAcciones,
     pageSizeOptions,
     loading = false,
     entityLabel = 'registro',
@@ -41,11 +42,12 @@ export function TablaRegistros({
                 columns={columns}
                 onEditar={onEditar}
                 onEliminar={onEliminar}
+                renderAcciones={renderAcciones}
                 enableSelection={false}
                 pageSizeOptions={pageSizeOptions}
                 entityLabel={entityLabel}
             />
-            {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar ? 1 : 0)} />}
+            {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />}
         </div>
     );
 }

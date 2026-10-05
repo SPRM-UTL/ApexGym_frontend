@@ -11,4 +11,10 @@ export class MovimientoCajaService extends CatalogoService {
             'Error al obtener movimientos'
         );
     }
+    obtenerResumenApertura(aperturaCajaId) {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/apertura/${aperturaCajaId}/resumen`),
+            'Error al obtener resumen de apertura'
+        );
+    }
 }
