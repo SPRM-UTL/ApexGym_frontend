@@ -29,7 +29,6 @@ import {
     IconTrash,
     IconClock,
 } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
 
 const productos = [
     {
@@ -109,34 +108,7 @@ const servicios = [
     },
 ];
 
-const membresias = [
-    {
-        id: 1,
-        nombre: 'Membresias 1',
-        categoria: 'Membresias',
-        precio: 200,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 2,
-        nombre: 'Membresias 2',
-        categoria: 'Membresias',
-        precio: 350,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 3,
-        nombre: 'Membresias 3',
-        categoria: 'Membresias',
-        precio: 500,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-];
-
-function TarjetaProducto({ producto, agregarProducto}) {
+function TarjetaProducto({ producto }) {
     return (
         <Card
             shadow="sm"
@@ -144,7 +116,6 @@ function TarjetaProducto({ producto, agregarProducto}) {
             radius="md"
             withBorder
             className={classes.producto}
-            onClick={() => agregarProducto(producto)}
         >
             <Card.Section>
                 <Image
@@ -177,7 +148,7 @@ function TarjetaProducto({ producto, agregarProducto}) {
     );
 }
 
-function ListaProductos({ productos, agregarProducto }) {
+function ListaProductos({ productos }) {
     return (
         <ScrollArea h="calc(100vh - 230px)" offsetScrollbars>
             <SimpleGrid
@@ -194,7 +165,6 @@ function ListaProductos({ productos, agregarProducto }) {
                     <TarjetaProducto
                         key={producto.id}
                         producto={producto}
-                        agregarProducto = {agregarProducto}
                     />
                 ))}
             </SimpleGrid>
@@ -202,15 +172,7 @@ function ListaProductos({ productos, agregarProducto }) {
     );
 }
 
-function Ticket({productos,sumar,restar,eliminarTicket}) {
-
-    let subtotal = 0;
-    let iva = 0;
-    productos.forEach(p => {
-        subtotal += (p.precio * p.cantidad);
-    });
-    iva = parseFloat((subtotal * 0.16).toFixed(2));
-    let total = parseFloat((subtotal + iva).toFixed(2));
+function Ticket() {
     return (
         <Paper
             withBorder
@@ -233,7 +195,7 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                             </Title>
 
                             <Text size="xs" c="dimmed">
-                                Productos ({productos.length})
+                                3 productos
                             </Text>
                         </div>
                     </Group>
@@ -242,7 +204,6 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         variant="subtle"
                         color="red"
                         aria-label="Vaciar ticket"
-                        onClick={() => eliminarTicket()}
                     >
                         <IconTrash size={18} />
                     </ActionIcon>
@@ -252,9 +213,7 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
 
                 <ScrollArea flex={1} p="md">
                     <Stack gap="sm">
-
-                        {productos.map((producto) => (
-                                <Paper
+                        <Paper
                             p="sm"
                             radius="sm"
                             withBorder
@@ -262,11 +221,11 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                             <Group justify="space-between">
                                 <div>
                                     <Text size="sm" fw={600}>
-                                        {producto.nombre}
+                                        Producto 1
                                     </Text>
 
                                     <Text size="xs" c="dimmed">
-                                        ${producto.precio} c/u
+                                        $150.00 c/u
                                     </Text>
                                 </div>
 
@@ -274,26 +233,81 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                                     <ActionIcon
                                         size="sm"
                                         variant="light"
-                                        onClick={()=>restar(producto)}
                                     >
                                         <IconMinus size={14} />
                                     </ActionIcon>
 
                                     <Text size="sm" fw={600}>
-                                        {producto.cantidad}
+                                        1
                                     </Text>
 
                                     <ActionIcon
                                         size="sm"
                                         variant="light"
-                                        onClick={()=>sumar(producto)}
                                     >
                                         <IconPlus size={14} />
                                     </ActionIcon>
                                 </Group>
                             </Group>
+
+                            <Group justify="space-between" mt="xs">
+                                <Text size="xs" c="dimmed">
+                                    Cantidad: 1
+                                </Text>
+
+                                <Text fw={700}>
+                                    $150.00
+                                </Text>
+                            </Group>
                         </Paper>
-                            ))}
+
+                        <Paper
+                            p="sm"
+                            radius="sm"
+                            withBorder
+                        >
+                            <Group justify="space-between">
+                                <div>
+                                    <Text size="sm" fw={600}>
+                                        Producto 2
+                                    </Text>
+
+                                    <Text size="xs" c="dimmed">
+                                        $250.00 c/u
+                                    </Text>
+                                </div>
+
+                                <Group gap={4}>
+                                    <ActionIcon
+                                        size="sm"
+                                        variant="light"
+                                    >
+                                        <IconMinus size={14} />
+                                    </ActionIcon>
+
+                                    <Text size="sm" fw={600}>
+                                        2
+                                    </Text>
+
+                                    <ActionIcon
+                                        size="sm"
+                                        variant="light"
+                                    >
+                                        <IconPlus size={14} />
+                                    </ActionIcon>
+                                </Group>
+                            </Group>
+
+                            <Group justify="space-between" mt="xs">
+                                <Text size="xs" c="dimmed">
+                                    Cantidad: 2
+                                </Text>
+
+                                <Text fw={700}>
+                                    $500.00
+                                </Text>
+                            </Group>
+                        </Paper>
                     </Stack>
                 </ScrollArea>
 
@@ -306,7 +320,7 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         </Text>
 
                         <Text fw={500}>
-                            ${subtotal}
+                            $650.00
                         </Text>
                     </Group>
 
@@ -316,7 +330,7 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         </Text>
 
                         <Text fw={500}>
-                            ${iva}
+                            $104.00
                         </Text>
                     </Group>
 
@@ -328,7 +342,7 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         </Text>
 
                         <Text fw={800} size="xl">
-                            ${total}
+                            $754.00
                         </Text>
                     </Group>
 
@@ -347,71 +361,6 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
 }
 
 export function Nueva() {
-
-    const [hora, setHora] = useState([]);
-    const [listaProductos, setListaProductos] = useState([]);
-
-    useEffect(() => {
-        const actualizarHora = () => {
-            setHora(new Date().toLocaleString('es-MX'));
-        };
-
-        actualizarHora();
-
-        const intervalo = setInterval(actualizarHora, 1000);
-
-        return () => clearInterval(intervalo);
-    }, []);
-
-    const agregarProducto = (producto) =>{
-        setListaProductos(listaAnterior => {
-        const existe = listaAnterior.find(p => p.id === producto.id && p.categoria === producto.categoria);
-
-        if (existe) {
-            return listaAnterior.map(p =>
-                p.id === producto.id && p.categoria === producto.categoria
-                    ? { ...p, cantidad: p.cantidad + 1 }
-                    : p
-            );
-        }
-
-        return [
-            ...listaAnterior,
-            { ...producto, cantidad: 1 }
-        ];
-    });
-    }
-
-    const sumar = (producto) =>{
-        setListaProductos(listaAnterior => {
-            return listaAnterior.map(p =>
-                p.id === producto.id && p.categoria === producto.categoria
-                    ? { ...p, cantidad: p.cantidad + 1 }
-                    : p
-            );
-        })
-    }
-
-    const restar = (producto) =>{
-        setListaProductos(listaAnterior => {
-
-            if (producto.cantidad > 1){
-                return listaAnterior.map(p =>
-                p.id === producto.id && p.categoria === producto.categoria
-                    ? { ...p, cantidad: p.cantidad - 1 }
-                    : p
-            );
-            }
-            return listaAnterior.filter(p =>
-                !(p.id === producto.id && p.categoria === producto.categoria)
-            );
-        })
-    }
-
-    const eliminarTicket = ()=>{
-        setListaProductos([]);
-    }
-
     return (
         <div className={classes.principal}>
             <div>
@@ -437,7 +386,7 @@ export function Nueva() {
                         variant="light"
                         leftSection={<IconClock size={15} />}
                     >
-                        {hora}
+                        29/09/2026 6:21 p.m
                     </Badge>
                 </Group>
 
@@ -446,7 +395,7 @@ export function Nueva() {
                         withBorder
                         radius="md"
                         p="md"
-                        className={classes.catalogo}
+                        className={classes.catalogo}                        
                     >
                         <Tabs
                             defaultValue="productos"
@@ -484,28 +433,25 @@ export function Nueva() {
                             <Tabs.Panel value="productos">
                                 <ListaProductos
                                     productos={productos}
-                                    agregarProducto={agregarProducto}
                                 />
                             </Tabs.Panel>
 
                             <Tabs.Panel value="servicios">
                                 <ListaProductos
                                     productos={servicios}
-                                    agregarProducto={agregarProducto}
                                 />
                             </Tabs.Panel>
-
+                            
                             <Tabs.Panel value="membresias">
                                 <ListaProductos
-                                    productos={membresias}
-                                    agregarProducto={agregarProducto}
+                                    productos={servicios}
                                 />
                             </Tabs.Panel>
                         </Tabs>
                     </Paper>
                 </div>
             </div>
-            <Ticket productos={listaProductos} sumar={sumar} restar={restar} eliminarTicket={eliminarTicket}></Ticket>
+            <Ticket></Ticket>
         </div>
     );
 }
