@@ -1,4 +1,5 @@
 .toolbar {
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -10,19 +11,27 @@
     box-shadow: 0 2px 8px rgba(5, 6, 10, 0.05);
 }
 
+.leftGroup {
+    display: flex;
+    align-items: center;
+    gap: var(--mantine-spacing-sm);
+}
+
+.iconBox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background-color: var(--ag-color-primary-light);
+    border-radius: 8px;
+    color: var(--ag-color-primary, var(--ag-color-tertiary));
+}
+
 .addButton {
     background-color: var(--ag-color-primary) !important;
 }
 
 .addButton:hover {
-    background-color: #e55f00 !important;
-}
-
-.reloadButton {
-    background-color: var(--ag-color-secondary) !important;
-    color: var(--ag-color-floating) !important;
-}
-
-.reloadButton:hover {
-    background-color: #252a50 !important;
+    background-color: var(--ag-color-primary) !important;
 }

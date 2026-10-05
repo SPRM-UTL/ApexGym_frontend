@@ -13,6 +13,12 @@ import { AperturaCajaService } from './AperturaCajaService.js';
 import { MovimientoCajaService } from './MovimientoCajaService.js';
 import { CorteCajaService } from './CorteCajaService.js';
 import { CategoriaProductoService } from './CategoriaProductoService.js';
+import { ProductoService } from './ProductoService.js';
+import { EstadoClienteService } from './EstadoClienteService.js';
+import { ClienteService } from './ClienteService.js';
+import { EstadoMembresiaService } from './EstadoMembresiaService.js';
+import { TipoMembresiaService } from './TipoMembresiaService.js';
+import { TipoVisitaService } from './TipoVisitaService.js';
 
 export class ApiService {
     constructor() {
@@ -28,6 +34,13 @@ export class ApiService {
         this.estadoEmpleado = new EstadoEmpleadoService(this.urlBase);
         this.empleado = new EmpleadoService(this.urlBase);
         this.categoriaProducto = new CategoriaProductoService(this.urlBase);
+        this.producto = new ProductoService(this.urlBase);
+        this.Productos = this.producto;
+        this.estadoCliente = new EstadoClienteService(this.urlBase);
+        this.cliente = new ClienteService(this.urlBase);
+        this.estadoMembresia = new EstadoMembresiaService(this.urlBase);
+        this.tipoMembresia = new TipoMembresiaService(this.urlBase);
+        this.tipoVisita = new TipoVisitaService(this.urlBase);
         this.aperturaCaja = new AperturaCajaService(this.urlBase);
         this.movimientoCaja = new MovimientoCajaService(this.urlBase);
         this.corteCaja = new CorteCajaService(this.urlBase);
