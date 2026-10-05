@@ -30,6 +30,7 @@ export function TablaRegistros({
     columns,
     onEditar,
     onEliminar,
+    renderAcciones,
     onReload,
     pageSizeOptions,
     loading = false,
