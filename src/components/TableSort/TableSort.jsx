@@ -1,24 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-    IconChevronDown,
-    IconChevronUp,
-    IconEdit,
-    IconSelector,
-    IconTrash,
-} from '@tabler/icons-react';
-import {
-    ActionIcon,
-    Center,
-    Checkbox,
+    ActionIcon, 
+    Badge, 
+    Button, 
+    Center, 
+    Checkbox, 
+    CloseButton, 
     Group,
-    NativeSelect,
-    ScrollArea,
-    Table,
+    NativeSelect, 
+    Popover, 
+    ScrollArea, 
+    Select, 
+    Stack, 
+    Table, 
     Text,
-    TextInput,
-    Tooltip,
+    TextInput, 
+    Tooltip, 
     UnstyledButton,
 } from '@mantine/core';
+import {
+    IconReload,
+    IconChevronDown, 
+    IconChevronUp, 
+    IconEdit, 
+    IconFilter, 
+    IconPlus,
+    IconSelector, 
+    IconTrash
+} from '@tabler/icons-react';
 import classes from './TableSort.module.css';
 
 function Th({ children, reversed, sorted, onSort, sortable }) {
@@ -103,10 +112,12 @@ export function TableSort({
     columns: columnsProp,
     onEditar,
     onEliminar,
+    renderAcciones,
     enableSelection = true,
     pageSizeOptions = [10, 25, 50, 100],
     onSelectionChange,
     entityLabel = 'registro',
+    onReload,
 }) {
     const columns = useMemo(() => {
         if (columnsProp?.length) return columnsProp;
@@ -126,6 +137,61 @@ export function TableSort({
     const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 10);
     const [page, setPage] = useState(1);
     const [selectedIds, setSelectedIds] = useState(() => new Set());
+
+    
+    /**Muestra o cierra el filtro */
+    const [filterOpen, setFilterOpen] = useState(false);
+    /**Guarda temporalmente los fultros usados */
+    const [draftField, setDraftField] = useState(null);
+    /**Guarda temporalmente el texto ingresado*/
+    const[draftValue, setDraftValue] = useState('');
+
+    /**useMemo(...) memoriza el resultado */
+    const filterableColums = useMemo(
+        () => columns.filter((c) => c.filterable !== false),
+        [columns]
+    );
+
+    /**de esta manera obtenemos el identificador del selecionado de manera temporal */
+    const draftColumn = filterableColums.find((c) => c.key === draftField);
+
+    /**de esta manera entra a la funcion para filtrar el seleciondado */
+    const draftOptions = useMemo(() => {
+        //en el caso de que no sea el tipo de filtro de selecionado no hace nada
+        if(draftColumn?.filterType !== 'select') return null;
+        //recorre los datos de la tabla y extrae el valor correspondiente de la columna actual al mismo tiempo elimiina duplicados
+        return [...new Set(data.map((r) => String(r[draftColumn.key] ?? '')).filtrer(Boolean))].sort();
+    }, [data, draftColumn]);
+
+    /**con la funcion permite asegurar que los filtros esten en textos y que se almacenen los filtros en un 
+     en un arreglo en par clave - valor de cada filtro*/
+    const activeFilters = Object.entries(columnFilters).filter(([,v]) => String(v ?? '').trim());
+
+    /**De esta manera agregamos los filtros */
+    const addFilter = () =>{
+        /**si es que no hace nada o no hay nada para filtrar no hace nada */
+        if(!draftField || !String(draftValue).trim()) return;
+        //de esta manera actualizamos los filtros de manera recorrida
+        setColumnFilters((prev) =>({ ...prev, [draftField]: String(draftValue).trim()}));
+        //limpiamos los filtros
+        setDraftField(null);
+        setDraftValue('');
+        setPage(1)
+    }
+    /**De esta manera recorremos para borrar todos los filtros de manera individual */
+    const removeFilter = (key) => {
+    setColumnFilters((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+    });
+    setPage(1);
+};
+/**Limpia de manera completa los filtros en todos */
+const clearFilters = () => {
+    setColumnFilters({});
+    setPage(1);
+};
 
     const processed = useMemo(() => {
         const filtered = filterRows(data, columns, globalSearch, columnFilters);
@@ -187,6 +253,7 @@ export function TableSort({
 
     return (
         <div className={classes.wrapper}>
+  
             <div className={classes.tableControls}>
                 <Group gap="xs">
                     <Text className={classes.controlLabel}>Mostrar</Text>
@@ -207,7 +274,7 @@ export function TableSort({
                     <TextInput
                         className={classes.searchInput}
                         size="xs"
-                        placeholder=""
+                        placeholder={`Buscar ${entityLabel} ...`}
                         value={globalSearch}
                         onChange={(e) => {
                             setGlobalSearch(e.currentTarget.value);
@@ -215,8 +282,138 @@ export function TableSort({
                         }}
                     />
                 </Group>
-            </div>
 
+                      <Popover
+                opend={filterOpen}
+                onChange={setFilterOpen}
+                position="bottom-start"
+                offset={8}
+                width={320}
+                shadow="lg"
+                radius="md"
+                trapFocus
+                >
+
+                        <Popover.Target>
+                            <Button
+                            variant="default"
+                            size="sm"
+                            radius="md"
+                            className={classes.filterButton}
+                            leftSection={<IconFilter size={16} stroke={1.6}/>}
+                            rightSection={
+                                activeFilters.length > 0 ? (
+                                    <Badge size="xs" circle>
+                                        {activeFilters.length}
+                                    </Badge>
+                                ):null
+                            }
+                            >
+
+                            </Button>
+
+                        </Popover.Target>
+                        <Popover.Dropdown className={classes.popoverDropdown}>
+                            <Stack gap="sm">
+                                <Text className={classes.popoverTitle}>Filtrar por</Text>
+                                <Select
+                                label="Campo"
+                                placeholder="Selecciona un campo"
+                                size="xs"
+                                searchable
+                                data={filterableColums.map((c) => ({
+                                    value: c.key,
+                                    label: c.label,
+                                }))}
+                                value={draftField}
+                                onChange={
+                                    (v) => {
+                                        setDraftField(v);
+                                        setDraftValue('');
+                                    }
+                                }
+                                comboboxProps={{withinPortal: false}}
+                                />
+
+                                
+
+
+                                 {draftOptions ? (
+                                    <Select
+                                        label="Valor"
+                                        placeholder="Selecciona un valor"
+                                        size="xs"
+                                        searchable
+                                        data={draftOptions}
+                                        value={draftValue || null}
+                                        onChange={(v) => setDraftValue(v ?? '')}
+                                        comboboxProps={{ withinPortal: false }}
+                                    />
+                                ) : (
+                                    <TextInput
+                                        label="Valor"
+                                        placeholder={
+                                            draftField ? 'Escribe el valor...' : 'Primero elige un campo'
+                                        }
+                                        size="xs"
+                                        disabled={!draftField}
+                                        value={draftValue}
+                                        onChange={(e) => setDraftValue(e.currentTarget.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && addFilter()}
+                                    />
+                                )}
+
+                                <Group justify="space-between">
+                                    <Button variant="subtle" size="xs" color="gray" onClick={clearFilters}>
+                                        Borrar todos
+                                    </Button>
+                                    <Button
+                                        size="xs"
+                                        leftSection={<IconPlus size={14} />}
+                                        disabled={!draftField || !String(draftValue).trim()}
+                                        onClick={addFilter}
+                                    >
+                                        Agregar filtro
+                                    </Button>
+                                </Group>
+                            </Stack>
+                        </Popover.Dropdown>
+                </Popover>
+                
+                            <Button
+                            variant="default"
+                            size="sm"
+                            radius="md"
+                            className={classes.filterButton}
+                            onClick={onReload}
+                            >
+                                <IconReload size={18} stroke={1.8} />
+                            </Button>
+            </div>
+            {activeFilters.length > 0 && (
+    <div className={classes.activeFilters}>
+        {activeFilters.map(([key, value]) => {
+            const col = columns.find((c) => c.key === key);
+            return (
+                <Badge
+                    key={key}
+                    variant="light"
+                    size="lg"
+                    radius="sm"
+                    className={classes.filterChip}
+                    rightSection={
+                        <CloseButton size="xs" aria-label="Quitar filtro" onClick={() => removeFilter(key)} />
+                    }
+                >
+                    {col?.label ?? key}: {value}
+                </Badge>
+            );
+        })}
+        <UnstyledButton className={classes.clearAll} onClick={clearFilters}>
+            Limpiar todo
+        </UnstyledButton>
+    </div>
+)}
             <ScrollArea className={classes.scroll}>
                 <Table className={classes.table} horizontalSpacing="md" verticalSpacing={0} striped={false}>
                     <Table.Thead>
@@ -244,7 +441,7 @@ export function TableSort({
                                     {col.label}
                                 </Th>
                             ))}
-                            {(onEditar || onEliminar) && (
+                            {(onEditar || onEliminar || renderAcciones) && (
                                 <Table.Th className={classes.th}>
                                     <div className={classes.control}>
                                         <Text className={classes.thLabel}>Acciones</Text>
@@ -252,7 +449,7 @@ export function TableSort({
                                 </Table.Th>
                             )}
                         </Table.Tr>
-
+{/*
                         <Table.Tr className={classes.filterRow}>
                             {enableSelection && <Table.Th className={classes.filterCell} />}
                             {columns.map((col) => (
@@ -271,7 +468,7 @@ export function TableSort({
                                 </Table.Th>
                             ))}
                             {(onEditar || onEliminar) && <Table.Th className={classes.filterCell} />}
-                        </Table.Tr>
+                        </Table.Tr>*/}
                     </Table.Thead>
 
                     <Table.Tbody>
@@ -303,9 +500,10 @@ export function TableSort({
                                                     : String(fila[col.key] ?? '')}
                                             </Table.Td>
                                         ))}
-                                        {(onEditar || onEliminar) && (
+                                        {(onEditar || onEliminar || renderAcciones) && (
                                             <Table.Td className={`${classes.bodyCell} ${classes.actionsCell}`}>
                                                 <Group gap={6} wrap="nowrap">
+                                                    {renderAcciones && renderAcciones(fila)}
                                                     {onEditar && (
                                                         <Tooltip label={`Editar ${entityLabel}`} withArrow openDelay={250}>
                                                             <ActionIcon
@@ -344,7 +542,7 @@ export function TableSort({
                                     colSpan={
                                         columns.length +
                                         (enableSelection ? 1 : 0) +
-                                        (onEditar || onEliminar ? 1 : 0)
+                                        (onEditar || onEliminar || renderAcciones ? 1 : 0)
                                     }
                                     className={classes.emptyCell}
                                 >
