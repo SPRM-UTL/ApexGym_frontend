@@ -43,7 +43,7 @@ function App() {
           <Route
             path="/login"
             element={
-              estaLogeadoEn ? <Navigate to="/" replace /> : <Nueva onLoginAceptado={accionLogin} />
+              estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
             }
           />
 
