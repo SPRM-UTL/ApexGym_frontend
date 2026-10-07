@@ -29,6 +29,7 @@ import { TiposVisita } from './pages/TiposVisita/TiposVisita.jsx';
 import { api } from './scripts/services/api.js';
 import PantallaCarga from './components/PantallaCarga.jsx';
 import { Productos } from './pages/Productos/Productos.jsx';
+import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 
 function App() {
 
@@ -195,7 +196,18 @@ const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
               )
             }
           />
-
+          <Route
+            path="/metodos-pago"
+            element={
+              estaLogeadoEn ? (
+                <Dashboard onLogout={accionLogout}>
+                  <MetodosPago />
+                </Dashboard>
+              ) : (
+                <Login onLoginAceptado={accionLogin} />
+              )
+            }
+          />
           {/* Cualquier otra ruta no reconocida redirige a inicio */}
           <Route
             path="*"
