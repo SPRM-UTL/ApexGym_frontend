@@ -284,7 +284,7 @@ const clearFilters = () => {
                 </Group>
 
                       <Popover
-                opend={filterOpen}
+                opend={filterOpen ? true : undefined}
                 onChange={setFilterOpen}
                 position="bottom-start"
                 offset={8}
@@ -306,7 +306,7 @@ const clearFilters = () => {
                                     <Badge size="xs" circle>
                                         {activeFilters.length}
                                     </Badge>
-                                ):null
+                                ): undefined
                             }
                             >
 
