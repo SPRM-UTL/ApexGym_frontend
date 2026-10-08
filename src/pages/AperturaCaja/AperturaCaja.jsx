@@ -51,9 +51,9 @@ const CAMPOS = [
             return (r.data ?? []).map((e) => ({ value: String(e.id), label: `${e.nombre} ${e.apellidoPaterno}` }));
         },
     },
-    { key: 'montoInicial', label: 'Monto Inicial', required: true, type: 'number' },
+    { key: 'montoInicial', label: 'Monto Inicial', required: true, type: 'number', min: 0, max: 9999999.99 },
     { key: 'fechaApertura', label: 'Fecha de Apertura', required: true, type: 'date' },
-    { key: 'observaciones', label: 'Observaciones' },
+    { key: 'observaciones', label: 'Observaciones', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
@@ -124,7 +124,9 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         withAsterisk
                         prefix="$"
                         min={0}
+                        max={9999999.99}
                         decimalScale={2}
+                        description="Máximo $9,999,999.99"
                         value={form.montoInicial ?? ''}
                         error={errors.montoInicial}
                         size="md"
@@ -149,6 +151,8 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="Observaciones adicionales"
                         value={form.observaciones ?? ''}
                         error={errors.observaciones}
+                        maxLength={500}
+                        description="Máximo 500 caracteres"
                         size="md"
                         radius="md"
                         minRows={2}
