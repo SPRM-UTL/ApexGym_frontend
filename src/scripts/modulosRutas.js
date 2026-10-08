@@ -13,6 +13,13 @@ const RUTAS_POR_MODULO = {
     'Movimientos de Caja': '/movimientos-caja',
     'Corte de Caja': '/corte-caja',
     'Categorías de Productos': '/categorias-productos',
+    'Productos': '/productos',
+    'Estados de Cliente': '/estados-cliente',
+    'Clientes': '/clientes',
+    'Estados de Membresía': '/estados-membresia',
+    'Tipos de Membresía': '/tipos-membresia',
+    'Tipos de Visita': '/tipos-visita',
+    'Metodos de Pago': '/metodos-pago'
 };
 
 /**

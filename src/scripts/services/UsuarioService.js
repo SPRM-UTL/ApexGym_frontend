@@ -7,11 +7,13 @@ export class UsuarioService {
         this.urlApi = urlBase + '/api/usuarios';
     }
 
-    async login(email, contrasenia) {
+    async login(email, contrasenia, checkbox) {
+        
         try {
             const response = await httpClient.post(`${this.urlApi}/verificarCredenciales`, {
                 email,
                 contrasenia,
+                checkbox,
             });
             return response.data;
         } catch (error) {
@@ -19,6 +21,20 @@ export class UsuarioService {
                 error.response?.data || null,
                 1,
                 error.response?.data?.message || 'Error al iniciar sesión',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async logout(userId){
+        try{
+            const response = await httpClient.post(`${this.urlApi}/logout`,{userId})
+            return response.data
+        }catch(error){
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al cerrar el usuario',
                 error.response?.status || 500
             );
         }

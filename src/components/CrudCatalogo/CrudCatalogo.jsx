@@ -96,7 +96,7 @@ function Field({ campo, value, options, error, onChange, form }) {
     }
 
     if (tipo === 'textarea') {
-        return <Textarea {...common} minRows={campo.minRows ?? 3} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
+        return <Textarea {...common} minRows={campo.minRows ?? 3} maxLength={campo.maxLength} description={campo.description} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
     }
 
     if (tipo === 'select') {
@@ -106,14 +106,14 @@ function Field({ campo, value, options, error, onChange, form }) {
     if (tipo === 'number') {
         const step = typeof campo.step === 'function' ? campo.step(form) : campo.step;
         const decimalScale = typeof campo.decimalScale === 'function' ? campo.decimalScale(form) : campo.decimalScale;
-        return <NumberInput {...common} value={value ?? ''} onChange={onChange} min={campo.min} step={step} decimalScale={decimalScale} />;
+        return <NumberInput {...common} value={value ?? ''} onChange={onChange} min={campo.min} max={campo.max} step={step} decimalScale={decimalScale} description={campo.description} />;
     }
 
     if (tipo === 'boolean') {
         return <Switch label={campo.label} error={error} size="md" color="apex" checked={value === true || value === 'true'} onChange={(event) => onChange(event.currentTarget.checked)} />;
     }
 
-    return <TextInput {...common} type={campo.type} placeholder={campo.placeholder} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
+    return <TextInput {...common} type={campo.type} placeholder={campo.placeholder} maxLength={campo.maxLength} description={campo.description} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
 }
 
 export function CrudCatalogo({
@@ -206,10 +206,24 @@ export function CrudCatalogo({
     const save = async () => {
         const nextErrors = {};
         for (const campo of campos) {
-            if (!campo.required) continue;
             const value = form[campo.key];
-            if (value === undefined || value === null || String(value).trim() === '') {
+            if (campo.required && (value === undefined || value === null || String(value).trim() === '')) {
                 nextErrors[campo.key] = `${campo.label} es requerido`;
+                continue;
+            }
+            if (value !== undefined && value !== null && value !== '') {
+                if (campo.maxLength && String(value).length > campo.maxLength) {
+                    nextErrors[campo.key] = `${campo.label} no puede exceder ${campo.maxLength} caracteres`;
+                }
+                if (campo.type === 'number' || typeof value === 'number') {
+                    const num = Number(value);
+                    if (campo.min !== undefined && num < campo.min) {
+                        nextErrors[campo.key] = `${campo.label} no puede ser menor a ${campo.min}`;
+                    }
+                    if (campo.max !== undefined && num > campo.max) {
+                        nextErrors[campo.key] = `${campo.label} no puede exceder ${campo.max}`;
+                    }
+                }
             }
         }
         Object.assign(nextErrors, validateForm?.(form) ?? {});
@@ -316,29 +330,9 @@ export function CrudCatalogo({
             </Modal>
 
             <div className={classes.layout}>
-                <BarraAcciones onAdd={openCreate} onReload={() => { fetchData(); fetchOptions(); }} entityLabel={titulo.toLowerCase()} />
-                {loading && records.length === 0 ? (
-                    <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
-                ) : (
-                    <TablaRegistros
-                        data={tableData}
-                        columns={columnas}
-                        onEditar={permitirEditar ? openEdit : null}
-                        onEliminar={permitirEliminar ? setPendingDelete : null}
-                        renderAcciones={
-                            renderAccionesFila
-                                ? (fila) =>
-                                      renderAccionesFila(fila, records.find((r) => r.id === fila.id), {
-                                          reload: fetchData,
-                                          records,
-                                      })
-                                : null
-                        }
-                        entityLabel={singular.toLowerCase()}
-                        loading={loading}
-                    />
-                )}
-            </div>
+                <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
+                {error && <div className={classes.error}>{error}</div>}
+                {loading && records.length === 0 ? <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div> : <TablaRegistros data={tableData} columns={columnas} onEditar={openEdit} onEliminar={setPendingDelete} renderAcciones={renderAccionesFila} entityLabel={singular.toLowerCase()} loading={loading} onReload={() => { fetchData(); fetchOptions(); }} />}</div>
         </>
     );
 }
