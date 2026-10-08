@@ -95,8 +95,8 @@ const CAMPOS = [
             }));
         },
     },
-    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number' },
-    { key: 'observaciones',   label: 'Observaciones' },
+    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 99999999.99 },
+    { key: 'observaciones',   label: 'Observaciones', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
@@ -524,8 +524,12 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
 
     // Recalcular efectivo contado a partir del conteo de cierre
     const actualizarConteoCierre = (valor, cantidad) => {
-        const cant = cantidad === '' || isNaN(Number(cantidad)) ? 0 : Math.max(0, Math.floor(Number(cantidad)));
-        const nuevoConteo = { ...conteoCierre, [valor]: cantidad };
+        let cant = 0;
+        if (cantidad !== '' && !isNaN(Number(cantidad))) {
+            cant = Math.max(0, Math.min(100000, Math.floor(Number(cantidad))));
+        }
+        const valToStore = cantidad === '' ? '' : cant;
+        const nuevoConteo = { ...conteoCierre, [valor]: valToStore };
         setConteoCierre(nuevoConteo);
 
         // Sumar total
@@ -693,6 +697,8 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                                                 <NumberInput
                                                     size="xs"
                                                     min={0}
+                                                    max={100000}
+                                                    allowDecimal={false}
                                                     placeholder="0"
                                                     value={cantStr}
                                                     onChange={(v) => actualizarConteoCierre(d.valor, v)}
@@ -740,6 +746,8 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 placeholder="Notas o incidencias del turno (opcional)"
                 value={form.observaciones ?? ''}
                 error={errors.observaciones}
+                maxLength={500}
+                description="Máximo 500 caracteres"
                 size="md"
                 radius="md"
                 minRows={2}
