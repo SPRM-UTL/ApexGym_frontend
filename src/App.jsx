@@ -29,6 +29,8 @@ import { TiposVisita } from './pages/TiposVisita/TiposVisita.jsx';
 import { api } from './scripts/services/api.js';
 import PantallaCarga from './components/PantallaCarga.jsx';
 import { Productos } from './pages/Productos/Productos.jsx';
+import { PaginaError } from './pages/Error/PaginaError.jsx';
+import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
 
 function App() {
 
@@ -105,7 +107,8 @@ const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
     <>
       <ApiLoading />
       <BrowserRouter>
-        <Routes>
+        <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
+          <Routes>
           <Route
             path="/login"
             element={
@@ -196,13 +199,24 @@ const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
             }
           />
 
-          {/* Cualquier otra ruta no reconocida redirige a inicio */}
+          {/* Rutas de error */}
+          <Route
+            path="/error"
+            element={<PaginaError estaLogeadoEn={estaLogeadoEn} />}
+          />
+          <Route
+            path="/404"
+            element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
+          />
+
+          {/* Cualquier otra ruta no reconocida muestra la pantalla de error 404 */}
           <Route
             path="*"
-            element={<Navigate to={estaLogeadoEn ? "/" : "/login"} replace />}
+            element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
           />
         </Routes>
-      </BrowserRouter>
+      </ErrorBoundary>
+    </BrowserRouter>
     </>
   )
 }
