@@ -28,11 +28,11 @@ const CAMPOS = [
           return (r.data ?? []).map((a) => ({ value: String(a.id), label: a.nombre }));
       },
     },
-    { key: 'nombre',      label: 'Nombre del puesto', required: true },
-    { key: 'salarioBase', label: 'Salario Base',       required: true, type: 'number' },
+    { key: 'nombre',      label: 'Nombre del puesto', required: true, maxLength: 100 },
+    { key: 'salarioBase', label: 'Salario Base',       required: true, type: 'number', min: 0, max: 9999999.99 },
     { key: 'estado',      label: 'Estado',             required: true,
       options: [{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }] },
-    { key: 'descripcion', label: 'Descripción', type: 'textarea' },
+    { key: 'descripcion', label: 'Descripción', type: 'textarea', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
@@ -84,6 +84,8 @@ function PuestoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="Ej. Recepcionista / Entrenador"
                         value={form.nombre ?? ''}
                         error={errors.nombre}
+                        maxLength={100}
+                        description="Máximo 100 caracteres"
                         size="md" radius="md"
                         leftSection={<IconId size={16} stroke={1.5} />}
                         onChange={(e) => onChange('nombre', e.currentTarget.value)}
@@ -94,8 +96,10 @@ function PuestoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="0.00"
                         value={form.salarioBase ?? 0}
                         error={errors.salarioBase}
+                        description="Máximo $9,999,999.99"
                         size="md" radius="md"
                         min={0}
+                        max={9999999.99}
                         step={100}
                         decimalScale={2}
                         leftSection={<IconCurrencyDollar size={16} stroke={1.5} />}
@@ -116,6 +120,8 @@ function PuestoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="Descripción del puesto de trabajo"
                         value={form.descripcion ?? ''}
                         error={errors.descripcion}
+                        maxLength={500}
+                        description="Máximo 500 caracteres"
                         size="md" radius="md"
                         minRows={3}
                         leftSection={<IconFileText size={16} stroke={1.5} />}
