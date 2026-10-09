@@ -12,6 +12,7 @@ import {
     NumberFormatter,
     Paper,
     ScrollArea,
+    Select,
     SimpleGrid,
     Stack,
     Tabs,
@@ -136,7 +137,17 @@ const membresias = [
     },
 ];
 
-function TarjetaProducto({ producto, agregarProducto}) {
+const channel = new BroadcastChannel('app_sync_channel');
+
+// Enviar un mensaje o evento de cambio
+function triggerUpdate(data) {
+    channel.postMessage({
+        type: 'DATA_UPDATED',
+        payload: data
+    });
+}
+
+function TarjetaProducto({ producto, agregarProducto }) {
     return (
         <Card
             shadow="sm"
@@ -194,7 +205,7 @@ function ListaProductos({ productos, agregarProducto }) {
                     <TarjetaProducto
                         key={producto.id}
                         producto={producto}
-                        agregarProducto = {agregarProducto}
+                        agregarProducto={agregarProducto}
                     />
                 ))}
             </SimpleGrid>
@@ -202,7 +213,7 @@ function ListaProductos({ productos, agregarProducto }) {
     );
 }
 
-function Ticket({productos,sumar,restar,eliminarTicket}) {
+function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
 
     let subtotal = 0;
     let iva = 0;
@@ -237,7 +248,10 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                             </Text>
                         </div>
                     </Group>
-
+                    <select onChange={(e) => cambiarCaja(Number(e.target.value))}>
+                        <option value={1}>Canal 1</option>
+                        <option value={2}>Canal 2</option>
+                    </select>
                     <ActionIcon
                         variant="subtle"
                         color="red"
@@ -254,46 +268,46 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                     <Stack gap="sm">
 
                         {productos.map((producto) => (
-                                <Paper
-                            p="sm"
-                            radius="sm"
-                            withBorder
-                        >
-                            <Group justify="space-between">
-                                <div>
-                                    <Text size="sm" fw={600}>
-                                        {producto.nombre}
-                                    </Text>
+                            <Paper
+                                p="sm"
+                                radius="sm"
+                                withBorder
+                            >
+                                <Group justify="space-between">
+                                    <div>
+                                        <Text size="sm" fw={600}>
+                                            {producto.nombre}
+                                        </Text>
 
-                                    <Text size="xs" c="dimmed">
-                                        ${producto.precio} c/u
-                                    </Text>
-                                </div>
+                                        <Text size="xs" c="dimmed">
+                                            ${producto.precio} c/u
+                                        </Text>
+                                    </div>
 
-                                <Group gap={4}>
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="light"
-                                        onClick={()=>restar(producto)}
-                                    >
-                                        <IconMinus size={14} />
-                                    </ActionIcon>
+                                    <Group gap={4}>
+                                        <ActionIcon
+                                            size="sm"
+                                            variant="light"
+                                            onClick={() => restar(producto)}
+                                        >
+                                            <IconMinus size={14} />
+                                        </ActionIcon>
 
-                                    <Text size="sm" fw={600}>
-                                        {producto.cantidad}
-                                    </Text>
+                                        <Text size="sm" fw={600}>
+                                            {producto.cantidad}
+                                        </Text>
 
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="light"
-                                        onClick={()=>sumar(producto)}
-                                    >
-                                        <IconPlus size={14} />
-                                    </ActionIcon>
+                                        <ActionIcon
+                                            size="sm"
+                                            variant="light"
+                                            onClick={() => sumar(producto)}
+                                        >
+                                            <IconPlus size={14} />
+                                        </ActionIcon>
+                                    </Group>
                                 </Group>
-                            </Group>
-                        </Paper>
-                            ))}
+                            </Paper>
+                        ))}
                     </Stack>
                 </ScrollArea>
 
@@ -306,7 +320,13 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         </Text>
 
                         <Text fw={500}>
-                            ${subtotal}
+                            <NumberFormatter
+                                prefix="$"
+                                thousandSeparator=","
+                                decimalScale={2}
+                                fixedDecimalScale
+                                value={subtotal}
+                            />
                         </Text>
                     </Group>
 
@@ -316,7 +336,13 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         </Text>
 
                         <Text fw={500}>
-                            ${iva}
+                            <NumberFormatter
+                                prefix="$"
+                                thousandSeparator=","
+                                decimalScale={2}
+                                fixedDecimalScale
+                                value={iva}
+                            />
                         </Text>
                     </Group>
 
@@ -328,7 +354,13 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
                         </Text>
 
                         <Text fw={800} size="xl">
-                            ${total}
+                            <NumberFormatter
+                                prefix="$"
+                                thousandSeparator=","
+                                decimalScale={2}
+                                fixedDecimalScale
+                                value={total}
+                            />
                         </Text>
                     </Group>
 
@@ -348,8 +380,27 @@ function Ticket({productos,sumar,restar,eliminarTicket}) {
 
 export function Nueva() {
 
-    const [hora, setHora] = useState([]);
+    const [hora, setHora] = useState('');
     const [listaProductos, setListaProductos] = useState([]);
+    const [listaCaja1, setCaja1] = useState([]);
+    const [listaCaja2, setCaja2] = useState([]);
+
+    const cambiarCaja = (caja) => {
+        if (caja < 2) {
+            console.log("Caja 1")
+            setCaja1(listaProductos)
+            setListaProductos(listaCaja2)
+        }
+        else {
+            console.log("Caja 2")
+            setCaja2(listaProductos)
+            setListaProductos(listaCaja1)
+        }
+    }
+
+    useEffect(() => {
+        triggerUpdate(listaProductos);
+    }, [listaProductos]);
 
     useEffect(() => {
         const actualizarHora = () => {
@@ -363,26 +414,26 @@ export function Nueva() {
         return () => clearInterval(intervalo);
     }, []);
 
-    const agregarProducto = (producto) =>{
+    const agregarProducto = (producto) => {
         setListaProductos(listaAnterior => {
-        const existe = listaAnterior.find(p => p.id === producto.id && p.categoria === producto.categoria);
+            const existe = listaAnterior.find(p => p.id === producto.id && p.categoria === producto.categoria);
 
-        if (existe) {
-            return listaAnterior.map(p =>
-                p.id === producto.id && p.categoria === producto.categoria
-                    ? { ...p, cantidad: p.cantidad + 1 }
-                    : p
-            );
-        }
+            if (existe) {
+                return listaAnterior.map(p =>
+                    p.id === producto.id && p.categoria === producto.categoria
+                        ? { ...p, cantidad: p.cantidad + 1 }
+                        : p
+                );
+            }
 
-        return [
-            ...listaAnterior,
-            { ...producto, cantidad: 1 }
-        ];
-    });
+            return [
+                ...listaAnterior,
+                { ...producto, cantidad: 1 }
+            ];
+        });
     }
 
-    const sumar = (producto) =>{
+    const sumar = (producto) => {
         setListaProductos(listaAnterior => {
             return listaAnterior.map(p =>
                 p.id === producto.id && p.categoria === producto.categoria
@@ -392,15 +443,15 @@ export function Nueva() {
         })
     }
 
-    const restar = (producto) =>{
+    const restar = (producto) => {
         setListaProductos(listaAnterior => {
 
-            if (producto.cantidad > 1){
+            if (producto.cantidad > 1) {
                 return listaAnterior.map(p =>
-                p.id === producto.id && p.categoria === producto.categoria
-                    ? { ...p, cantidad: p.cantidad - 1 }
-                    : p
-            );
+                    p.id === producto.id && p.categoria === producto.categoria
+                        ? { ...p, cantidad: p.cantidad - 1 }
+                        : p
+                );
             }
             return listaAnterior.filter(p =>
                 !(p.id === producto.id && p.categoria === producto.categoria)
@@ -408,7 +459,7 @@ export function Nueva() {
         })
     }
 
-    const eliminarTicket = ()=>{
+    const eliminarTicket = () => {
         setListaProductos([]);
     }
 
@@ -505,7 +556,7 @@ export function Nueva() {
                     </Paper>
                 </div>
             </div>
-            <Ticket productos={listaProductos} sumar={sumar} restar={restar} eliminarTicket={eliminarTicket}></Ticket>
+            <Ticket productos={listaProductos} sumar={sumar} restar={restar} eliminarTicket={eliminarTicket} cambiarCaja={cambiarCaja}></Ticket>
         </div>
     );
 }

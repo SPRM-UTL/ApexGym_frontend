@@ -14,10 +14,9 @@ import { AperturaCaja } from './pages/AperturaCaja/AperturaCaja.jsx';
 import { MovimientosCaja } from './pages/MovimientosCaja/MovimientosCaja.jsx';
 import { CorteCaja } from './pages/CorteCaja/CorteCaja.jsx';
 import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
-// import { estaAutenticado, guardarToken, guardarUsuarioActual, eliminarToken, eliminarUsuarioActual } from './scripts/constantes.js';
-// import { useState } from 'react';
 import { Ventas } from './pages/RegistroVentas/Ventas/Ventas.jsx';
 import { Nueva } from './pages/RegistroVentas/Nueva/Nueva.jsx';
+import { ClienteVenta } from './pages/RegistroVentas/Cliente/Cliente.jsx';
 import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual, obtenerEsPersistente } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
 /**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
  * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
@@ -163,7 +162,10 @@ const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
           <Route path="/apertura-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AperturaCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/movimientos-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><MovimientosCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/corte-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><CorteCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-
+          <Route path="/registro-de-ventas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Ventas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+          <Route path="/registro-de-ventas/nueva" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Nueva /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+          <Route path="/registro-de-ventas/cliente" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ClienteVenta /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+          
           {/* Ruta raíz: muestra el grid de secciones (sin children) */}
           <Route
             path="/"

@@ -7,8 +7,6 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
     gap: var(--mantine-spacing-md);
 
     background-color: var(--background);
@@ -33,7 +31,10 @@
 }
 
 .ticket {
-    height: 100%;
+    height: 90%;
+    width: 85%;
+    margin-top: 30px;
+    justify-self: center;
     min-width: 0;
     overflow: hidden;
 }

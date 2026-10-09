@@ -1,457 +1,440 @@
-
-import classes from './Nueva.module.css';
+import classes from './Cliente.module.css';
+import { useState, useEffect } from 'react';
+import { Image } from '@mantine/core';
 
 import {
-    ActionIcon,
     Badge,
-    Button,
     Card,
     Divider,
     Group,
-    Image,
-    NumberFormatter,
     Paper,
-    ScrollArea,
-    SimpleGrid,
     Stack,
-    Tabs,
+    Table,
     Text,
     Title,
+    NumberFormatter,
+    ThemeIcon,
 } from '@mantine/core';
 
 import {
     IconBottle,
-    IconClipboardList,
-    IconCash,
-    IconMinus,
-    IconPlus,
     IconShoppingCart,
-    IconTrash,
     IconClock,
+    IconReceipt,
 } from '@tabler/icons-react';
 
-const productos = [
-    {
-        id: 1,
-        nombre: 'Producto 1',
-        categoria: 'Producto',
-        precio: 150,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 2,
-        nombre: 'Producto 2',
-        categoria: 'Producto',
-        precio: 250,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 3,
-        nombre: 'Producto 3',
-        categoria: 'Producto',
-        precio: 99,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 4,
-        nombre: 'Producto 4',
-        categoria: 'Producto',
-        precio: 320,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 5,
-        nombre: 'Producto 5',
-        categoria: 'Producto',
-        precio: 180,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 6,
-        nombre: 'Producto 6',
-        categoria: 'Producto',
-        precio: 450,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-];
+const channel = new BroadcastChannel('app_sync_channel');
 
-const servicios = [
-    {
-        id: 1,
-        nombre: 'Servicio 1',
-        categoria: 'Servicio',
-        precio: 200,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 2,
-        nombre: 'Servicio 2',
-        categoria: 'Servicio',
-        precio: 350,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 3,
-        nombre: 'Servicio 3',
-        categoria: 'Servicio',
-        precio: 500,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-];
+export function ClienteVenta() {
 
-function TarjetaProducto({ producto }) {
+    const [hora, setHora] = useState('');
+    const [ticket, setTicket] = useState([]);
+
+    useEffect(() => {
+
+        const actualizarHora = () => {
+
+            setHora(
+                new Date().toLocaleString('es-MX')
+            );
+
+        };
+
+        actualizarHora();
+
+        const intervalo = setInterval(
+            actualizarHora,
+            1000
+        );
+
+        return () => {
+            clearInterval(intervalo);
+        };
+
+    }, []);
+
+
+    // ==========================================
+    // SINCRONIZACIÓN
+    // ==========================================
+
+    useEffect(() => {
+
+        const recibirDatos = (event) => {
+
+            const { type, payload } = event.data;
+
+            if (type === 'DATA_UPDATED') {
+
+                console.log(
+                    'Cambio recibido:',
+                    payload
+                );
+
+                if (payload) {
+                    setTicket(payload);
+                }
+            }
+        };
+
+
+        channel.addEventListener(
+            'message',
+            recibirDatos
+        );
+
+
+        return () => {
+
+            channel.removeEventListener(
+                'message',
+                recibirDatos
+            );
+
+        };
+
+    }, []);
+
+    let subtotal = 0;
+    let iva = 0;
+    ticket.forEach(p => {
+        subtotal += (p.precio * p.cantidad);
+    });
+    iva = parseFloat((subtotal * 0.16).toFixed(2));
+    let total = parseFloat((subtotal + iva).toFixed(2));
+
     return (
-        <Card
-            shadow="sm"
-            padding="sm"
-            radius="md"
-            withBorder
-            className={classes.producto}
-        >
-            <Card.Section>
-                <Image
-                    src={producto.imagen}
-                    height={130}
-                    alt={producto.nombre}
-                />
-            </Card.Section>
 
-            <Stack gap={5} mt="sm">
-                <Group justify="space-between" align="flex-start">
-                    <Text fw={650} size="md"
-                        variant='gradient' gradient={{ from: 'orange', to: 'orange', deg: 0 }}
-                    >
-                        {producto.nombre}
-                    </Text>
-                </Group>
-
-                <Text variant="gradient"
-                    gradient={{ from: 'green', to: 'green', deg: 0 }} fw={700} size="md">
-                    <NumberFormatter
-                        prefix="$"
-                        value={producto.precio}
-                        thousandSeparator
-                        decimalScale={2}
-                    />
-                </Text>
-            </Stack>
-        </Card>
-    );
-}
-
-function ListaProductos({ productos }) {
-    return (
-        <ScrollArea h="calc(100vh - 230px)" offsetScrollbars>
-            <SimpleGrid
-                cols={{
-                    base: 1,
-                    sm: 2,
-                    md: 3,
-                    lg: 5,
-                }}
-                spacing="md"
-                pr="sm"
-            >
-                {productos.map((producto) => (
-                    <TarjetaProducto
-                        key={producto.id}
-                        producto={producto}
-                    />
-                ))}
-            </SimpleGrid>
-        </ScrollArea>
-    );
-}
-
-function Ticket() {
-    return (
-        <Paper
-            withBorder
-            radius="md"
-            shadow="sm"
-            className={classes.ticket}
-        >
-            <Stack gap={0} h="100%">
-                <Group
-                    justify="space-between"
-                    p="md"
-                    className={classes.ticketHeader}
-                >
-                    <Group gap="sm">
-                        <IconShoppingCart size={22} />
-
-                        <div>
-                            <Title order={4}>
-                                Ticket actual
-                            </Title>
-
-                            <Text size="xs" c="dimmed">
-                                3 productos
-                            </Text>
-                        </div>
-                    </Group>
-
-                    <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        aria-label="Vaciar ticket"
-                    >
-                        <IconTrash size={18} />
-                    </ActionIcon>
-                </Group>
-
-                <Divider />
-
-                <ScrollArea flex={1} p="md">
-                    <Stack gap="sm">
-                        <Paper
-                            p="sm"
-                            radius="sm"
-                            withBorder
-                        >
-                            <Group justify="space-between">
-                                <div>
-                                    <Text size="sm" fw={600}>
-                                        Producto 1
-                                    </Text>
-
-                                    <Text size="xs" c="dimmed">
-                                        $150.00 c/u
-                                    </Text>
-                                </div>
-
-                                <Group gap={4}>
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="light"
-                                    >
-                                        <IconMinus size={14} />
-                                    </ActionIcon>
-
-                                    <Text size="sm" fw={600}>
-                                        1
-                                    </Text>
-
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="light"
-                                    >
-                                        <IconPlus size={14} />
-                                    </ActionIcon>
-                                </Group>
-                            </Group>
-
-                            <Group justify="space-between" mt="xs">
-                                <Text size="xs" c="dimmed">
-                                    Cantidad: 1
-                                </Text>
-
-                                <Text fw={700}>
-                                    $150.00
-                                </Text>
-                            </Group>
-                        </Paper>
-
-                        <Paper
-                            p="sm"
-                            radius="sm"
-                            withBorder
-                        >
-                            <Group justify="space-between">
-                                <div>
-                                    <Text size="sm" fw={600}>
-                                        Producto 2
-                                    </Text>
-
-                                    <Text size="xs" c="dimmed">
-                                        $250.00 c/u
-                                    </Text>
-                                </div>
-
-                                <Group gap={4}>
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="light"
-                                    >
-                                        <IconMinus size={14} />
-                                    </ActionIcon>
-
-                                    <Text size="sm" fw={600}>
-                                        2
-                                    </Text>
-
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="light"
-                                    >
-                                        <IconPlus size={14} />
-                                    </ActionIcon>
-                                </Group>
-                            </Group>
-
-                            <Group justify="space-between" mt="xs">
-                                <Text size="xs" c="dimmed">
-                                    Cantidad: 2
-                                </Text>
-
-                                <Text fw={700}>
-                                    $500.00
-                                </Text>
-                            </Group>
-                        </Paper>
-                    </Stack>
-                </ScrollArea>
-
-                <Divider />
-
-                <Stack p="md" gap="xs">
-                    <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                            Subtotal
-                        </Text>
-
-                        <Text fw={500}>
-                            $650.00
-                        </Text>
-                    </Group>
-
-                    <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                            IVA
-                        </Text>
-
-                        <Text fw={500}>
-                            $104.00
-                        </Text>
-                    </Group>
-
-                    <Divider my="xs" />
-
-                    <Group justify="space-between">
-                        <Text fw={700} size="lg">
-                            Total
-                        </Text>
-
-                        <Text fw={800} size="xl">
-                            $754.00
-                        </Text>
-                    </Group>
-
-                    <Button
-                        size="md"
-                        fullWidth
-                        mt="xs"
-                        leftSection={<IconCash size={19} />}
-                    >
-                        Cobrar
-                    </Button>
-                </Stack>
-            </Stack>
-        </Paper>
-    );
-}
-
-export function Nueva() {
-    return (
         <div className={classes.principal}>
-            <div>
-                <Group
-                    justify="space-between"
-                    mb="md"
-                    align="flex-end"
-                    className={classes.header}
+
+            <Stack
+                maw={1000}
+                mx="auto"
+                w="100%"
+                gap="lg"
+            >
+
+                <Paper
+                    withBorder
+                    radius="md"
+                    p="lg"
+                    shadow="sm"
                 >
-                    <div>
-                        <Title order={2}>
-                            ApexGym
-                        </Title>
-                    </div>
-                    <div>
-                        <Title order={2}>
-                            Caja 1
-                        </Title>
-                    </div>
 
-                    <Badge
-                        size="lg"
-                        variant="light"
-                        leftSection={<IconClock size={15} />}
+                    <Group
+                        justify="space-between"
+                        align="center"
                     >
-                        29/09/2026 6:21 p.m
-                    </Badge>
-                </Group>
 
-                <div className={classes.catalogo}>
-                    <Paper
-                        withBorder
-                        radius="md"
-                        p="md"
-                        className={classes.catalogo}                        
-                    >
-                        <Tabs
-                            defaultValue="productos"
-                            variant="pills"
+                        <Group>
+
+                            <ThemeIcon
+                                size={50}
+                                radius="md"
+                                variant="light"
+                                color="blue"
+                            >
+                                <IconShoppingCart
+                                    size={28}
+                                />
+                            </ThemeIcon>
+
+                            <div>
+
+                                <Title order={2}>
+                                    ApexGym
+                                </Title>
+
+                                <Text
+                                    size="sm"
+                                    c="dimmed"
+                                >
+                                    Gracias por tu preferencia
+                                </Text>
+
+                            </div>
+
+                        </Group>
+
+
+                        <Badge
+                            size="lg"
+                            variant="light"
+                            color="blue"
+                            leftSection={
+                                <IconClock size={15} />
+                            }
                         >
-                            <Tabs.List mb="md">
-                                <Tabs.Tab
-                                    value="productos"
-                                    leftSection={
-                                        <IconBottle size={17} />
-                                    }
-                                >
-                                    Productos
-                                </Tabs.Tab>
+                            {hora}
+                        </Badge>
 
-                                <Tabs.Tab
-                                    value="servicios"
-                                    leftSection={
-                                        <IconCash size={17} />
-                                    }
-                                >
-                                    Servicios
-                                </Tabs.Tab>
+                    </Group>
 
-                                <Tabs.Tab
-                                    value="membresias"
-                                    leftSection={
-                                        <IconClipboardList size={17} />
-                                    }
-                                >
-                                    Membresias
-                                </Tabs.Tab>
-                            </Tabs.List>
+                </Paper>
 
-                            <Tabs.Panel value="productos">
-                                <ListaProductos
-                                    productos={productos}
+                <Card
+                    withBorder
+                    radius="md"
+                    shadow="sm"
+                    padding="xl"
+                >
+
+                    <Group
+                        justify="space-between"
+                        mb="xl"
+                    >
+
+                        <Group>
+
+                            <ThemeIcon
+                                size={45}
+                                radius="md"
+                                variant="light"
+                                color="green"
+                            >
+
+                                <IconReceipt
+                                    size={25}
                                 />
-                            </Tabs.Panel>
 
-                            <Tabs.Panel value="servicios">
-                                <ListaProductos
-                                    productos={servicios}
+                            </ThemeIcon>
+
+
+                            <div>
+
+                                <Text
+                                    size="xs"
+                                    fw={700}
+                                    c="dimmed"
+                                    tt="uppercase"
+                                >
+                                    Ticket actual
+                                </Text>
+
+                                <Title order={3}>
+                                    Mi compra
+                                </Title>
+
+                            </div>
+
+                        </Group>
+
+
+                        <Badge
+                            size="lg"
+                            variant="light"
+                            color="green"
+                        >
+                            Compra en proceso
+                        </Badge>
+
+                    </Group>
+
+                    <Table.ScrollContainer h="200px" offsetScrollbars>
+                        <Table stickyHeader
+                            verticalSpacing="md"
+                            highlightOnHover
+                        >
+
+                            <Table.Thead>
+
+                                <Table.Tr>
+
+                                    <Table.Th>
+                                        Producto / Servicio
+                                    </Table.Th>
+
+                                    <Table.Th ta="center">
+                                        Cant.
+                                    </Table.Th>
+
+                                    <Table.Th ta="right">
+                                        Precio
+                                    </Table.Th>
+
+                                    <Table.Th ta="right">
+                                        Subtotal
+                                    </Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {ticket.map(
+                                    (producto) => (
+
+                                        <Table.Tr
+                                            key={producto.id}
+                                        >
+
+                                            <Table.Td>
+
+                                                <Group gap="sm">
+
+                                                    <ThemeIcon
+                                                        size={50}
+                                                        radius="md"
+                                                        variant="light"
+                                                    >
+                                                        <Image
+                                                            fit="contain"
+                                                            src={producto.imagen}
+                                                        />
+
+                                                    </ThemeIcon>
+
+                                                    <Text fw={500}>
+                                                        {
+                                                            producto.nombre
+                                                        }
+                                                    </Text>
+
+                                                </Group>
+
+                                            </Table.Td>
+
+
+                                            <Table.Td ta="center">
+
+                                                <Badge
+                                                    variant="light"
+                                                    color="gray"
+                                                >
+                                                    {
+                                                        producto.cantidad
+                                                    }
+                                                </Badge>
+
+                                            </Table.Td>
+
+
+                                            <Table.Td ta="right">
+
+                                                <NumberFormatter
+                                                    prefix="$"
+                                                    thousandSeparator=","
+                                                    decimalScale={2}
+                                                    fixedDecimalScale
+                                                    value={
+                                                        producto.precio
+                                                    }
+                                                />
+
+                                            </Table.Td>
+
+                                            <Table.Td ta="right">
+
+                                                <Text fw={600}>
+
+                                                    <NumberFormatter
+                                                        prefix="$"
+                                                        thousandSeparator=","
+                                                        decimalScale={2}
+                                                        fixedDecimalScale
+                                                        value={
+                                                            producto.precio *
+                                                            producto.cantidad
+                                                        }
+                                                    />
+
+                                                </Text>
+
+                                            </Table.Td>
+
+                                        </Table.Tr>
+
+                                    )
+                                )}
+
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
+
+                    <Stack
+                        gap="xs"
+                        mt="xl"
+                    >
+                        <Group justify="space-between">
+                            <Text c="dimmed">
+                                Subtotal
+                            </Text>
+                            <Text>
+                                <NumberFormatter
+                                    prefix="$"
+                                    thousandSeparator=","
+                                    decimalScale={2}
+                                    fixedDecimalScale
+                                    value={subtotal}
                                 />
-                            </Tabs.Panel>
-                            
-                            <Tabs.Panel value="membresias">
-                                <ListaProductos
-                                    productos={servicios}
+                            </Text>
+                        </Group>
+                        <Group justify="space-between">
+                            <Text c="dimmed">
+                                IVA (16%)
+                            </Text>
+                            <Text>
+                                <NumberFormatter
+                                    prefix="$"
+                                    thousandSeparator=","
+                                    decimalScale={2}
+                                    fixedDecimalScale
+                                    value={iva}
                                 />
-                            </Tabs.Panel>
-                        </Tabs>
-                    </Paper>
-                </div>
-            </div>
-            <Ticket></Ticket>
+                            </Text>
+                        </Group>
+                        <Divider />
+
+                        <Paper
+                            p="lg"
+                            radius="md"
+                            withBorder
+                            bg="blue.0"
+                        >
+                            <Group
+                                justify="space-between"
+                                align="center"
+                            >
+                                <div>
+                                    <Text
+                                        size="sm"
+                                        fw={600}
+                                        c="blue.8"
+                                    >
+                                        TOTAL A PAGAR
+                                    </Text>
+                                    <Text
+                                        size="xs"
+                                        c="dimmed"
+                                    >
+                                        Impuestos incluidos
+                                    </Text>
+                                </div>
+
+                                <Text
+                                    size="2rem"
+                                    fw={800}
+                                    c="blue.7"
+                                >
+
+                                    <NumberFormatter
+                                        prefix="$"
+                                        thousandSeparator=","
+                                        decimalScale={2}
+                                        fixedDecimalScale
+                                        value={total}
+                                    />
+
+                                </Text>
+
+                            </Group>
+
+                        </Paper>
+
+                    </Stack>
+
+                </Card>
+
+            </Stack>
+
         </div>
+
     );
 }
