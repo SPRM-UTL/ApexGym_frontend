@@ -21,8 +21,8 @@ import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 /* ─── Campos (solo para validación y payload) ───────────────────────────────── */
 const CAMPOS = [
-    { key: 'nombre',    label: 'Nombre de la caja', required: true },
-    { key: 'ubicacion', label: 'Ubicación' },
+    { key: 'nombre',    label: 'Nombre de la caja', required: true, maxLength: 100 },
+    { key: 'ubicacion', label: 'Ubicación', maxLength: 255 },
     { key: 'estado',    label: 'Estado',             required: true,
       options: [{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }] },
 ];
@@ -65,6 +65,8 @@ function CajaForm({ form, errors, onChange }) {
                         placeholder="Ej. Caja Principal"
                         value={form.nombre ?? ''}
                         error={errors.nombre}
+                        maxLength={100}
+                        description="Máximo 100 caracteres"
                         size="md" radius="md"
                         leftSection={<IconCash size={16} stroke={1.5} />}
                         onChange={(e) => onChange('nombre', e.currentTarget.value)}
@@ -84,6 +86,8 @@ function CajaForm({ form, errors, onChange }) {
                         placeholder="Ej. Recepción - Entrada principal"
                         value={form.ubicacion ?? ''}
                         error={errors.ubicacion}
+                        maxLength={255}
+                        description="Máximo 255 caracteres"
                         size="md" radius="md"
                         leftSection={<IconMapPin size={16} stroke={1.5} />}
                         onChange={(e) => onChange('ubicacion', e.currentTarget.value)}
