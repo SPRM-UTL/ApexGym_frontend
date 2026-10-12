@@ -22,6 +22,11 @@ export class CategoriaProductoService {
         }
     }
 
+    // Alias para compatibilidad con CrudCatalogo y el estándar del resto de servicios
+    async obtenerTodos() {
+        return this.obtenerTodas();
+    }
+
     async crear(nombre, descripcion) {
         try {
             // POST a la raíz / (sin /crearCategoria)
