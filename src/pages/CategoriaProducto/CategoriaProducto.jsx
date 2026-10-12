@@ -233,7 +233,7 @@ export function CategoriaProducto() {
             />
 
             <div className={classes.crudLayout}>
-                <BarraAcciones  onAdd={abrirAgregar} title={titulo} entityLabel={titulo.toLowerCase()}  />
+                <BarraAcciones  onAdd={abrirAgregar} title={titulo} entityLabel={titulo.toLowerCase()} /**Aqui es el nombre del crud */ />
 
                 {error && <div className={classes.errorBanner}>{error}</div>}
 
