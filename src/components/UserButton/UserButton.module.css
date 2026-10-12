@@ -1,16 +1,22 @@
 .user {
     display: block;
     max-width: 280px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     color: #ffffff;
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
     text-align: left;
     border-radius: 8px;
+    transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 
     &:hover {
         background-color: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    &:active {
+        transform: scale(0.98);
     }
 }
 

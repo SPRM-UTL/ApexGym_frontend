@@ -161,6 +161,9 @@
   text-transform: none;
   color: var(--ag-color-black);
   padding: 12px var(--mantine-spacing-md);
+  max-width: 350px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Acciones */

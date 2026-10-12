@@ -31,12 +31,12 @@ import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.j
 
 /* ─── Constantes de campos (solo para validación / payload, no para render) ─── */
 const CAMPOS = [
-    { key: 'nombre',           label: 'Nombre(s)',                    required: true  },
-    { key: 'apellidoPaterno',  label: 'Apellido Paterno',             required: true  },
-    { key: 'apellidoMaterno',  label: 'Apellido Materno'                              },
-    { key: 'telefono',         label: 'Teléfono',                     required: true  },
-    { key: 'correo',           label: 'Correo electrónico'                            },
-    { key: 'direccion',        label: 'Dirección'                                     },
+    { key: 'nombre',           label: 'Nombre(s)',                    required: true, maxLength: 100 },
+    { key: 'apellidoPaterno',  label: 'Apellido Paterno',             required: true, maxLength: 100 },
+    { key: 'apellidoMaterno',  label: 'Apellido Materno',                             maxLength: 100 },
+    { key: 'telefono',         label: 'Teléfono',                     required: true, maxLength: 10 },
+    { key: 'correo',           label: 'Correo electrónico',                           maxLength: 191 },
+    { key: 'direccion',        label: 'Dirección',                                    maxLength: 500 },
     { key: 'areaTrabajoId',    label: 'Área de trabajo',              required: true,
       loadOptions: async () => {
           const r = await api.areaTrabajo.obtenerTodos();
@@ -95,7 +95,7 @@ const sectionHeader = {
 };
 
 /* ─── Helpers de campo ──────────────────────────────────────────────────────── */
-function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, onChange }) {
+function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, maxLength, max, min, description, onChange }) {
     return (
         <TextInput
             label={label}
@@ -104,6 +104,10 @@ function FInput({ label, icon: Icon, required, placeholder, type = 'text', value
             type={type}
             value={value ?? ''}
             error={error}
+            maxLength={maxLength}
+            max={max}
+            min={min}
+            description={description}
             size="md"
             radius="md"
             leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
@@ -112,13 +116,15 @@ function FInput({ label, icon: Icon, required, placeholder, type = 'text', value
     );
 }
 
-function FTextarea({ label, icon: Icon, placeholder, value, error, onChange }) {
+function FTextarea({ label, icon: Icon, placeholder, value, error, maxLength, description, onChange }) {
     return (
         <Textarea
             label={label}
             placeholder={placeholder}
             value={value ?? ''}
             error={error}
+            maxLength={maxLength}
+            description={description}
             size="md"
             radius="md"
             minRows={2}
@@ -146,6 +152,12 @@ function FSelect({ label, icon: Icon, required, placeholder, options = [], value
 
 /* ─── Render del formulario personalizado ───────────────────────────────────── */
 function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
+    const fechaMaximaNacimiento = useMemo(() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 18);
+        return d.toISOString().split('T')[0];
+    }, []);
+
     const handleDrop = (archivos) => {
         const archivo = archivos[0] ?? null;
         if (!archivo) return;
@@ -174,36 +186,48 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                         <FInput
                             label="Nombre(s)" required icon={IconUser}
                             placeholder="Ej. Juan"
+                            maxLength={100}
+                            description="Máximo 100 caracteres"
                             value={form.nombre} error={errors.nombre}
                             onChange={(v) => onChange('nombre', v)}
                         />
                         <FInput
                             label="Apellido Paterno" required icon={IconUser}
                             placeholder="Ej. Pérez"
+                            maxLength={100}
+                            description="Máximo 100 caracteres"
                             value={form.apellidoPaterno} error={errors.apellidoPaterno}
                             onChange={(v) => onChange('apellidoPaterno', v)}
                         />
                         <FInput
                             label="Apellido Materno" icon={IconUser}
                             placeholder="Ej. López"
+                            maxLength={100}
+                            description="Máximo 100 caracteres"
                             value={form.apellidoMaterno} error={errors.apellidoMaterno}
                             onChange={(v) => onChange('apellidoMaterno', v)}
                         />
                         <FInput
                             label="Teléfono" required icon={IconPhone}
                             placeholder="Ej. 4771234567"
+                            maxLength={10}
+                            description="10 dígitos numéricos"
                             value={form.telefono} error={errors.telefono}
-                            onChange={(v) => onChange('telefono', v)}
+                            onChange={(v) => onChange('telefono', v.replace(/\D/g, '').slice(0, 10))}
                         />
                         <FInput
                             label="Correo electrónico" icon={IconMail}
                             placeholder="Ej. empleado@apexgym.com"
+                            maxLength={191}
+                            description="Máximo 191 caracteres"
                             value={form.correo} error={errors.correo}
                             onChange={(v) => onChange('correo', v)}
                         />
                         <FTextarea
                             label="Dirección" icon={IconMapPin}
                             placeholder="Ej. Av. Principal 123, Col. Centro"
+                            maxLength={500}
+                            description="Máximo 500 caracteres"
                             value={form.direccion} error={errors.direccion}
                             onChange={(v) => onChange('direccion', v)}
                         />
@@ -249,6 +273,8 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                         <FInput
                             label="Fecha de Nacimiento" required icon={IconCalendar}
                             type="date"
+                            max={fechaMaximaNacimiento}
+                            description="Mínimo 18 años cumplidos"
                             value={form.fechaNacimiento} error={errors.fechaNacimiento}
                             onChange={(v) => onChange('fechaNacimiento', v)}
                         />
@@ -346,6 +372,29 @@ export function Empleados() {
         correo:         record.correo                 ?? '—',
     });
 
+    const validateForm = (form) => {
+        const errors = {};
+        if (form.telefono && !/^\d{10}$/.test(form.telefono)) {
+            errors.telefono = 'El teléfono debe contener exactamente 10 dígitos numéricos';
+        }
+        if (form.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) {
+            errors.correo = 'Formato de correo electrónico no válido';
+        }
+        if (form.fechaNacimiento) {
+            const birth = new Date(form.fechaNacimiento);
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            if (isNaN(age) || age < 18) {
+                errors.fechaNacimiento = 'El empleado debe ser mayor de edad (mínimo 18 años)';
+            }
+        }
+        return errors;
+    };
+
     return (
         <CrudCatalogo
             titulo="Empleados"
@@ -358,6 +407,7 @@ export function Empleados() {
             mapRecordToForm={mapRecordToForm}
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
+            validateForm={validateForm}
             renderForm={(props) => <EmpleadoForm {...props} />}
         />
     );

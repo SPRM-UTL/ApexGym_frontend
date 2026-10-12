@@ -60,9 +60,9 @@ const CAMPOS = [
             { value: 'SALIDA', label: 'Salida' },
         ],
     },
-    { key: 'monto',       label: 'Monto',       required: true, type: 'number' },
-    { key: 'concepto',    label: 'Concepto',     required: true },
-    { key: 'observaciones', label: 'Observaciones' },
+    { key: 'monto',       label: 'Monto',       required: true, type: 'number', min: 0.01, max: 9999999.99 },
+    { key: 'concepto',    label: 'Concepto',     required: true, maxLength: 255 },
+    { key: 'observaciones', label: 'Observaciones', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
@@ -218,7 +218,9 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         withAsterisk
                         prefix="$"
                         min={0.01}
+                        max={9999999.99}
                         decimalScale={2}
+                        description="Máximo $9,999,999.99"
                         value={form.monto ?? ''}
                         error={superaSaldo ? `Supera el saldo disponible ($${saldoDisponible.toFixed(2)})` : errors.monto}
                         size="md"
@@ -247,6 +249,8 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="Ej. Retiro parcial por seguridad / Pago de papelería"
                         value={form.concepto ?? ''}
                         error={errors.concepto}
+                        maxLength={255}
+                        description="Máximo 255 caracteres"
                         size="md"
                         radius="md"
                         style={{ gridColumn: '1 / -1' }}
@@ -259,6 +263,8 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="Observaciones adicionales"
                         value={form.observaciones ?? ''}
                         error={errors.observaciones}
+                        maxLength={500}
+                        description="Máximo 500 caracteres"
                         size="md"
                         radius="md"
                         minRows={2}
@@ -321,7 +327,10 @@ export function MovimientosCaja() {
         if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una apertura';
         if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
         if (!form.monto || Number(form.monto) <= 0) errors.monto = 'El monto debe ser mayor a 0';
+        if (Number(form.monto) > 9999999.99) errors.monto = 'El monto no puede exceder $9,999,999.99';
         if (!form.concepto?.trim()) errors.concepto = 'El concepto es requerido';
+        if (form.concepto?.trim().length > 255) errors.concepto = 'El concepto no puede exceder 255 caracteres';
+        if (form.observaciones?.trim().length > 500) errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
 
         // Validar saldo si es salida
         if (form.tipo === 'SALIDA' && form.aperturaCajaId && Number(form.monto) > 0) {

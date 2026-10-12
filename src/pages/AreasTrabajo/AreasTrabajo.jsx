@@ -19,8 +19,8 @@ import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 /* ─── Campos (solo para validación y payload) ───────────────────────────────── */
 const CAMPOS = [
-    { key: 'nombre',      label: 'Nombre del área', required: true },
-    { key: 'descripcion', label: 'Descripción',      type: 'textarea' },
+    { key: 'nombre',      label: 'Nombre del área', required: true, maxLength: 100 },
+    { key: 'descripcion', label: 'Descripción',      type: 'textarea', maxLength: 500 },
     { key: 'estado',      label: 'Estado',           required: true,
       options: [{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }] },
 ];
@@ -62,6 +62,8 @@ function AreaTrabajoForm({ form, errors, onChange }) {
                         placeholder="Ej. Recepción / Mantenimiento"
                         value={form.nombre ?? ''}
                         error={errors.nombre}
+                        maxLength={100}
+                        description="Máximo 100 caracteres"
                         size="md" radius="md"
                         leftSection={<IconBriefcase size={16} stroke={1.5} />}
                         onChange={(e) => onChange('nombre', e.currentTarget.value)}
@@ -81,6 +83,8 @@ function AreaTrabajoForm({ form, errors, onChange }) {
                         placeholder="Descripción breve del área de trabajo"
                         value={form.descripcion ?? ''}
                         error={errors.descripcion}
+                        maxLength={500}
+                        description="Máximo 500 caracteres"
                         size="md" radius="md"
                         minRows={3}
                         leftSection={<IconFileText size={16} stroke={1.5} />}
