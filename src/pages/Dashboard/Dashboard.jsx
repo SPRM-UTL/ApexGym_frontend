@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Alert,
     Anchor,
@@ -19,7 +19,7 @@ import {
     IconLogout,
     IconUsers,
 } from '@tabler/icons-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { isSession, useLocation, useNavigate } from 'react-router-dom';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
@@ -46,12 +46,17 @@ export function Dashboard({ children, onLogout }) {
     const navigate = useNavigate();
     const location = useLocation();
     const usuarioActual = obtenerUsuarioActual();
+    const contentRef = useRef(null);
 
     const [secciones, setSecciones] = useState([]);
     const [cargando, setCargando] = useState(true);
     const [errorCarga, setErrorCarga] = useState(null);
     const [seccionActiva, setSeccionActiva] = useState(null);
 
+    useEffect(() => {
+        contentRef.current?.scrollTo(0, 0);
+    }, [location.pathname, seccionActiva]);
+    
     useEffect(() => {
         const cargar = async () => {
             try {
@@ -263,7 +268,7 @@ export function Dashboard({ children, onLogout }) {
                 </Group>
             </header>
 
-            <main className={classes.content}>
+            <main ref={contentRef} className={classes.content}>
                 {(enInicio || mostrarChildren) && (
                     <Breadcrumbs
                         className={classes.breadcrumb}
