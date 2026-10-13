@@ -6,7 +6,6 @@ import {
     PasswordInput,
     Text,
     TextInput,
-    Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useState , useRef} from 'react';
@@ -85,20 +84,13 @@ export function Login({ onLoginAceptado }) {
         }
     };
 
-
     return (
         <div className={classes.wrapper}>
             <BackgruondLogin />
             <Paper className={classes.form}>
                 <div className={classes.logoContent}>
-                        <img src={logoImg} alt="Apex Gym Logo" className={classes.brandIcon}   />
-                        
-                    </div>
-                <Title order={2} className={classes.title}>
-                    Bienvenido a <br/>
-                                        <span className={classes.logo}>Apex </span> <span className={classes.logoAccent}>Gym</span>
-
-                </Title>
+                    <img src={logoImg} alt="Apex Gym Logo" className={classes.brandIcon} />
+                </div>
 
                 <TextInput
                     label="Correo electrónico"
