@@ -84,7 +84,6 @@ export function Login({ onLoginAceptado }) {
         }
     };
 
-
     return (
         <div className={classes.wrapper}>
             <BackgruondLogin />
