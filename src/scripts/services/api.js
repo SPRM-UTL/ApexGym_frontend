@@ -19,6 +19,7 @@ import { ClienteService } from './ClienteService.js';
 import { EstadoMembresiaService } from './EstadoMembresiaService.js';
 import { TipoMembresiaService } from './TipoMembresiaService.js';
 import { TipoVisitaService } from './TipoVisitaService.js';
+import { ClienteMembresiaService } from './ClienteMembresiaService.js';
 import { MetodosPagoService } from './MetodosPagoService.js';
 
 export class ApiService {
@@ -45,6 +46,7 @@ export class ApiService {
         this.aperturaCaja = new AperturaCajaService(this.urlBase);
         this.movimientoCaja = new MovimientoCajaService(this.urlBase);
         this.corteCaja = new CorteCajaService(this.urlBase);
+        this.clienteMembresia = new ClienteMembresiaService(this.urlBase);
         this.metodosPago=  new MetodosPagoService(this.urlBase);
     }
 }

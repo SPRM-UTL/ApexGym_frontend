@@ -18,11 +18,17 @@ import {
     IconCalendar,
     IconId,
     IconHeartbeat,
-    IconUsers
+    IconUsers,
+    IconCertificate,
+    IconHistory
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { ModalAsignarMembresia } from './ModalAsignarMembresia.jsx';
+import { ModalHistorialMembresias } from './ModalHistorialMembresias.jsx';
+import { ActionIcon, Tooltip } from '@mantine/core';
+import { useState } from 'react';
 
 const CAMPOS = [
     {
@@ -179,6 +185,8 @@ function ClienteForm({ form, errors, onChange, fieldOptions }) {
 
 export function Clientes() {
     cambioNombreWeb('Clientes');
+    const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+    const [clienteHistorial, setClienteHistorial] = useState(null);
 
     const mapRecordToForm = useMemo(() => (record) => ({
         estadoClienteId: record.estadoCliente?.id ? String(record.estadoCliente.id) : '',
@@ -210,26 +218,55 @@ export function Clientes() {
 
     const mapRecordToRow = (record) => ({
         id: record.id,
+        nombre: record.nombre,
         nombreCompleto: `${record.nombre} ${record.apellidoPaterno} ${record.apellidoMaterno || ''}`.trim(),
         estado: record.estadoCliente?.nombre ?? '—',
         telefono: record.telefono ?? '—',
         correo: record.correo ?? '—',
     });
 
+    const renderAccionesFila = (fila) => (
+        <>
+            <Tooltip label="Ver Historial de Membresías" withArrow openDelay={250}>
+                <ActionIcon variant="light" color="blue" size="lg" onClick={() => setClienteHistorial(fila)}>
+                    <IconHistory size={20} stroke={1.8} />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Asignar / Renovar Membresía" withArrow openDelay={250}>
+                <ActionIcon variant="light" color="indigo" size="lg" onClick={() => setClienteSeleccionado(fila)}>
+                    <IconCertificate size={20} stroke={1.8} />
+                </ActionIcon>
+            </Tooltip>
+        </>
+    );
+
     return (
-        <CrudCatalogo 
-            titulo="Clientes" 
-            singular="Cliente" 
-            icon={IconUsers}
-            servicio={api.cliente} 
-            columnas={COLUMNAS} 
-            campos={CAMPOS} 
-            valoresIniciales={INICIAL} 
-            mapRecordToForm={mapRecordToForm} 
-            mapFormToPayload={mapFormToPayload} 
-            mapRecordToRow={mapRecordToRow} 
-            renderForm={(props) => <ClienteForm {...props} />} 
-        />
+        <>
+            <CrudCatalogo 
+                titulo="Clientes" 
+                singular="Cliente" 
+                icon={IconUsers}
+                servicio={api.cliente} 
+                columnas={COLUMNAS} 
+                campos={CAMPOS} 
+                valoresIniciales={INICIAL} 
+                mapRecordToForm={mapRecordToForm} 
+                mapFormToPayload={mapFormToPayload} 
+                mapRecordToRow={mapRecordToRow} 
+                renderForm={(props) => <ClienteForm {...props} />} 
+                renderAccionesFila={renderAccionesFila}
+            />
+            <ModalAsignarMembresia 
+                opened={!!clienteSeleccionado} 
+                onClose={() => setClienteSeleccionado(null)} 
+                cliente={clienteSeleccionado} 
+            />
+            <ModalHistorialMembresias 
+                opened={!!clienteHistorial} 
+                onClose={() => setClienteHistorial(null)} 
+                cliente={clienteHistorial} 
+            />
+        </>
     );
 }
 
