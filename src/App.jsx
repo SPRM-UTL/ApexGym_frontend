@@ -89,13 +89,10 @@ function App() {
   const accionLogout = async () => {
     /**eliminarToken();*/ //Evitamos que llame el token que no esta almacenado en LocalStore
     try {
-      if (usuarioActual && usuarioActual.id) {
-
-        const res = await api.user.logout(usuario.id);
-      }
+        await api.user.logout();
 
     } catch (error) {
-      console.error("error al serrar sesion", error)
+      console.error("error al cerrar sesion", error)
     }
 
 
