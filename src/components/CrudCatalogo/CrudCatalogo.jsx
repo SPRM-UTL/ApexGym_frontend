@@ -265,7 +265,28 @@ export function CrudCatalogo({
         }
     };
 
-    const tableData = useMemo(() => records.map(mapRecordToRow), [records, mapRecordToRow]);
+    const tableData = useMemo(() => records.map((record) => {
+        const row = mapRecordToRow(record);
+        return {
+            ...row,
+            _recordOriginal: record,
+        };
+    }), [records, mapRecordToRow]);
+
+    const handleRenderAcciones = useMemo(() => {
+        if (!renderAccionesFila) return undefined;
+        return (fila) => {
+            const recordOriginal = fila?._recordOriginal ?? records.find((r) => r.id === fila?.id) ?? fila;
+            return renderAccionesFila(fila, recordOriginal, {
+                reload: () => {
+                    fetchData();
+                    fetchOptions();
+                },
+                openEdit: (rec = recordOriginal) => openEdit(rec),
+                deleteRecord: (rec = recordOriginal) => setPendingDelete(rec),
+            });
+        };
+    }, [renderAccionesFila, records]);
 
     const leftFields = useMemo(() => campos.filter((c) => c.side !== 'right'), [campos]);
     const rightFields = useMemo(() => campos.filter((c) => c.side === 'right'), [campos]);
@@ -332,7 +353,24 @@ export function CrudCatalogo({
             <div className={classes.layout}>
                 <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
                 {error && <div className={classes.error}>{error}</div>}
-                {loading && records.length === 0 ? <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div> : <TablaRegistros data={tableData} columns={columnas} onEditar={openEdit} onEliminar={setPendingDelete} renderAcciones={renderAccionesFila} entityLabel={singular.toLowerCase()} loading={loading} onReload={() => { fetchData(); fetchOptions(); }} />}</div>
+                {loading && records.length === 0 ? (
+                    <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
+                ) : (
+                    <TablaRegistros
+                        data={tableData}
+                        columns={columnas}
+                        onEditar={permitirEditar ? openEdit : undefined}
+                        onEliminar={permitirEliminar ? setPendingDelete : undefined}
+                        renderAcciones={handleRenderAcciones}
+                        entityLabel={singular.toLowerCase()}
+                        loading={loading}
+                        onReload={() => {
+                            fetchData();
+                            fetchOptions();
+                        }}
+                    />
+                )}
+            </div>
         </>
     );
 }

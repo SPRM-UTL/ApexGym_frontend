@@ -70,11 +70,7 @@ export class ErrorController {
      */
     static irInicio(navigate, estaLogeado = false) {
         const destino = estaLogeado ? '/' : '/login';
-        if (typeof navigate === 'function') {
-            navigate(destino, { replace: true });
-        } else {
-            window.location.href = destino;
-        }
+        window.location.href = destino;
     }
 
     /**
