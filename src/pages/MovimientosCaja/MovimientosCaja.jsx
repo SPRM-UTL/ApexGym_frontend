@@ -1,3 +1,13 @@
+/**
+ * Issue: [CAJA-04] Frontend: Pantalla e interfaz operativa de Movimientos de Caja #89
+ * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
+ *
+ * Tareas:
+ * - Desarrollar src/pages/MovimientosCaja/MovimientosCaja.jsx.
+ * - Formulario para capturar concepto, tipo (entrada/salida), monto y empleado responsable.
+ * - Visualizacion del balance de movimientos del turno en tiempo real.
+ * - Conexion con MovimientoCajaService para persistencia de datos.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActionIcon,
