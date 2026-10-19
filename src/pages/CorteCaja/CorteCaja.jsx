@@ -1,9 +1,12 @@
 /**
  * Sistema: ApexGym Frontend
- * Modificación: 01/10/2026 - Emmanuelle Hernández Oropeza
- * Descripción: Control operativo de caja: arqueo de billetes interactivo en 2 columnas,
- *              modal de detalle de ventas, KPIs y movimientos de corte, validación de corte,
- *              generación de reporte PDF de auditoría y restricciones de edición/eliminación.
+ * Issue: [CAJA-05] Frontend: Validaciones, arqueo fisico y modales en pantalla de Corte de Caja #90
+ * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
+ *
+ * Tareas:
+ * - Modificar src/pages/CorteCaja/CorteCaja.jsx para alertar si existen movimientos pendientes antes del cierre.
+ * - Modales de captura para desglose de billetes y monedas.
+ * - Calculo reactivo del efectivo contado frente al saldo teorico del sistema (deteccion de sobrantes y faltantes).
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
