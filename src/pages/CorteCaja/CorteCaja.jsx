@@ -148,8 +148,21 @@ function desglosarMonto(montoTotal) {
 }
 
 /* ─── Modal 1: Detalle de Ventas del Turno (Puro Diseño) ─────────────────────── */
-function ModalDetalleVentas({ opened, onClose, aperturaId }) {
-    const totalVentas = 15840.0;
+function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
+    const totales = resumenApertura?.totales;
+    const totalVentas = totales ? Number(totales.totalVentas ?? 0) : 0;
+    const transacciones = totales ? Number(totales.transaccionesVentas ?? 0) : 0;
+    const ticketPromedio = totales ? Number(totales.ticketPromedio ?? 0) : 0;
+    const metodos = totales?.ventasPorMetodoPago ?? [];
+
+    const getMetodoIcon = (nombre = '') => {
+        const n = nombre.toLowerCase();
+        if (n.includes('efectivo')) return { icon: <IconCash size={16} />, color: 'green' };
+        if (n.includes('deb') || n.includes('déb')) return { icon: <IconCreditCard size={16} />, color: 'blue' };
+        if (n.includes('cred') || n.includes('créd')) return { icon: <IconCreditCard size={16} />, color: 'indigo' };
+        if (n.includes('transf') || n.includes('spei')) return { icon: <IconDeviceMobile size={16} />, color: 'cyan' };
+        return { icon: <IconWallet size={16} />, color: 'gray' };
+    };
 
     return (
         <Modal
@@ -174,17 +187,17 @@ function ModalDetalleVentas({ opened, onClose, aperturaId }) {
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                         <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
                             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Ventas</Text>
-                            <Text fw={800} size="xl" c="#FF6A00">$15,840.00</Text>
+                            <Text fw={800} size="xl" c="#FF6A00">${totalVentas.toFixed(2)}</Text>
                             <Text size="xs" c="dimmed" mt={2}>Turno actual</Text>
                         </Paper>
                         <Paper p="sm" radius="md" withBorder>
                             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
-                            <Text fw={800} size="xl" c="dark">38</Text>
+                            <Text fw={800} size="xl" c="dark">{transacciones}</Text>
                             <Text size="xs" c="dimmed" mt={2}>Tickets generados</Text>
                         </Paper>
                         <Paper p="sm" radius="md" withBorder>
                             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
-                            <Text fw={800} size="xl" c="dark">$416.84</Text>
+                            <Text fw={800} size="xl" c="dark">${ticketPromedio.toFixed(2)}</Text>
                             <Text size="xs" c="dimmed" mt={2}>Por cliente</Text>
                         </Paper>
                     </SimpleGrid>
@@ -193,73 +206,35 @@ function ModalDetalleVentas({ opened, onClose, aperturaId }) {
 
                     {/* Métodos de Pago */}
                     <Stack gap="sm">
-                        {/* Efectivo */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="green" variant="light" radius="md" size="sm">
-                                        <IconCash size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Efectivo en Caja</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="green" variant="light">24 transacciones</Badge>
-                                    <Text fw={700} size="sm">$9,240.00 (58.3%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={58.3} color="green" size="sm" radius="xl" />
-                        </Paper>
+                        {metodos.length > 0 ? (
+                            metodos.map((m) => {
+                                const { icon, color } = getMetodoIcon(m.nombre);
+                                const totalNum = Number(m.total ?? 0);
+                                const pct = totalVentas > 0 ? ((totalNum / totalVentas) * 100).toFixed(1) : '0.0';
 
-                        {/* Tarjeta Débito */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="blue" variant="light" radius="md" size="sm">
-                                        <IconCreditCard size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Tarjeta de Débito (Terminal)</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="blue" variant="light">8 transacciones</Badge>
-                                    <Text fw={700} size="sm">$3,900.00 (24.6%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={24.6} color="blue" size="sm" radius="xl" />
-                        </Paper>
-
-                        {/* Tarjeta Crédito */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="indigo" variant="light" radius="md" size="sm">
-                                        <IconCreditCard size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Tarjeta de Crédito</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="indigo" variant="light">4 transacciones</Badge>
-                                    <Text fw={700} size="sm">$1,850.00 (11.7%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={11.7} color="indigo" size="sm" radius="xl" />
-                        </Paper>
-
-                        {/* Transferencia */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="cyan" variant="light" radius="md" size="sm">
-                                        <IconDeviceMobile size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Transferencia / SPEI</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="cyan" variant="light">2 transacciones</Badge>
-                                    <Text fw={700} size="sm">$850.00 (5.4%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={5.4} color="cyan" size="sm" radius="xl" />
-                        </Paper>
+                                return (
+                                    <Paper key={m.metodoPagoId ?? m.nombre} p="sm" radius="md" withBorder>
+                                        <Group justify="space-between" mb={4}>
+                                            <Group gap="xs">
+                                                <ThemeIcon color={color} variant="light" radius="md" size="sm">
+                                                    {icon}
+                                                </ThemeIcon>
+                                                <Text fw={600} size="sm">{m.nombre}</Text>
+                                            </Group>
+                                            <Group gap="xs">
+                                                <Badge color={color} variant="light">{m.transacciones} transacciones</Badge>
+                                                <Text fw={700} size="sm">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                            </Group>
+                                        </Group>
+                                        <Progress value={Number(pct)} color={color} size="sm" radius="xl" />
+                                    </Paper>
+                                );
+                            })
+                        ) : (
+                            <Paper p="md" radius="md" withBorder style={{ textAlign: 'center' }}>
+                                <Text size="sm" c="dimmed">No se han registrado ventas en esta apertura de caja.</Text>
+                            </Paper>
+                        )}
                     </Stack>
 
                     <Group justify="flex-end" mt="xs">
@@ -297,9 +272,10 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
     const montoInicial = Number(corte.aperturaCaja?.montoInicial ?? 0);
     const totalEntradas = Number(corte.totalEntradas ?? 0);
     const totalSalidas = Number(corte.totalSalidas ?? 0);
-    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas;
+    const totalVentasEfectivo = Number(corte.totalVentasEfectivo ?? 0);
+    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas + totalVentasEfectivo;
     const efectivoContado = Number(corte.efectivoContado ?? 0);
-    const diferencia = Number(corte.diferencia ?? 0);
+    const diferencia = Number(corte.diferencia ?? (efectivoContado - efectivoEsperado));
     const esValidado = corte.estado === 'VALIDADO';
 
     let desgloseFin = null;
@@ -350,7 +326,7 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
             <Box maw={1200} mx="auto" mt="xl" pt="md">
                 <Stack gap="md">
                     {/* ── KPIs Principales del Corte ───────────────────────────── */}
-                    <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs">
+                    <SimpleGrid cols={{ base: 2, sm: 3, md: totalVentasEfectivo > 0 ? 7 : 6 }} spacing="xs">
                         <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
                             <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fondo Inicial</Text>
                             <Text fw={800} size="md">${montoInicial.toFixed(2)}</Text>
@@ -363,6 +339,12 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
                             <Text size="xs" c="dimmed" fw={700} tt="uppercase">Salidas (-)</Text>
                             <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
                         </Paper>
+                        {totalVentasEfectivo > 0 && (
+                            <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
+                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ventas Ef. (+)</Text>
+                                <Text fw={800} size="md" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                            </Paper>
+                        )}
                         <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
                             <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Esperado</Text>
                             <Text fw={800} size="md">${efectivoEsperado.toFixed(2)}</Text>
@@ -583,7 +565,10 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
     const fondoInicial = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
-    const efectivoEsperado = fondoInicial + totalEntradas - totalSalidas;
+    const totalVentasEfectivo = resumenApertura ? Number(resumenApertura.totalVentasEfectivo ?? 0) : 0;
+    const efectivoEsperado = resumenApertura?.saldoDisponible !== undefined
+        ? Number(resumenApertura.saldoDisponible)
+        : (fondoInicial + totalEntradas - totalSalidas + totalVentasEfectivo);
     const efectivoContado = Number(form.efectivoContado || 0);
     const diferencia = efectivoContado - efectivoEsperado;
 
@@ -593,6 +578,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 opened={modalVentasAbierto}
                 onClose={() => setModalVentasAbierto(false)}
                 aperturaId={form.aperturaCajaId}
+                resumenApertura={resumenApertura}
             />
 
             {/* Alerta de movimientos pendientes de validación */}
