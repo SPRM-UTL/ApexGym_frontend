@@ -1,7 +1,12 @@
 /**
- * Genera y descarga / imprime el reporte oficial de Corte de Caja en PDF.
- * Incluye distinción de ORIGINAL vs COPIA con huella digital de seguridad,
- * resumen financiero compacto en una sola fila y tabla de movimientos optimizada.
+ * Issue: [CAJA-06] Frontend: Diseno y generacion del reporte oficial de Corte de Caja en PDF #91
+ * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
+ *
+ * Tareas:
+ * - Refactorizar src/scripts/generarPdfCorte.js con el diseno oficial institucional de ApexGym.
+ * - Incluir tabla detallada de todos los movimientos de caja registrados en el turno.
+ * - Incluir tabla con el arqueo fisico de billetes y monedas.
+ * - Incluir resumen financiero de totales, diferencias y seccion para firmas de recepcion y gerencia.
  * 
  * @param {object} corte - Datos del corte de caja
  * @param {Array} movimientos - Lista de movimientos de la caja
