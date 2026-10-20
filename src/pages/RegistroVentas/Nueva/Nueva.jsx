@@ -11,12 +11,14 @@ import {
     Image,
     NumberFormatter,
     Paper,
+    PasswordInput,
     ScrollArea,
     Select,
     SimpleGrid,
     Stack,
     Tabs,
     Text,
+    TextInput,
     Title,
 } from '@mantine/core';
 
@@ -30,7 +32,8 @@ import {
     IconTrash,
     IconClock,
 } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { ModalCrud } from '../../../components/Modal/Modal';
 
 const productos = [
     {
@@ -378,12 +381,66 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
     );
 }
 
+function ContenidoModal() {
+
+    const [errorCorreo, setErrorCorreo] = useState(false);
+    const [errorContrasena, setErrorContrasena] = useState(false);
+    const [correo, setCorreo] = useState('');
+    const [contrasena, setContrasena] = useState('');
+    const passwordRef = useRef(null);
+
+    return (
+        <>
+        <br></br>
+            <TextInput
+                label="Usuario"
+                placeholder="User"
+                size="md"
+                radius="md"
+                className='input'
+                value={correo}
+                onChange={(e) => {
+                    setCorreo(e.target.value);
+                    if (errorCorreo) setErrorCorreo(false);
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        passwordRef.current?.focus();
+                    }
+                }}
+                error={errorCorreo}
+            />
+
+            <PasswordInput
+                ref={passwordRef}
+                label="Contraseña"
+                placeholder="Tu contraseña"
+                mt="md"
+                size="md"
+                radius="md"
+                value={contrasena}
+                onChange={(e) => {
+                    setContrasena(e.target.value);
+                    if (errorContrasena) setErrorContrasena(false);
+                }}
+                error={errorContrasena}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        verificarLogin();
+                    }
+                }}
+            />
+        </>
+    )
+}
+
 export function Nueva() {
 
     const [hora, setHora] = useState('');
     const [listaProductos, setListaProductos] = useState([]);
     const [listaCaja1, setCaja1] = useState([]);
     const [listaCaja2, setCaja2] = useState([]);
+    const [abierto, setAbierto] = useState(false);
 
     const cambiarCaja = (caja) => {
         if (caja < 2) {
@@ -460,7 +517,7 @@ export function Nueva() {
     }
 
     const eliminarTicket = () => {
-        setListaProductos([]);
+        setAbierto(true);
     }
 
     return (
@@ -557,6 +614,7 @@ export function Nueva() {
                 </div>
             </div>
             <Ticket productos={listaProductos} sumar={sumar} restar={restar} eliminarTicket={eliminarTicket} cambiarCaja={cambiarCaja}></Ticket>
+            <ModalCrud abierto={abierto} setAbierto={setAbierto} contenido={ContenidoModal} titulo="Confirmar Eliminacion"></ModalCrud>
         </div>
     );
 }
