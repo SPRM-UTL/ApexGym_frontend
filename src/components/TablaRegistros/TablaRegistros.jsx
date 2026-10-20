@@ -35,6 +35,8 @@ export function TablaRegistros({
     pageSizeOptions,
     loading = false,
     entityLabel = 'registro',
+    initialSortBy,
+    initialSortDirection,
 }) {
     return (
         <div className={classes.frame} aria-busy={loading}>
@@ -48,6 +50,8 @@ export function TablaRegistros({
                 pageSizeOptions={pageSizeOptions}
                 entityLabel={entityLabel}
                 onReload={ onReload}
+                initialSortBy={initialSortBy}
+                initialSortDirection={initialSortDirection}
             />
             {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />}
         </div>

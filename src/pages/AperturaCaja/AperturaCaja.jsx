@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
+    ActionIcon,
     Badge,
     Box,
+    Group,
     NativeSelect,
     NumberInput,
     SimpleGrid,
@@ -10,14 +12,44 @@ import {
     TextInput,
     ThemeIcon,
     Title,
+    Tooltip,
 } from '@mantine/core';
 import {
     IconCalendar,
     IconCash,
+    IconEdit,
+    IconTrash,
     IconUser,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
+import { obtenerUsuarioActual } from '../../scripts/constantes.js';
+
+/* ─── Obtener fecha local en formato YYYY-MM-DD ─────────────────────────────── */
+const obtenerFechaHoyLocal = () => {
+    const d = new Date();
+    const anio = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+};
+
+/* ─── Formatear fecha y hora para visualización en tabla (es-MX) ────────────── */
+const formatearFechaHora = (fecha) => {
+    if (!fecha) return '—';
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('es-MX', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+};
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -69,7 +101,7 @@ const INICIAL = {
     cajaId: '',
     empleadoId: '',
     montoInicial: '',
-    fechaApertura: '',
+    fechaApertura: obtenerFechaHoyLocal(),
     observaciones: '',
 };
 
@@ -138,7 +170,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         label="Fecha de Apertura"
                         withAsterisk
                         type="date"
-                        value={form.fechaApertura ?? ''}
+                        value={form.fechaApertura || obtenerFechaHoyLocal()}
                         error={errors.fechaApertura}
                         size="md"
                         radius="md"
@@ -167,13 +199,25 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
 
 /* ─── Componente principal ──────────────────────────────────────────────────── */
 export function AperturaCaja() {
+    const usuarioActual = obtenerUsuarioActual();
+    const esAdminOSupervisor = useMemo(() => {
+        if (!usuarioActual) return false;
+        const nombreRol = usuarioActual?.roles?.[0]?.nombre || usuarioActual?.rol || '';
+        const rolLower = String(nombreRol).toLowerCase();
+        return rolLower.includes('admin') || rolLower.includes('supervisor');
+    }, [usuarioActual]);
+
+    const [aperturaACancelar, setAperturaACancelar] = useState(null);
+    const [cancelando, setCancelando] = useState(false);
+    const [recargarTabla, setRecargarTabla] = useState(null);
+
     const mapRecordToForm = useMemo(() => (record) => ({
         cajaId:       record.caja?.id     ? String(record.caja.id)     : String(record.cajaId     ?? ''),
         empleadoId:   record.empleado?.id ? String(record.empleado.id) : String(record.empleadoId ?? ''),
         montoInicial: record.montoInicial ?? '',
         fechaApertura: record.fechaApertura
             ? new Date(record.fechaApertura).toISOString().split('T')[0]
-            : '',
+            : obtenerFechaHoyLocal(),
         observaciones: record.observaciones ?? '',
     }), []);
 
@@ -181,7 +225,7 @@ export function AperturaCaja() {
         cajaId:       Number(form.cajaId),
         empleadoId:   Number(form.empleadoId),
         montoInicial: Number(form.montoInicial),
-        fechaApertura: form.fechaApertura || null,
+        fechaApertura: form.fechaApertura || obtenerFechaHoyLocal(),
         observaciones: form.observaciones || null,
     });
 
@@ -192,9 +236,7 @@ export function AperturaCaja() {
             ? `${record.empleado.nombre} ${record.empleado.apellidoPaterno}`
             : '—',
         montoInicial: `$${Number(record.montoInicial ?? 0).toFixed(2)}`,
-        fechaApertura: record.fechaApertura
-            ? new Date(record.fechaApertura).toLocaleDateString('es-MX')
-            : '—',
+        fechaApertura: formatearFechaHora(record.fechaApertura),
         estado: (
             <Badge color={record.estado === 'ABIERTA' ? 'green' : 'red'} variant="light">
                 {record.estado ?? '—'}
@@ -202,20 +244,121 @@ export function AperturaCaja() {
         ),
     });
 
+    const handleConfirmarCancelacion = async () => {
+        if (!aperturaACancelar) return;
+        try {
+            setCancelando(true);
+            const res = await api.aperturaCaja.eliminar(aperturaACancelar.id);
+            if (res.responseFlag !== 0) throw new Error(res.message);
+            notifications.show({
+                title: 'Apertura cancelada',
+                message: 'La apertura de caja fue cancelada y la caja ha sido liberada correctamente.',
+                color: 'green',
+            });
+            setAperturaACancelar(null);
+            recargarTabla?.();
+        } catch (err) {
+            notifications.show({
+                title: 'Error al cancelar apertura',
+                message: err.message || 'No se pudo cancelar la apertura de caja.',
+                color: 'red',
+            });
+        } finally {
+            setCancelando(false);
+        }
+    };
+
     return (
-        <CrudCatalogo
-            titulo="Apertura de Caja"
-            singular="Apertura"
-            icon={IconCash}
-            servicio={api.aperturaCaja}
-            columnas={COLUMNAS}
-            campos={CAMPOS}
-            valoresIniciales={INICIAL}
-            mapRecordToForm={mapRecordToForm}
-            mapFormToPayload={mapFormToPayload}
-            mapRecordToRow={mapRecordToRow}
-            renderForm={(props) => <AperturaForm {...props} />}
-        />
+        <>
+            <ModalConfirmacion
+                opened={Boolean(aperturaACancelar)}
+                onClose={() => !cancelando && setAperturaACancelar(null)}
+                onConfirm={handleConfirmarCancelacion}
+                loading={cancelando}
+                title="Cancelar apertura de caja"
+                message={`¿Deseas cancelar la apertura activa de la caja "${aperturaACancelar?.caja?.nombre ?? 'seleccionada'}"? Esta acción cancelará la sesión y liberará la caja para nuevas aperturas.`}
+                confirmText="Sí, cancelar apertura"
+            />
+
+            <CrudCatalogo
+                titulo="Apertura de Caja"
+                singular="Apertura"
+                icon={IconCash}
+                servicio={api.aperturaCaja}
+                columnas={COLUMNAS}
+                campos={CAMPOS}
+                valoresIniciales={{ ...INICIAL, fechaApertura: obtenerFechaHoyLocal() }}
+                mapRecordToForm={mapRecordToForm}
+                mapFormToPayload={mapFormToPayload}
+                mapRecordToRow={mapRecordToRow}
+                renderForm={(props) => <AperturaForm {...props} />}
+                permitirEditar={false}
+                permitirEliminar={false}
+                initialSortBy="fechaApertura"
+                initialSortDirection="asc"
+                renderAccionesFila={(fila, recordOriginal, helpers) => {
+                    const apertura = recordOriginal ?? fila?._recordOriginal ?? fila;
+                    const esAbierta = apertura?.estado === 'ABIERTA';
+                    const esCerrada = apertura?.estado === 'CERRADA';
+
+                    if (helpers?.reload && recargarTabla !== helpers.reload) {
+                        setRecargarTabla(() => helpers.reload);
+                    }
+
+                    // Reglas de Edición:
+                    // - Si está cerrada: no puede modificarse.
+                    // - Si está abierta: no puede modificarse a menos que tenga permiso específico (admin/supervisor).
+                    const puedeEditar = esAbierta && esAdminOSupervisor;
+                    const tooltipEdicion = esCerrada
+                        ? 'No se puede editar una apertura que ya ha sido cerrada'
+                        : (!esAdminOSupervisor
+                            ? 'Una apertura abierta no puede modificarse salvo que cuente con permisos de supervisor o administrador'
+                            : 'Editar apertura de caja');
+
+                    // Reglas de Eliminación / Cancelación:
+                    // - Si está cerrada: no puede eliminarse ("una vez cerrada es imposible eliminarse").
+                    // - Si está abierta: solo puede cancelarse ("solo puede cancelarse, no eliminarse").
+                    const puedeCancelar = esAbierta;
+                    const tooltipEliminacion = esCerrada
+                        ? 'No pueden eliminarse, una vez cerrada la caja es imposible eliminarla'
+                        : 'Cancelar apertura de caja';
+
+                    return (
+                        <Group gap={6} wrap="nowrap">
+                            <Tooltip label={tooltipEdicion} withArrow openDelay={200}>
+                                <span style={{ display: 'inline-block' }}>
+                                    <ActionIcon
+                                        variant="light"
+                                        size="lg"
+                                        color={puedeEditar ? 'blue' : 'gray'}
+                                        disabled={!puedeEditar}
+                                        aria-label="Editar apertura"
+                                        onClick={() => puedeEditar && helpers?.openEdit(apertura)}
+                                    >
+                                        <IconEdit size={18} stroke={1.8} />
+                                    </ActionIcon>
+                                </span>
+                            </Tooltip>
+
+                            <Tooltip label={tooltipEliminacion} withArrow openDelay={200}>
+                                <span style={{ display: 'inline-block' }}>
+                                    <ActionIcon
+                                        variant="light"
+                                        size="lg"
+                                        color={puedeCancelar ? 'red' : 'gray'}
+                                        disabled={!puedeCancelar}
+                                        aria-label={esAbierta ? 'Cancelar apertura' : 'Eliminar apertura'}
+                                        onClick={() => puedeCancelar && setAperturaACancelar(apertura)}
+                                    >
+                                        <IconTrash size={18} stroke={1.8} />
+                                    </ActionIcon>
+                                </span>
+                            </Tooltip>
+                        </Group>
+                    );
+                }}
+            />
+        </>
     );
 }
 

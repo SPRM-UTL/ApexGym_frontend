@@ -3,10 +3,11 @@
  * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
  *
  * Tareas:
- * - Desarrollar src/pages/MovimientosCaja/MovimientosCaja.jsx.
- * - Formulario para capturar concepto, tipo (entrada/salida), monto y empleado responsable.
+ * - Formulario para capturar concepto desde catálogo, tipo (entrada/salida), monto y empleado responsable.
+ * - Desglose físico de billetes y monedas para ingresos y egresos.
+ * - Validación de apertura abierta para validar movimientos.
+ * - Inclusión de número de apertura en tabla.
  * - Visualizacion del balance de movimientos del turno en tiempo real.
- * - Conexion con MovimientoCajaService para persistencia de datos.
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -20,9 +21,9 @@ import {
     Paper,
     SimpleGrid,
     Stack,
+    Table,
     Text,
     Textarea,
-    TextInput,
     ThemeIcon,
     Title,
     Tooltip,
@@ -32,6 +33,7 @@ import {
     IconArrowsExchange,
     IconCash,
     IconCheck,
+    IconCoins,
     IconEdit,
     IconInfoCircle,
     IconShieldCheck,
@@ -42,6 +44,43 @@ import {
 import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+
+/* ─── Catálogo oficial de tipos de concepto por movimiento ──────────────────── */
+const CATALOGO_CONCEPTOS = {
+    ENTRADA: [
+        'Ingreso manual de efectivo',
+        'Dotación de cambio / morralla inicial',
+        'Cobro de servicio extraordinario',
+        'Reembolso / Devolución a caja',
+        'Aporte extraordinario del encargado',
+        'Otro concepto de ingreso',
+    ],
+    SALIDA: [
+        'Retiro de seguridad',
+        'Pago a proveedores',
+        'Compra de insumos de limpieza y mantenimiento',
+        'Pago de servicios básicos (agua, luz, internet)',
+        'Gasto menor / Caja chica',
+        'Anticipo de sueldo / Viáticos',
+        'Devolución a cliente',
+        'Otro concepto de retiro',
+    ],
+};
+
+/* ─── Denominaciones monetarias (Pesos Mexicanos) ─────────────────────────── */
+const DENOMINACIONES = [
+    { valor: 1000, tipo: 'billete', label: '$1,000' },
+    { valor: 500,  tipo: 'billete', label: '$500'   },
+    { valor: 200,  tipo: 'billete', label: '$200'   },
+    { valor: 100,  tipo: 'billete', label: '$100'   },
+    { valor: 50,   tipo: 'billete', label: '$50'    },
+    { valor: 20,   tipo: 'billete', label: '$20'    },
+    { valor: 10,   tipo: 'moneda',  label: '$10'    },
+    { valor: 5,    tipo: 'moneda',  label: '$5'     },
+    { valor: 2,    tipo: 'moneda',  label: '$2'     },
+    { valor: 1,    tipo: 'moneda',  label: '$1'     },
+    { valor: 0.5,  tipo: 'moneda',  label: '$0.50'  },
+];
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -55,7 +94,7 @@ const CAMPOS = [
                 .filter((a) => a.estado === 'ABIERTA')
                 .map((a) => ({
                     value: String(a.id),
-                    label: `${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
+                    label: `#${a.id} — ${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
                 }));
         },
     },
@@ -77,9 +116,9 @@ const CAMPOS = [
             { value: 'SALIDA', label: 'Salida' },
         ],
     },
-    { key: 'monto',       label: 'Monto',       required: true, type: 'number', min: 0.01, max: 9999999.99 },
-    { key: 'concepto',    label: 'Concepto',     required: true, maxLength: 255 },
-    { key: 'observaciones', label: 'Observaciones', maxLength: 500 },
+    { key: 'monto',         label: 'Monto',            required: true, type: 'number', min: 0.01, max: 9999999.99 },
+    { key: 'concepto',      label: 'Tipo de Concepto', required: true, maxLength: 255 },
+    { key: 'observaciones', label: 'Observaciones',    maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
@@ -98,6 +137,7 @@ const INICIAL = {
     tipo: 'ENTRADA',
     monto: '',
     concepto: '',
+    desglose: null,
     observaciones: '',
 };
 
@@ -114,7 +154,16 @@ const sectionHeader = {
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const [resumen, setResumen] = useState(null);
-    const [cargandoResumen, setCargandoResumen] = useState(false);
+
+    // Conteo de billetes
+    const [conteoBilletes, setConteoBilletes] = useState(() => {
+        if (form.desglose && typeof form.desglose === 'object') {
+            return form.desglose;
+        }
+        const init = {};
+        for (const d of DENOMINACIONES) init[d.valor] = '';
+        return init;
+    });
 
     useEffect(() => {
         if (!form.aperturaCajaId) {
@@ -123,7 +172,6 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
         }
 
         let isMounted = true;
-        setCargandoResumen(true);
         api.movimientoCaja
             .obtenerResumenApertura(form.aperturaCajaId)
             .then((res) => {
@@ -133,9 +181,6 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
             })
             .catch(() => {
                 if (isMounted) setResumen(null);
-            })
-            .finally(() => {
-                if (isMounted) setCargandoResumen(false);
             });
 
         return () => {
@@ -147,6 +192,34 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const esSalida = form.tipo === 'SALIDA';
     const montoNum = Number(form.monto || 0);
     const superaSaldo = esSalida && saldoDisponible !== null && montoNum > saldoDisponible;
+
+    // Manejar cambio en conteo de denominaciones
+    const actualizarDenominacion = (valor, cantidad) => {
+        let cant = 0;
+        if (cantidad !== '' && !isNaN(Number(cantidad))) {
+            cant = Math.max(0, Math.min(100000, Math.floor(Number(cantidad))));
+        }
+        const valToStore = cantidad === '' ? '' : cant;
+        const nuevoConteo = { ...conteoBilletes, [valor]: valToStore };
+        setConteoBilletes(nuevoConteo);
+
+        let total = 0;
+        for (const d of DENOMINACIONES) {
+            const c = nuevoConteo[d.valor] === '' ? 0 : Number(nuevoConteo[d.valor]);
+            total += d.valor * c;
+        }
+        total = Math.round(total * 100) / 100;
+
+        onChange('desglose', nuevoConteo);
+        if (total > 0 || Object.values(nuevoConteo).some((v) => v !== '' && Number(v) > 0)) {
+            onChange('monto', total);
+        }
+    };
+
+    const opcionesConceptos = (CATALOGO_CONCEPTOS[form.tipo] || CATALOGO_CONCEPTOS.ENTRADA).map((c) => ({
+        value: c,
+        label: c,
+    }));
 
     return (
         <Stack gap="md">
@@ -218,7 +291,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
 
                     {/* Col 2 */}
                     <NativeSelect
-                        label="Tipo"
+                        label="Tipo de Movimiento"
                         withAsterisk
                         value={form.tipo ?? 'ENTRADA'}
                         error={errors.tipo}
@@ -229,7 +302,11 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                             { value: 'ENTRADA', label: 'Entrada (Ingreso manual)' },
                             { value: 'SALIDA',  label: 'Salida (Retiro / Gasto menor)'  },
                         ]}
-                        onChange={(e) => onChange('tipo', e.currentTarget.value)}
+                        onChange={(e) => {
+                            const nuevoTipo = e.currentTarget.value;
+                            onChange('tipo', nuevoTipo);
+                            onChange('concepto', '');
+                        }}
                     />
                     <NumberInput
                         label="Monto"
@@ -238,7 +315,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         min={0.01}
                         max={9999999.99}
                         decimalScale={2}
-                        description="Máximo $9,999,999.99"
+                        description="Máximo $9,999,999.99 (Se actualiza al desglosar billetes)"
                         value={form.monto ?? ''}
                         error={superaSaldo ? `Supera el saldo disponible ($${saldoDisponible.toFixed(2)})` : errors.monto}
                         size="md"
@@ -260,69 +337,161 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         </Alert>
                     )}
 
-                    {/* Full width — concepto */}
-                    <TextInput
-                        label="Concepto"
+                    {/* Full width — Tipo de Concepto (Catálogo) */}
+                    <NativeSelect
+                        label="Tipo de Concepto (Catálogo)"
                         withAsterisk
-                        placeholder="Ej. Retiro parcial por seguridad / Pago de papelería"
                         value={form.concepto ?? ''}
                         error={errors.concepto}
-                        maxLength={255}
-                        description="Máximo 255 caracteres"
                         size="md"
                         radius="md"
+                        leftSection={<IconInfoCircle size={16} stroke={1.5} />}
                         style={{ gridColumn: '1 / -1' }}
+                        data={[
+                            { value: '', label: 'Selecciona un concepto del catálogo' },
+                            ...opcionesConceptos,
+                            ...(form.concepto && !opcionesConceptos.some((o) => o.value === form.concepto)
+                                ? [{ value: form.concepto, label: form.concepto }]
+                                : []),
+                        ]}
                         onChange={(e) => onChange('concepto', e.currentTarget.value)}
-                    />
-
-                    {/* Full width — observaciones */}
-                    <Textarea
-                        label="Observaciones"
-                        placeholder="Observaciones adicionales"
-                        value={form.observaciones ?? ''}
-                        error={errors.observaciones}
-                        maxLength={500}
-                        description="Máximo 500 caracteres"
-                        size="md"
-                        radius="md"
-                        minRows={2}
-                        style={{ gridColumn: '1 / -1' }}
-                        onChange={(e) => onChange('observaciones', e.currentTarget.value)}
                     />
                 </SimpleGrid>
             </Box>
+
+            {/* ── Billetes de Ingreso / Egreso (Desglose de Efectivo) ── */}
+            <Box>
+                <div style={sectionHeader}>
+                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
+                        <IconCoins size={16} stroke={1.8} />
+                    </ThemeIcon>
+                    <Title order={5}>
+                        Billetes y monedas de {form.tipo === 'ENTRADA' ? 'ingreso' : 'egreso'}
+                    </Title>
+                </div>
+
+                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fffdfa' }}>
+                    <Group justify="space-between" mb="xs">
+                        <Text size="xs" c="dimmed">
+                            Captura la cantidad de billetes y monedas que componen este movimiento (el monto total se actualizará automáticamente).
+                        </Text>
+                        <Badge color="apex" variant="light" size="md">
+                            Total Desglose: ${Number(form.monto || 0).toFixed(2)}
+                        </Badge>
+                    </Group>
+
+                    <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>Denominación</Table.Th>
+                                <Table.Th style={{ width: 110, textAlign: 'center' }}>Cantidad</Table.Th>
+                                <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {DENOMINACIONES.map((d) => {
+                                const cantStr = conteoBilletes[d.valor] ?? '';
+                                const cantNum = cantStr === '' ? 0 : Number(cantStr);
+                                const subtotal = d.valor * cantNum;
+
+                                return (
+                                    <Table.Tr key={d.valor}>
+                                        <Table.Td fw={600}>{d.label}</Table.Td>
+                                        <Table.Td style={{ padding: 4 }}>
+                                            <NumberInput
+                                                size="xs"
+                                                min={0}
+                                                max={100000}
+                                                allowDecimal={false}
+                                                placeholder="0"
+                                                value={cantStr}
+                                                onChange={(v) => actualizarDenominacion(d.valor, v)}
+                                                styles={{ input: { textAlign: 'center' } }}
+                                            />
+                                        </Table.Td>
+                                        <Table.Td style={{ textAlign: 'right', fontWeight: subtotal > 0 ? 700 : 400 }}>
+                                            ${subtotal.toFixed(2)}
+                                        </Table.Td>
+                                    </Table.Tr>
+                                );
+                            })}
+                        </Table.Tbody>
+                    </Table>
+                </Paper>
+            </Box>
+
+            {/* Full width — observaciones */}
+            <Textarea
+                label="Observaciones"
+                placeholder="Observaciones adicionales"
+                value={form.observaciones ?? ''}
+                error={errors.observaciones}
+                maxLength={500}
+                description="Máximo 500 caracteres"
+                size="md"
+                radius="md"
+                minRows={2}
+                onChange={(e) => onChange('observaciones', e.currentTarget.value)}
+            />
         </Stack>
     );
 }
 
 /* ─── Componente principal ──────────────────────────────────────────────────── */
 export function MovimientosCaja() {
-    const mapRecordToForm = useMemo(() => (record) => ({
-        aperturaCajaId: record.aperturaCaja?.id
-            ? String(record.aperturaCaja.id)
-            : String(record.aperturaCajaId ?? ''),
-        empleadoId: record.empleado?.id
-            ? String(record.empleado.id)
-            : String(record.empleadoId ?? ''),
-        tipo:          record.tipo          ?? 'ENTRADA',
-        monto:         record.monto         ?? '',
-        concepto:      record.concepto      ?? '',
-        observaciones: record.observaciones ?? '',
-    }), []);
+    const mapRecordToForm = useMemo(() => (record) => {
+        let desglose = null;
+        try {
+            if (record.observaciones && record.observaciones.includes('{"desglose":')) {
+                const parsed = JSON.parse(record.observaciones);
+                desglose = parsed.desglose;
+            }
+        } catch (e) {}
 
-    const mapFormToPayload = (form) => ({
-        aperturaCajaId: Number(form.aperturaCajaId),
-        empleadoId:     Number(form.empleadoId),
-        tipo:           form.tipo,
-        monto:          Number(form.monto),
-        concepto:       form.concepto,
-        observaciones:  form.observaciones || null,
-    });
+        return {
+            aperturaCajaId: record.aperturaCaja?.id
+                ? String(record.aperturaCaja.id)
+                : String(record.aperturaCajaId ?? ''),
+            empleadoId: record.empleado?.id
+                ? String(record.empleado.id)
+                : String(record.empleadoId ?? ''),
+            tipo:          record.tipo          ?? 'ENTRADA',
+            monto:         record.monto         ?? '',
+            concepto:      record.concepto      ?? '',
+            desglose:      desglose             ?? null,
+            observaciones: record.observaciones ?? '',
+        };
+    }, []);
+
+    const mapFormToPayload = (form) => {
+        let obsFinal = form.observaciones ? form.observaciones.trim() : '';
+        if (form.desglose && Object.values(form.desglose).some((v) => v !== '' && Number(v) > 0)) {
+            // Guardar desglose si existe
+            const desgloseClean = {};
+            for (const [k, v] of Object.entries(form.desglose)) {
+                if (v !== '' && Number(v) > 0) desgloseClean[k] = Number(v);
+            }
+            if (Object.keys(desgloseClean).length > 0) {
+                obsFinal = obsFinal
+                    ? `${obsFinal} | Desglose: ${JSON.stringify(desgloseClean)}`
+                    : `Desglose: ${JSON.stringify(desgloseClean)}`;
+            }
+        }
+
+        return {
+            aperturaCajaId: Number(form.aperturaCajaId),
+            empleadoId:     Number(form.empleadoId),
+            tipo:           form.tipo,
+            monto:          Number(form.monto),
+            concepto:       form.concepto,
+            observaciones:  obsFinal || null,
+        };
+    };
 
     const mapRecordToRow = (record) => {
         const apertura = record.aperturaCaja;
         const aperturaLabel = apertura
-            ? `${apertura.caja?.nombre ?? 'Caja'} — ${apertura.fechaApertura ? new Date(apertura.fechaApertura).toLocaleDateString('es-MX') : ''}`
+            ? `#${apertura.id} — ${apertura.caja?.nombre ?? 'Caja'} — ${apertura.fechaApertura ? new Date(apertura.fechaApertura).toLocaleDateString('es-MX') : ''}`
             : '—';
         const esValidado = record.estado === 'VALIDADO';
 
@@ -393,7 +562,7 @@ export function MovimientosCaja() {
                     }
                 }
             } catch (e) {
-                // Si falla la consulta, la validación final la hace el backend
+                // Validación final en backend
             }
         }
 
@@ -422,22 +591,26 @@ export function MovimientosCaja() {
                 const deleteRecord = helpers?.deleteRecord;
                 const mov = recordOriginal ?? fila?._recordOriginal ?? fila;
                 const esValidado = mov?.estado === 'VALIDADO';
+                const cajaAbierta = mov?.aperturaCaja?.estado === 'ABIERTA';
+
+                const puedeValidar = !esValidado && cajaAbierta;
+                const tooltipValidar = esValidado
+                    ? 'Movimiento ya validado y auditado'
+                    : (!cajaAbierta
+                        ? 'No se puede validar si la caja no está abierta'
+                        : 'Validar movimiento de caja');
 
                 return (
                     <Group gap={6} wrap="nowrap">
                         {/* 1. Botón Validar Movimiento */}
-                        <Tooltip
-                            label={esValidado ? 'Movimiento ya validado y auditado' : 'Validar movimiento de caja'}
-                            withArrow
-                            openDelay={200}
-                        >
+                        <Tooltip label={tooltipValidar} withArrow openDelay={200}>
                             <span style={{ display: 'inline-block' }}>
                                 <ActionIcon
                                     variant={esValidado ? 'subtle' : 'light'}
-                                    color={esValidado ? 'gray' : 'green'}
+                                    color={puedeValidar ? 'green' : 'gray'}
                                     size="lg"
-                                    disabled={esValidado}
-                                    onClick={() => handleValidar(mov, { reload })}
+                                    disabled={!puedeValidar}
+                                    onClick={() => puedeValidar && handleValidar(mov, { reload })}
                                 >
                                     {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
                                 </ActionIcon>

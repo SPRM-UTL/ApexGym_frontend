@@ -88,6 +88,17 @@ function sortRows(data, sortBy, reversed, columns) {
     if (!col?.sortable) return data;
 
     return [...data].sort((a, b) => {
+        const rawA = a._recordOriginal?.[sortBy] ?? a[sortBy];
+        const rawB = b._recordOriginal?.[sortBy] ?? b[sortBy];
+
+        const dateA = rawA instanceof Date ? rawA.getTime() : (typeof rawA === 'string' && (rawA.includes('T') || (rawA.length === 10 && rawA.includes('-'))) ? Date.parse(rawA) : NaN);
+        const dateB = rawB instanceof Date ? rawB.getTime() : (typeof rawB === 'string' && (rawB.length === 10 && rawB.includes('-') || rawB.includes('T')) ? Date.parse(rawB) : NaN);
+
+        if (!isNaN(dateA) && !isNaN(dateB)) {
+            const diff = dateA - dateB;
+            return reversed ? -diff : diff;
+        }
+
         const valorA = String(a[sortBy] ?? '');
         const valorB = String(b[sortBy] ?? '');
         const comparacion = valorA.localeCompare(valorB, undefined, { numeric: true });
@@ -118,6 +129,8 @@ export function TableSort({
     onSelectionChange,
     entityLabel = 'registro',
     onReload,
+    initialSortBy,
+    initialSortDirection = 'asc',
 }) {
     const columns = useMemo(() => {
         if (columnsProp?.length) return columnsProp;
@@ -132,8 +145,8 @@ export function TableSort({
 
     const [globalSearch, setGlobalSearch] = useState('');
     const [columnFilters, setColumnFilters] = useState({});
-    const [sortBy, setSortBy] = useState(columns[0]?.key ?? null);
-    const [reverseSortDirection, setReverseSortDirection] = useState(false);
+    const [sortBy, setSortBy] = useState(() => initialSortBy ?? columns[0]?.key ?? null);
+    const [reverseSortDirection, setReverseSortDirection] = useState(() => initialSortDirection === 'desc');
     const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 10);
     const [page, setPage] = useState(1);
     const [selectedIds, setSelectedIds] = useState(() => new Set());

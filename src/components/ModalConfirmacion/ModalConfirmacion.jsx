@@ -8,6 +8,7 @@ export function ModalConfirmacion({
     title = 'Confirmar acción',
     message,
     loading = false,
+    confirmText = 'Eliminar',
 }) {
     return (
         <Modal
@@ -36,10 +37,12 @@ export function ModalConfirmacion({
                         loading={loading}
                         className={`${classes.confirmButton} ${classes.actionButton}`}
                     >
-                        Eliminar
+                        {confirmText}
                     </Button>
                 </Group>
             </Stack>
         </Modal>
     );
 }
+
+export default ModalConfirmacion;

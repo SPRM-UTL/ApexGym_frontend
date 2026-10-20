@@ -176,11 +176,11 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
             zIndex={999999}
             transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" style={{ backgroundColor: '#fff0e6', color: '#FF6A00' }}>
+                <Group gap="sm">
+                    <ThemeIcon size="md" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
                         <IconReportAnalytics size={18} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={5}>Detalle de Ventas y Métodos de Pago del Turno</Title>
+                    <Title order={4} style={{ color: '#ffffff' }}>Detalle de Ventas y Métodos de Pago del Turno</Title>
                 </Group>
             }
         >
@@ -240,8 +240,8 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
                         )}
                     </Stack>
 
-                    <Group justify="flex-end" mt="xs">
-                        <Button variant="default" onClick={onClose}>
+                    <Group grow mt="md">
+                        <Button variant="default" size="md" radius="md" onClick={onClose}>
                             Cerrar
                         </Button>
                     </Group>
@@ -299,12 +299,12 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
             title={
                 <Group justify="space-between" w="100%" pr="xl">
                     <Group gap="xs">
-                        <ThemeIcon size="lg" radius="md" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                        <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
                             <IconReportAnalytics size={22} stroke={1.8} />
                         </ThemeIcon>
                         <div>
-                            <Title order={4}>Auditoría de Corte de Caja #{corte.id}</Title>
-                            <Text size="xs" c="dimmed">Detalle completo de arqueo y movimientos</Text>
+                            <Title order={4} style={{ color: '#ffffff' }}>Auditoría de Corte de Caja #{corte.id}</Title>
+                            <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Detalle completo de arqueo y movimientos</Text>
                         </div>
                         <Badge color={esValidado ? 'green' : 'yellow'} variant="filled" size="md">
                             {corte.estado ?? 'PENDIENTE'}
@@ -479,7 +479,14 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
                                     color="apex"
                                     leftSection={<IconFileDownload size={16} />}
                                     disabled={!esValidado}
-                                    onClick={() => generarPdfCorte(corte, movimientos, desgloseFin)}
+                                    onClick={async () => {
+                                        let configuraciones = [];
+                                        try {
+                                            const resConfig = await api.configuracionSistema.obtenerTodos();
+                                            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+                                        } catch (e) {}
+                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones);
+                                    }}
                                 >
                                     Descargar PDF
                                 </Button>
@@ -517,6 +524,9 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
 
     // Estado local para conteo de billetes de cierre
     const [conteoCierre, setConteoCierre] = useState(() => {
+        if (form.desgloseFin && typeof form.desgloseFin === 'object') {
+            return form.desgloseFin;
+        }
         const init = {};
         for (const d of DENOMINACIONES) init[d.valor] = '';
         return init;
@@ -537,11 +547,28 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             .catch(() => setResumenApertura(null));
     }, [form.aperturaCajaId]);
 
-    // Calcular desglose de inicio a partir del monto inicial
+    // Obtener desglose de inicio directamente del registro de apertura o por distribución del monto inicial
     const desgloseInicio = useMemo(() => {
-        const monto = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
+        if (resumenApertura?.apertura?.desgloseInicio) {
+            try {
+                const parsed = typeof resumenApertura.apertura.desgloseInicio === 'string'
+                    ? JSON.parse(resumenApertura.apertura.desgloseInicio)
+                    : resumenApertura.apertura.desgloseInicio;
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (e) {}
+        }
+        const monto = resumenApertura
+            ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
+            : 0;
         return desglosarMonto(monto);
     }, [resumenApertura]);
+
+    // Sincronizar desgloseInicio en el form cuando esté disponible
+    useEffect(() => {
+        if (desgloseInicio) {
+            onChange('desgloseInicio', desgloseInicio);
+        }
+    }, [desgloseInicio]);
 
     // Recalcular efectivo contado a partir del conteo de cierre
     const actualizarConteoCierre = (valor, cantidad) => {
@@ -565,7 +592,9 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         onChange('desgloseInicio', desgloseInicio);
     };
 
-    const fondoInicial = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
+    const fondoInicial = resumenApertura
+        ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
+        : 0;
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
     const totalVentasEfectivo = resumenApertura ? Number(resumenApertura.totalVentasEfectivo ?? 0) : 0;
@@ -657,9 +686,14 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                     {/* ── Columna Izquierda: Billetes de Inicio del Día ── */}
                     <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
                         <Group justify="space-between" mb="xs">
-                            <Text fw={700} size="sm" c="dimmed">
-                                💵 Billetes de inicio (Fondo del día)
-                            </Text>
+                            <Group gap="xs">
+                                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                    <IconCash size={14} />
+                                </ThemeIcon>
+                                <Text fw={700} size="sm" c="dimmed">
+                                    Billetes de inicio (Fondo del día)
+                                </Text>
+                            </Group>
                             <Badge color="blue" variant="light">
                                 Fondo: ${fondoInicial.toFixed(2)}
                             </Badge>
@@ -703,9 +737,14 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                     {/* ── Columna Derecha: Billetes de Fin del Día ── */}
                     <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fffdfa', borderColor: '#ffd8a8' }}>
                         <Group justify="space-between" mb="xs">
-                            <Text fw={700} size="sm" c="#FF6A00">
-                                🧮 Billetes con los que acaba el día
-                            </Text>
+                            <Group gap="xs">
+                                <ThemeIcon size="sm" radius="md" variant="light" color="apex">
+                                    <IconCalculator size={14} />
+                                </ThemeIcon>
+                                <Text fw={700} size="sm" c="#FF6A00">
+                                    Billetes con los que acaba el día
+                                </Text>
+                            </Group>
                             <Badge color="apex" variant="filled">
                                 Arqueo Final
                             </Badge>
@@ -752,26 +791,66 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                             </Table.Tbody>
                         </Table>
 
-                        {/* Totales y Cálculo de Diferencia en Vivo */}
-                        <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                            <Stack gap={4}>
+                        {/* Totales y Cálculo de Diferencia en Vivo con Desglose Completo */}
+                        <Paper p="sm" radius="md" mt="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
+                            <Stack gap={6}>
+                                <Text fw={700} size="xs" c="dimmed" tt="uppercase">
+                                    Balance Teórico del Turno
+                                </Text>
                                 <Group justify="space-between">
-                                    <Text size="xs" c="dimmed">Efectivo Teórico Esperado:</Text>
-                                    <Text fw={600} size="xs">${efectivoEsperado.toFixed(2)}</Text>
+                                    <Text size="xs" c="dimmed">Fondo Inicial de Caja:</Text>
+                                    <Text fw={600} size="xs">${fondoInicial.toFixed(2)}</Text>
                                 </Group>
                                 <Group justify="space-between">
-                                    <Text fw={700} size="sm" c="#FF6A00">EFECTIVO CONTADO:</Text>
+                                    <Text size="xs" c="dimmed">(+) Entradas registradas:</Text>
+                                    <Text fw={600} size="xs" c="green">+${totalEntradas.toFixed(2)}</Text>
+                                </Group>
+                                <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
+                                    <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                </Group>
+                                {totalVentasEfectivo > 0 && (
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                        <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                    </Group>
+                                )}
+                                <Divider my={2} />
+                                <Group justify="space-between">
+                                    <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
+                                    <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
+                                </Group>
+                                <Group justify="space-between">
+                                    <Text fw={700} size="sm" c="#FF6A00">EFECTIVO CONTADO (FÍSICO):</Text>
                                     <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
                                 </Group>
                                 <Divider my={2} />
                                 <Group justify="space-between">
-                                    <Text fw={700} size="xs" c={diferencia >= 0 ? 'green' : 'red'}>
-                                        {diferencia >= 0 ? 'Sobrante / Cuadrado:' : 'Faltante en Caja:'}
+                                    <Text fw={700} size="xs" c={Math.abs(diferencia) < 0.01 ? 'blue' : (diferencia > 0 ? 'green' : 'red')}>
+                                        {Math.abs(diferencia) < 0.01
+                                            ? 'Caja Cuadrada (Sin diferencia):'
+                                            : (diferencia > 0 ? 'Sobrante en Caja (+):' : 'Faltante en Caja (-):')}
                                     </Text>
-                                    <Text fw={800} size="sm" c={diferencia >= 0 ? 'green' : 'red'}>
-                                        {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
+                                    <Text fw={800} size="sm" c={Math.abs(diferencia) < 0.01 ? 'blue' : (diferencia > 0 ? 'green' : 'red')}>
+                                        {diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}
                                     </Text>
                                 </Group>
+
+                                {Math.abs(diferencia) > 0.01 && (
+                                    <Alert
+                                        icon={<IconAlertCircle size={16} />}
+                                        color={diferencia < 0 ? 'red' : 'yellow'}
+                                        variant="light"
+                                        p="xs"
+                                        radius="sm"
+                                    >
+                                        <Text size="xs" fw={600}>
+                                            {diferencia < 0
+                                                ? `Se detectó un faltante de $${Math.abs(diferencia).toFixed(2)}. Es obligatorio justificar el motivo en el campo de observaciones.`
+                                                : `Se detectó un sobrante de $${diferencia.toFixed(2)}. Es obligatorio justificar el motivo en el campo de observaciones.`}
+                                        </Text>
+                                    </Alert>
+                                )}
                             </Stack>
                         </Paper>
                     </Paper>
@@ -781,7 +860,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             {/* Observaciones */}
             <Textarea
                 label="Observaciones del corte"
-                placeholder="Notas o incidencias del turno (opcional)"
+                placeholder="Notas o justificación de diferencias (obligatorio si hay faltante o sobrante)"
                 value={form.observaciones ?? ''}
                 error={errors.observaciones}
                 maxLength={500}
@@ -886,20 +965,50 @@ export function CorteCaja() {
         if (form.efectivoContado === undefined || form.efectivoContado === null || Number(form.efectivoContado) < 0) {
             errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
         }
-        if (form.observaciones?.trim().length > 500) {
-            errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
-        }
 
-        // Validación de movimientos pendientes en la apertura
+        // Validación de movimientos pendientes y balance contable
         if (form.aperturaCajaId) {
             try {
                 const res = await api.movimientoCaja.obtenerResumenApertura(form.aperturaCajaId);
-                if (res.responseFlag === 0 && res.data?.movimientosPendientes > 0) {
-                    errors.aperturaCajaId = `No se puede realizar el corte: existen ${res.data.movimientosPendientes} movimiento(s) pendientes de validar en este turno.`;
+                if (res.responseFlag === 0 && res.data) {
+                    const data = res.data;
+                    const movPendientes = Number(data.movimientosPendientes ?? 0);
+                    if (movPendientes > 0) {
+                        errors.aperturaCajaId = `No se puede realizar el corte: existen ${movPendientes} movimiento(s) pendientes de validar en este turno.`;
+                    }
+
+                    const fondo = Number(data.montoInicial ?? data.apertura?.montoInicial ?? 0);
+                    const entradas = Number(data.totalEntradas ?? 0);
+                    const salidas = Number(data.totalSalidas ?? 0);
+                    const ventasEf = Number(data.totalVentasEfectivo ?? 0);
+                    const esperado = data.saldoDisponible !== undefined
+                        ? Number(data.saldoDisponible)
+                        : (fondo + entradas - salidas + ventasEf);
+                    const contado = Number(form.efectivoContado || 0);
+                    const diff = contado - esperado;
+
+                    // Si hay dinero teórico esperado en caja pero el usuario dejó el conteo en 0 sin contar
+                    if (esperado > 0 && contado === 0) {
+                        const tieneConteo = form.desgloseFin && Object.values(form.desgloseFin).some((v) => v !== '' && Number(v) > 0);
+                        if (!tieneConteo) {
+                            errors.efectivoContado = `Debe realizar el conteo físico de billetes y monedas. El saldo teórico esperado en caja es de $${esperado.toFixed(2)}.`;
+                        }
+                    }
+
+                    // Justificación obligatoria si hay diferencia
+                    if (Math.abs(diff) > 0.01) {
+                        if (!form.observaciones || !form.observaciones.trim()) {
+                            errors.observaciones = `Existe una diferencia de ${diff < 0 ? 'faltante' : 'sobrante'} ($${Math.abs(diff).toFixed(2)}). Debe ingresar obligatoriamente una justificación detallada en las observaciones.`;
+                        }
+                    }
                 }
             } catch (e) {
                 // Validación respaldada en backend
             }
+        }
+
+        if (form.observaciones?.trim().length > 500) {
+            errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
         }
 
         return errors;
@@ -1002,7 +1111,13 @@ export function CorteCaja() {
                                                 }
                                             } catch (e) {}
 
-                                            generarPdfCorte(corte, movs, desglose);
+                                            let configuraciones = [];
+                                            try {
+                                                const resConfig = await api.configuracionSistema.obtenerTodos();
+                                                if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+                                            } catch (e) {}
+
+                                            generarPdfCorte(corte, movs, desglose, configuraciones);
                                         }}
                                     >
                                         <IconFileDownload size={18} stroke={1.8} />

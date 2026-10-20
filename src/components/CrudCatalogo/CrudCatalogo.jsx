@@ -134,6 +134,8 @@ export function CrudCatalogo({
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
+    initialSortBy,
+    initialSortDirection,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -368,6 +370,8 @@ export function CrudCatalogo({
                             fetchData();
                             fetchOptions();
                         }}
+                        initialSortBy={initialSortBy}
+                        initialSortDirection={initialSortDirection}
                     />
                 )}
             </div>

@@ -7,16 +7,35 @@
  * - Incluir tabla detallada de todos los movimientos de caja registrados en el turno.
  * - Incluir tabla con el arqueo fisico de billetes y monedas.
  * - Incluir resumen financiero de totales, diferencias y seccion para firmas de recepcion y gerencia.
+ * - Soportar logotipo oficial del sistema y visibilidad configurable de huella digital/auditoría.
  * 
  * @param {object} corte - Datos del corte de caja
  * @param {Array} movimientos - Lista de movimientos de la caja
  * @param {object} [desglose] - Desglose de billetes (opcional)
+ * @param {Array|object} [configuraciones] - Configuraciones del sistema para personalizar el reporte
  */
-export function generarPdfCorte(corte, movimientos = [], desglose = null) {
+export function generarPdfCorte(corte, movimientos = [], desglose = null, configuraciones = []) {
     const ventana = window.open('', '_blank', 'width=950,height=1000');
     if (!ventana) {
         alert('Por favor permite las ventanas emergentes en tu navegador para generar el comprobante PDF.');
         return;
+    }
+
+    // ── Mapeo de Configuraciones del Sistema ─────────────────────────────────
+    const configMap = Array.isArray(configuraciones)
+        ? Object.fromEntries(configuraciones.map((c) => [c.clave, c.valor]))
+        : (configuraciones || {});
+
+    // Configuración para mostrar u ocultar la sección de huella digital y auditoría
+    const configHuella = configMap['mostrar_huella_digital_corte'] ?? configMap['mostrar_auditoria_digital'];
+    const mostrarHuella = configHuella !== undefined ? String(configHuella).toLowerCase() === 'true' : true;
+
+    // Configuración para el logo del sistema
+    const logoConfig = configMap['logo_sistema'] ?? configMap['imagen_sistema'] ?? configMap['logo'] ?? '/favicon.svg';
+    let logoUrl = logoConfig;
+    if (logoUrl && !logoUrl.startsWith('http://') && !logoUrl.startsWith('https://') && !logoUrl.startsWith('data:')) {
+        const origin = window.location.origin || '';
+        logoUrl = `${origin}${logoUrl.startsWith('/') ? '' : '/'}${logoUrl}`;
     }
 
     // ── Conteo de impresiones y control de ORIGINAL vs COPIA ─────────────────
@@ -124,7 +143,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
         }
         ` : ''}
 
-        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 14px; position: relative; z-index: 1; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 14px; position: relative; z-index: 1; }
         .logo-title h1 { margin: 0; font-size: 26px; font-weight: 900; color: #FF6A00; letter-spacing: 0.5px; }
         .logo-title p { margin: 3px 0 0 0; font-size: 11px; color: #666; font-weight: 500; }
         
@@ -177,9 +196,12 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
     ${!esOriginal ? '<div class="watermark-copia">COPIA</div>' : ''}
 
     <div class="header">
-        <div class="logo-title">
-            <h1>APEX GYM</h1>
-            <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno</p>
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoUrl ? `<img src="${logoUrl}" alt="Logo ApexGym" style="height: 52px; width: auto; max-width: 90px; object-fit: contain;" onerror="this.style.display='none'" />` : ''}
+            <div class="logo-title">
+                <h1>APEX GYM</h1>
+                <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno</p>
+            </div>
         </div>
         <div class="header-badges">
             <span class="badge-doc ${esOriginal ? 'original' : 'copia'}">
@@ -190,11 +212,13 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
         </div>
     </div>
 
-    <!-- Huella digital de seguridad -->
+    <!-- Huella digital de seguridad condicional según configuración del sistema -->
+    ${mostrarHuella ? `
     <div class="huella-box">
         <span><b>Seguridad y Auditoría Digital:</b> Huella <span class="huella-code">${huellaDigital}</span></span>
         <span>${esOriginal ? '● <b>DOCUMENTO ORIGINAL OFICIAL</b>' : `▲ <b>COPIA AUTORIZADA #${numeroCopia}</b>`}</span>
     </div>
+    ` : ''}
 
     <!-- Información General (Sin la palabra ID) -->
     <div class="info-grid">
@@ -358,7 +382,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
     </div>
 
     <div class="footer">
-        <p>Documento oficial emitido por ApexGym Nexus System · Huella de Auditoría: ${huellaDigital} · Fecha: ${new Date().toLocaleString('es-MX')}</p>
+        <p>Documento oficial emitido por ApexGym Nexus System${mostrarHuella ? ` · Huella de Auditoría: ${huellaDigital}` : ''} · Fecha: ${new Date().toLocaleString('es-MX')}</p>
     </div>
 
     <script>
