@@ -90,6 +90,7 @@ const CAMPOS = [
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
 const COLUMNAS = [
+    { key: 'numero',        label: '#',              sortable: true, filterable: true },
     { key: 'caja',          label: 'Caja',           sortable: true, filterable: true },
     { key: 'empleado',      label: 'Empleado',        sortable: true, filterable: true },
     { key: 'montoInicial',  label: 'Monto Inicial',   sortable: true, filterable: true },
@@ -156,9 +157,11 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         withAsterisk
                         prefix="$"
                         min={0}
-                        max={9999999.99}
+                        max={200000}
+                        clampBehavior="strict"
+                        placeholder="Ej. $1,000.00 (Máx. $200,000.00)"
                         decimalScale={2}
-                        description="Máximo $9,999,999.99"
+                        description="Límite máximo de fondo: $200,000.00"
                         value={form.montoInicial ?? ''}
                         error={errors.montoInicial}
                         size="md"

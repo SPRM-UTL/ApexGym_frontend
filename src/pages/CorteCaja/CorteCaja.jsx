@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
+    Accordion,
     ActionIcon,
     Alert,
     Badge,
@@ -43,6 +44,10 @@ import {
     IconEye,
     IconFileDownload,
     IconInfoCircle,
+    IconArrowDownRight,
+    IconArrowUpRight,
+    IconMinus,
+    IconPlus,
     IconReceipt2,
     IconReportAnalytics,
     IconShieldCheck,
@@ -98,12 +103,13 @@ const CAMPOS = [
             }));
         },
     },
-    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 99999999.99 },
+    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 200000 },
     { key: 'observaciones',   label: 'Observaciones', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
 const COLUMNAS = [
+    { key: 'numero',          label: '#',                sortable: true, filterable: true },
     { key: 'apertura',        label: 'Caja',             sortable: true, filterable: true },
     { key: 'empleado',        label: 'Cajero / Empleado', sortable: true, filterable: true },
     { key: 'fechaCorte',      label: 'Fecha Corte',       sortable: true, filterable: true },
@@ -150,13 +156,20 @@ function desglosarMonto(montoTotal) {
     return resultado;
 }
 
-/* ─── Modal 1: Detalle de Ventas del Turno (Puro Diseño) ─────────────────────── */
+/* ─── Modal 1: Detalle de Ventas y Movimientos del Turno ────────────────────── */
 function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
     const totales = resumenApertura?.totales;
     const totalVentas = totales ? Number(totales.totalVentas ?? 0) : 0;
     const transacciones = totales ? Number(totales.transaccionesVentas ?? 0) : 0;
     const ticketPromedio = totales ? Number(totales.ticketPromedio ?? 0) : 0;
     const metodos = totales?.ventasPorMetodoPago ?? [];
+
+    const movimientos = resumenApertura?.movimientos ?? [];
+    const entradas = movimientos.filter((m) => m.tipo === 'ENTRADA');
+    const salidas = movimientos.filter((m) => m.tipo === 'SALIDA');
+    const totalEntradas = Number(resumenApertura?.totalEntradas ?? 0);
+    const totalSalidas = Number(resumenApertura?.totalSalidas ?? 0);
+    const balanceMovimientos = totalEntradas - totalSalidas;
 
     const getMetodoIcon = (nombre = '') => {
         const n = nombre.toLowerCase();
@@ -180,7 +193,10 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
                     <ThemeIcon size="md" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
                         <IconReportAnalytics size={18} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={4} style={{ color: '#ffffff' }}>Detalle de Ventas y Métodos de Pago del Turno</Title>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>Detalle de Ventas y Movimientos de Caja del Turno</Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Auditoría completa de ventas por método de pago y movimientos manuales del turno</Text>
+                    </div>
                 </Group>
             }
         >
@@ -205,9 +221,8 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
                         </Paper>
                     </SimpleGrid>
 
-                    <Divider label="Desglose por Tipo de Pago" labelPosition="left" />
-
-                    {/* Métodos de Pago */}
+                    {/* Desglose por Tipo de Pago */}
+                    <Divider label="Ventas por Método de Pago" labelPosition="left" />
                     <Stack gap="sm">
                         {metodos.length > 0 ? (
                             metodos.map((m) => {
@@ -239,6 +254,133 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
                             </Paper>
                         )}
                     </Stack>
+
+                    {/* ── Movimientos de Caja del Turno (Masterrows para Entradas y Salidas) ── */}
+                    <Divider label="Movimientos de Caja del Turno (Ingresos y Egresos)" labelPosition="left" mt="xs" />
+
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                        <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#f4fbf5', borderColor: '#40c057' }}>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Entradas (+)</Text>
+                            <Text fw={800} size="lg" c="green">+${totalEntradas.toFixed(2)}</Text>
+                            <Text size="xs" c="dimmed">{entradas.length} movimiento(s)</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#fff5f5', borderColor: '#fa5252' }}>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Salidas (-)</Text>
+                            <Text fw={800} size="lg" c="red">-${totalSalidas.toFixed(2)}</Text>
+                            <Text size="xs" c="dimmed">{salidas.length} movimiento(s)</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Balance Neto Movimientos</Text>
+                            <Text fw={800} size="lg" c={balanceMovimientos >= 0 ? 'green' : 'red'}>
+                                {balanceMovimientos >= 0 ? '+' : ''}${balanceMovimientos.toFixed(2)}
+                            </Text>
+                            <Text size="xs" c="dimmed">Ingresos menos Egresos</Text>
+                        </Paper>
+                    </SimpleGrid>
+
+                    <Accordion variant="separated" radius="md" defaultValue={['entradas', 'salidas']} multiple>
+                        {/* Masterrow 1: Entradas / Ingresos */}
+                        <Accordion.Item value="entradas">
+                            <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={16} /></ThemeIcon>}>
+                                <Group justify="space-between" w="100%" pr="sm">
+                                    <div>
+                                        <Text fw={700} size="sm">Ingresos / Entradas de Efectivo (+)</Text>
+                                        <Text size="xs" c="dimmed">{entradas.length} registro(s) capturados</Text>
+                                    </div>
+                                    <Badge color="green" variant="filled" size="md">
+                                        +${totalEntradas.toFixed(2)}
+                                    </Badge>
+                                </Group>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                                {entradas.length > 0 ? (
+                                    <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                                        <Table.Thead>
+                                            <Table.Tr>
+                                                <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                <Table.Th>Concepto</Table.Th>
+                                                <Table.Th>Responsable</Table.Th>
+                                                <Table.Th>Hora</Table.Th>
+                                                <Table.Th style={{ textAlign: 'right' }}>Monto (+)</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {entradas.map((m) => (
+                                                <Table.Tr key={m.id}>
+                                                    <Table.Td fw={700}>#{m.id}</Table.Td>
+                                                    <Table.Td>{m.concepto}</Table.Td>
+                                                    <Table.Td>
+                                                        {m.empleado ? `${m.empleado.nombre} ${m.empleado.apellidoPaterno}` : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>
+                                                        <Text fw={700} c="green">+${Number(m.monto).toFixed(2)}</Text>
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))}
+                                        </Table.Tbody>
+                                    </Table>
+                                ) : (
+                                    <Paper p="sm" radius="sm" withBorder style={{ textAlign: 'center', backgroundColor: '#fcfcfc' }}>
+                                        <Text size="xs" c="dimmed">No se registraron entradas de efectivo en este turno.</Text>
+                                    </Paper>
+                                )}
+                            </Accordion.Panel>
+                        </Accordion.Item>
+
+                        {/* Masterrow 2: Salidas / Egresos */}
+                        <Accordion.Item value="salidas">
+                            <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={16} /></ThemeIcon>}>
+                                <Group justify="space-between" w="100%" pr="sm">
+                                    <div>
+                                        <Text fw={700} size="sm">Egresos / Salidas de Efectivo (-)</Text>
+                                        <Text size="xs" c="dimmed">{salidas.length} registro(s) capturados</Text>
+                                    </div>
+                                    <Badge color="red" variant="filled" size="md">
+                                        -${totalSalidas.toFixed(2)}
+                                    </Badge>
+                                </Group>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                                {salidas.length > 0 ? (
+                                    <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                                        <Table.Thead>
+                                            <Table.Tr>
+                                                <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                <Table.Th>Concepto</Table.Th>
+                                                <Table.Th>Responsable</Table.Th>
+                                                <Table.Th>Hora</Table.Th>
+                                                <Table.Th style={{ textAlign: 'right' }}>Monto (-)</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {salidas.map((m) => (
+                                                <Table.Tr key={m.id}>
+                                                    <Table.Td fw={700}>#{m.id}</Table.Td>
+                                                    <Table.Td>{m.concepto}</Table.Td>
+                                                    <Table.Td>
+                                                        {m.empleado ? `${m.empleado.nombre} ${m.empleado.apellidoPaterno}` : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>
+                                                        <Text fw={700} c="red">-${Number(m.monto).toFixed(2)}</Text>
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))}
+                                        </Table.Tbody>
+                                    </Table>
+                                ) : (
+                                    <Paper p="sm" radius="sm" withBorder style={{ textAlign: 'center', backgroundColor: '#fcfcfc' }}>
+                                        <Text size="xs" c="dimmed">No se registraron salidas de efectivo en este turno.</Text>
+                                    </Paper>
+                                )}
+                            </Accordion.Panel>
+                        </Accordion.Item>
+                    </Accordion>
 
                     <Group grow mt="md">
                         <Button variant="default" size="md" radius="md" onClick={onClose}>
@@ -574,7 +716,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
     const actualizarConteoCierre = (valor, cantidad) => {
         let cant = 0;
         if (cantidad !== '' && !isNaN(Number(cantidad))) {
-            cant = Math.max(0, Math.min(100000, Math.floor(Number(cantidad))));
+            cant = Math.max(0, Math.min(1000, Math.floor(Number(cantidad))));
         }
         const valToStore = cantidad === '' ? '' : cant;
         const nuevoConteo = { ...conteoCierre, [valor]: valToStore };
@@ -587,6 +729,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;
+        total = Math.min(total, 200000);
         onChange('efectivoContado', total);
         onChange('desgloseFin', nuevoConteo);
         onChange('desgloseInicio', desgloseInicio);
@@ -774,7 +917,8 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                                                 <NumberInput
                                                     size="xs"
                                                     min={0}
-                                                    max={100000}
+                                                    max={1000}
+                                                    clampBehavior="strict"
                                                     allowDecimal={false}
                                                     placeholder="0"
                                                     value={cantStr}
@@ -820,6 +964,11 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                                     <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
                                     <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
                                 </Group>
+                                {errors.efectivoContado && (
+                                    <Alert icon={<IconAlertCircle size={16} />} color="red" variant="filled" p="xs" radius="sm">
+                                        <Text size="xs" fw={700}>{errors.efectivoContado}</Text>
+                                    </Alert>
+                                )}
                                 <Group justify="space-between">
                                     <Text fw={700} size="sm" c="#FF6A00">EFECTIVO CONTADO (FÍSICO):</Text>
                                     <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
@@ -870,6 +1019,27 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 minRows={2}
                 onChange={(e) => onChange('observaciones', e.currentTarget.value)}
             />
+
+            {/* Banner de errores visibles para evitar cualquier error oculto */}
+            {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
+                <Alert
+                    icon={<IconAlertCircle size={18} />}
+                    title="Campos que requieren atención"
+                    color="red"
+                    variant="light"
+                    radius="md"
+                >
+                    <Stack gap={2}>
+                        {Object.entries(errors)
+                            .filter(([_, msg]) => Boolean(msg))
+                            .map(([key, msg]) => (
+                                <Text size="xs" key={key} fw={600} c="red">
+                                    • {msg}
+                                </Text>
+                            ))}
+                    </Stack>
+                </Alert>
+            )}
         </Stack>
     );
 }
@@ -907,6 +1077,11 @@ export function CorteCaja() {
 
         return {
             id:              record.id,
+            numero: (
+                <Badge variant="light" color="gray" size="sm" radius="sm">
+                    #{record.id}
+                </Badge>
+            ),
             apertura:        record.aperturaCaja?.caja?.nombre ?? '—',
             empleado:        record.empleado
                 ? `${record.empleado.nombre} ${record.empleado.apellidoPaterno}`
@@ -963,6 +1138,10 @@ export function CorteCaja() {
         if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una apertura de caja';
         if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
         if (form.efectivoContado === undefined || form.efectivoContado === null || Number(form.efectivoContado) < 0) {
+            errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
+        }
+        if (Number(form.efectivoContado) > 200000) {
+            errors.efectivoContado = 'El efectivo contado físico no puede exceder el límite de $200,000.00';
             errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
         }
 

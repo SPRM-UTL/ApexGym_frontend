@@ -116,13 +116,14 @@ const CAMPOS = [
             { value: 'SALIDA', label: 'Salida' },
         ],
     },
-    { key: 'monto',         label: 'Monto',            required: true, type: 'number', min: 0.01, max: 9999999.99 },
+    { key: 'monto',         label: 'Monto',            required: true, type: 'number', min: 0.01, max: 50000 },
     { key: 'concepto',      label: 'Tipo de Concepto', required: true, maxLength: 255 },
     { key: 'observaciones', label: 'Observaciones',    maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
 const COLUMNAS = [
+    { key: 'numero',    label: '#',         sortable: true, filterable: true },
     { key: 'apertura',  label: 'Apertura',  sortable: true, filterable: true },
     { key: 'empleado',  label: 'Empleado',  sortable: true, filterable: true },
     { key: 'tipo',      label: 'Tipo',      sortable: true, filterable: true },
@@ -197,7 +198,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const actualizarDenominacion = (valor, cantidad) => {
         let cant = 0;
         if (cantidad !== '' && !isNaN(Number(cantidad))) {
-            cant = Math.max(0, Math.min(100000, Math.floor(Number(cantidad))));
+            cant = Math.max(0, Math.min(500, Math.floor(Number(cantidad))));
         }
         const valToStore = cantidad === '' ? '' : cant;
         const nuevoConteo = { ...conteoBilletes, [valor]: valToStore };
@@ -313,11 +314,13 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         withAsterisk
                         prefix="$"
                         min={0.01}
-                        max={9999999.99}
+                        max={50000}
                         decimalScale={2}
-                        description="Máximo $9,999,999.99 (Se actualiza al desglosar billetes)"
+                        clampBehavior="strict"
+                        placeholder="Ej. $500.00 (Máx. $50,000.00)"
+                        description="Límite máximo por movimiento: $50,000.00"
                         value={form.monto ?? ''}
-                        error={superaSaldo ? `Supera el saldo disponible ($${saldoDisponible.toFixed(2)})` : errors.monto}
+                        error={superaSaldo ? `Supera el saldo disponible (${saldoDisponible.toFixed(2)})` : errors.monto}
                         size="md"
                         radius="md"
                         leftSection={<IconCash size={16} stroke={1.5} />}
@@ -433,6 +436,27 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                 minRows={2}
                 onChange={(e) => onChange('observaciones', e.currentTarget.value)}
             />
+
+            {/* Banner de errores para evitar cualquier error invisible */}
+            {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
+                <Alert
+                    icon={<IconAlertCircle size={18} />}
+                    title="Campos que requieren atención"
+                    color="red"
+                    variant="light"
+                    radius="md"
+                >
+                    <Stack gap={2}>
+                        {Object.entries(errors)
+                            .filter(([_, msg]) => Boolean(msg))
+                            .map(([key, msg]) => (
+                                <Text size="xs" key={key} fw={600} c="red">
+                                    • {msg}
+                                </Text>
+                            ))}
+                    </Stack>
+                </Alert>
+            )}
         </Stack>
     );
 }
@@ -497,6 +521,11 @@ export function MovimientosCaja() {
 
         return {
             id:       record.id,
+            numero: (
+                <Badge variant="light" color="gray" size="sm" radius="sm">
+                    #{record.id}
+                </Badge>
+            ),
             apertura: aperturaLabel,
             empleado: record.empleado
                 ? `${record.empleado.nombre} ${record.empleado.apellidoPaterno}`
@@ -546,7 +575,7 @@ export function MovimientosCaja() {
         if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una apertura';
         if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
         if (!form.monto || Number(form.monto) <= 0) errors.monto = 'El monto debe ser mayor a 0';
-        if (Number(form.monto) > 9999999.99) errors.monto = 'El monto no puede exceder $9,999,999.99';
+        if (Number(form.monto) > 50000) errors.monto = 'El monto no puede exceder el límite de $50,000.00';
         if (!form.concepto?.trim()) errors.concepto = 'El concepto es requerido';
         if (form.concepto?.trim().length > 255) errors.concepto = 'El concepto no puede exceder 255 caracteres';
         if (form.observaciones?.trim().length > 500) errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
