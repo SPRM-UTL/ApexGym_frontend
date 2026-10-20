@@ -6,14 +6,14 @@ import {
     PasswordInput,
     Text,
     TextInput,
-    Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState , useRef} from 'react';
 import classes from './Login.module.css';
 import { cambioNombreWeb } from '../../scripts/globales';
 import { api } from '../../scripts/services/api.js';
-
+import BackgruondLogin  from '../../components/BackgroudLogin/BackgroudLogin.jsx'
+import logoImg from '../../assets/apex_gym.png';
 
 export function Login({ onLoginAceptado }) {
     cambioNombreWeb('Iniciar sesión');
@@ -25,6 +25,7 @@ export function Login({ onLoginAceptado }) {
 
     const [esPersistente, setEsPersistente] = useState(false);
 
+    const passwordRef = useRef(null);
     const verificarDatos = () => {
         let hayError = false;
 
@@ -83,28 +84,35 @@ export function Login({ onLoginAceptado }) {
         }
     };
 
-
     return (
         <div className={classes.wrapper}>
+            <BackgruondLogin />
             <Paper className={classes.form}>
-                <Title order={2} className={classes.title}>
-                    Bienvenido a ApexGym
-                </Title>
+                <div className={classes.logoContent}>
+                    <img src={logoImg} alt="Apex Gym Logo" className={classes.brandIcon} />
+                </div>
 
                 <TextInput
                     label="Correo electrónico"
                     placeholder="hola@gmail.com"
                     size="md"
                     radius="md"
+                    className='input'
                     value={correo}
                     onChange={(e) => {
                         setCorreo(e.target.value);
                         if (errorCorreo) setErrorCorreo(false);
                     }}
+                    onKeyDown={(e) => {
+                        if(e.key === 'Enter'){
+                            passwordRef.current?.focus();
+                        }
+                    }}
                     error={errorCorreo}
                 />
 
                 <PasswordInput
+                    ref={passwordRef}
                     label="Contraseña"
                     placeholder="Tu contraseña"
                     mt="md"
@@ -116,6 +124,11 @@ export function Login({ onLoginAceptado }) {
                         if (errorContrasena) setErrorContrasena(false);
                     }}
                     error={errorContrasena}
+                    onKeyDown={(e)=> {
+                        if(e.key === 'Enter'){
+                            verificarLogin();
+                        }
+                    }}
                 />
 
                 <Checkbox
@@ -130,7 +143,10 @@ export function Login({ onLoginAceptado }) {
                     Iniciar sesión
                 </Button>
             </Paper>
+            
         </div>
+        
+        
     );
 }
 

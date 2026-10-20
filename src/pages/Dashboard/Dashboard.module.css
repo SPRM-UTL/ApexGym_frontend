@@ -1,9 +1,15 @@
 .shell {
-    min-height: 100vh;
+    /*Pra hacer que se vea todo en colmnas y acomoda el tamaño en dispositivos*/
+    height: 100dvh;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
     background-color: var(--ag-color-surface);
 }
 
 .header {
+    /*Para que no se mueva la barra superior*/
+    flex: 0 0 auto;
     height: 64px;
     background-color: var(--ag-color-secondary);
     border-bottom: 3px solid var(--ag-color-primary);
@@ -38,10 +44,16 @@
 }
 
 .content {
-    min-height: calc(100vh - 64px);
+    /*Aqui ocupamos exactamente el expacio sobrante*/
+    flex: 1 1 auto;
+    /*Evitamos un desvordamiento*/
+    min-height: 0;
+    /*Agregamos el scroll en el interior del contenido*/
+    overflow-y: auto;
     padding: var(--mantine-spacing-xl);
     max-width: 1280px;
     margin: 0 auto;
+    width: 100%;
 }
 
 .pageBody {

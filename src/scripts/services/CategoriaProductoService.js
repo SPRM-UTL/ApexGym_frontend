@@ -1,25 +1,18 @@
 import { ResponseModel } from './models/ResponseModel.js';
 import { httpClient } from './httpClient.js';
-
-export class CategoriaProductoService {
+import { CatalogoService } from './CatalogoService.js';
+export class CategoriaProductoService extends CatalogoService {
     constructor(urlBase) {
-        this.urlBase = urlBase;
-        // La subruta exacta que montaste en Express:
-        this.urlApi = `${urlBase}/api/categorias-productos`;
+        super(urlBase, 'categorias-productos', 'categorías de productos');
     }
+    // Alias para compatibilidad con el módulo de Productos
+    obtenerTodas() {
+        return this.obtenerTodos();
+    } 
 
-    async obtenerTodas() {
-        try {
-            const response = await httpClient.get(`${this.urlApi}/`);
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al obtener categorías',
-                error.response?.status || 500
-            );
-        }
+    // Alias para compatibilidad con CrudCatalogo y el estándar del resto de servicios
+    async obtenerTodos() {
+        return this.obtenerTodas();
     }
 
     async crear(nombre, descripcion) {

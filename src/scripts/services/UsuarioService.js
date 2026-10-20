@@ -28,7 +28,7 @@ export class UsuarioService {
 
     async logout(userId){
         try{
-            const response = await httpClient.post(`${this.urlApi}/logout`,{userId})
+            const response = await httpClient.post(`${this.urlApi}/logout`)
             return response.data
         }catch(error){
             throw new ResponseModel(
