@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
     ActionIcon,
+    Alert,
     Badge,
     Box,
     Group,
@@ -8,6 +9,7 @@ import {
     NumberInput,
     SimpleGrid,
     Stack,
+    Text,
     Textarea,
     TextInput,
     ThemeIcon,
@@ -15,6 +17,7 @@ import {
     Tooltip,
 } from '@mantine/core';
 import {
+    IconAlertCircle,
     IconCalendar,
     IconCash,
     IconEdit,
@@ -58,20 +61,25 @@ const CAMPOS = [
         label: 'Caja',
         required: true,
         loadOptions: async () => {
-            const [cajasRes, aperturasRes] = await Promise.all([
-                api.caja.obtenerTodos(),
-                api.aperturaCaja.obtenerTodos(),
-            ]);
-            const cajasAbiertas = new Set(
-                (aperturasRes.data ?? [])
-                    .filter((a) => a.estado === 'ABIERTA')
-                    .map((a) => a.cajaId)
-            );
-            return (cajasRes.data ?? []).map((c) => ({
-                value: String(c.id),
-                label: cajasAbiertas.has(c.id) ? `${c.nombre} (Ya abierta)` : c.nombre,
-                disabled: cajasAbiertas.has(c.id),
-            }));
+            try {
+                const [cajasRes, aperturasRes] = await Promise.all([
+                    api.caja.obtenerTodos(),
+                    api.aperturaCaja.obtenerTodos(),
+                ]);
+                const cajasAbiertas = new Set(
+                    (aperturasRes?.data ?? [])
+                        .filter((a) => a.estado === 'ABIERTA')
+                        .map((a) => a.cajaId)
+                );
+                return (cajasRes?.data ?? []).map((c) => ({
+                    value: String(c.id),
+                    label: cajasAbiertas.has(c.id) ? `${c.nombre} (Ya abierta)` : c.nombre,
+                    disabled: cajasAbiertas.has(c.id),
+                }));
+            } catch (err) {
+                console.error('Error cargando opciones de cajas:', err);
+                return [];
+            }
         },
     },
     {
@@ -79,11 +87,16 @@ const CAMPOS = [
         label: 'Empleado',
         required: true,
         loadOptions: async () => {
-            const r = await api.empleado.obtenerTodos();
-            return (r.data ?? []).map((e) => ({ value: String(e.id), label: `${e.nombre} ${e.apellidoPaterno}` }));
+            try {
+                const r = await api.empleado.obtenerTodos();
+                return (r?.data ?? []).map((e) => ({ value: String(e.id), label: `${e.nombre} ${e.apellidoPaterno}` }));
+            } catch (err) {
+                console.error('Error cargando opciones de empleados:', err);
+                return [];
+            }
         },
     },
-    { key: 'montoInicial', label: 'Monto Inicial', required: true, type: 'number', min: 0, max: 9999999.99 },
+    { key: 'montoInicial', label: 'Monto Inicial', required: true, type: 'number', min: 0, max: 200000 },
     { key: 'fechaApertura', label: 'Fecha de Apertura', required: true, type: 'date' },
     { key: 'observaciones', label: 'Observaciones', maxLength: 500 },
 ];
@@ -183,7 +196,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                     {/* Full width observaciones */}
                     <Textarea
                         label="Observaciones"
-                        placeholder="Observaciones adicionales"
+                        placeholder="Observaciones de la apertura"
                         value={form.observaciones ?? ''}
                         error={errors.observaciones}
                         maxLength={500}
@@ -196,6 +209,27 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                     />
                 </SimpleGrid>
             </Box>
+
+            {/* Banner de errores visibles */}
+            {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
+                <Alert
+                    icon={<IconAlertCircle size={18} />}
+                    title="Campos que requieren atención"
+                    color="red"
+                    variant="light"
+                    radius="md"
+                >
+                    <Stack gap={2}>
+                        {Object.entries(errors)
+                            .filter(([_, msg]) => Boolean(msg))
+                            .map(([key, msg]) => (
+                                <Text size="xs" key={key} fw={600} c="red">
+                                    • {msg}
+                                </Text>
+                            ))}
+                    </Stack>
+                </Alert>
+            )}
         </Stack>
     );
 }
@@ -212,17 +246,24 @@ export function AperturaCaja() {
 
     const [aperturaACancelar, setAperturaACancelar] = useState(null);
     const [cancelando, setCancelando] = useState(false);
-    const [recargarTabla, setRecargarTabla] = useState(null);
+    const recargarTablaRef = useRef(null);
 
-    const mapRecordToForm = useMemo(() => (record) => ({
-        cajaId:       record.caja?.id     ? String(record.caja.id)     : String(record.cajaId     ?? ''),
-        empleadoId:   record.empleado?.id ? String(record.empleado.id) : String(record.empleadoId ?? ''),
-        montoInicial: record.montoInicial ?? '',
-        fechaApertura: record.fechaApertura
-            ? new Date(record.fechaApertura).toISOString().split('T')[0]
-            : obtenerFechaHoyLocal(),
-        observaciones: record.observaciones ?? '',
-    }), []);
+    const mapRecordToForm = useMemo(() => (record) => {
+        let fechaForm = obtenerFechaHoyLocal();
+        if (record.fechaApertura) {
+            const d = new Date(record.fechaApertura);
+            if (!isNaN(d.getTime())) {
+                fechaForm = d.toISOString().split('T')[0];
+            }
+        }
+        return {
+            cajaId:       record.caja?.id     ? String(record.caja.id)     : String(record.cajaId     ?? ''),
+            empleadoId:   record.empleado?.id ? String(record.empleado.id) : String(record.empleadoId ?? ''),
+            montoInicial: record.montoInicial ?? '',
+            fechaApertura: fechaForm,
+            observaciones: record.observaciones ?? '',
+        };
+    }, []);
 
     const mapFormToPayload = (form) => ({
         cajaId:       Number(form.cajaId),
@@ -234,6 +275,11 @@ export function AperturaCaja() {
 
     const mapRecordToRow = (record) => ({
         id:           record.id,
+        numero: (
+            <Badge variant="light" color="gray" size="sm" radius="sm">
+                #{record.id}
+            </Badge>
+        ),
         caja:         record.caja?.nombre ?? '—',
         empleado:     record.empleado
             ? `${record.empleado.nombre} ${record.empleado.apellidoPaterno}`
@@ -259,7 +305,7 @@ export function AperturaCaja() {
                 color: 'green',
             });
             setAperturaACancelar(null);
-            recargarTabla?.();
+            recargarTablaRef.current?.();
         } catch (err) {
             notifications.show({
                 title: 'Error al cancelar apertura',
@@ -304,8 +350,8 @@ export function AperturaCaja() {
                     const esAbierta = apertura?.estado === 'ABIERTA';
                     const esCerrada = apertura?.estado === 'CERRADA';
 
-                    if (helpers?.reload && recargarTabla !== helpers.reload) {
-                        setRecargarTabla(() => helpers.reload);
+                    if (helpers?.reload) {
+                        recargarTablaRef.current = helpers.reload;
                     }
 
                     // Reglas de Edición:
