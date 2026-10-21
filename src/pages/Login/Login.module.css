@@ -36,43 +36,25 @@ html,body{
     min-height: 70%;
     width: 100%;
     max-width: 500px;
-    padding: 30px;
-    padding-top: 80px;
-    border-radius: 0;
+    padding: 40px 30px;
     background-color: var(--ag-color-surface-elevated);
     box-shadow: 8px 0 32px rgba(5, 6, 10, 0.2);
-    z-index:1;
+    z-index: 1;
     position: relative;
     margin: 20px;
     border-radius: 20px;
     display: flex;
     flex-direction: column;
-    justify-content:flex-start ;
+    justify-content: center;
     overflow: auto;
 }
 
-.title {
-    color: var(--ag-color-black);
-    font-family: inherit;
-    font-size: xx-large;
-    text-align: justify;
-    letter-spacing: -0.02em;
-    padding: 0;
-    margin-bottom: 10%;
-
-    
+.logoContent {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
 }
-
-.logo {
-    color: var(--ag-color-secondary);
-    font-weight: 800;
-}
-
-.logoAccent {
-    color: var(--ag-color-primary);
-    font-weight: 800;
-}
-
 
 @media(max-width: 1200px){
     .wrapper{
@@ -82,14 +64,8 @@ html,body{
 }
 
 .brandIcon {
-    height: clamp(40px, 20vw, 200px); 
-    padding: 5% 5%;
+    height: clamp(60px, 16vw, 180px);
     width: auto;
     object-fit: contain;
-    opacity: 1;
-}
-
-.brandIcon {
-    
     opacity: 1;
 }
