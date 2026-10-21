@@ -15,6 +15,7 @@ import {
     Alert,
     Badge,
     Box,
+    Button,
     Group,
     NativeSelect,
     NumberInput,
@@ -89,13 +90,18 @@ const CAMPOS = [
         label: 'Apertura de Caja',
         required: true,
         loadOptions: async () => {
-            const r = await api.aperturaCaja.obtenerTodos();
-            return (r.data ?? [])
-                .filter((a) => a.estado === 'ABIERTA')
-                .map((a) => ({
-                    value: String(a.id),
-                    label: `#${a.id} — ${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
-                }));
+            try {
+                const r = await api.aperturaCaja.obtenerTodos();
+                return (r?.data ?? [])
+                    .filter((a) => a.estado === 'ABIERTA')
+                    .map((a) => ({
+                        value: String(a.id),
+                        label: `#${a.id} — ${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
+                    }));
+            } catch (err) {
+                console.error('Error cargando aperturas:', err);
+                return [];
+            }
         },
     },
     {
@@ -103,8 +109,13 @@ const CAMPOS = [
         label: 'Empleado',
         required: true,
         loadOptions: async () => {
-            const r = await api.empleado.obtenerTodos();
-            return (r.data ?? []).map((e) => ({ value: String(e.id), label: `${e.nombre} ${e.apellidoPaterno}` }));
+            try {
+                const r = await api.empleado.obtenerTodos();
+                return (r?.data ?? []).map((e) => ({ value: String(e.id), label: `${e.nombre} ${e.apellidoPaterno}` }));
+            } catch (err) {
+                console.error('Error cargando empleados:', err);
+                return [];
+            }
         },
     },
     {
@@ -166,6 +177,17 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
         return init;
     });
 
+    // Mantener conteo en sincronía si cambia externamente form.desglose
+    useEffect(() => {
+        if (form.desglose && typeof form.desglose === 'object') {
+            setConteoBilletes(form.desglose);
+        } else if (!form.desglose) {
+            const init = {};
+            for (const d of DENOMINACIONES) init[d.valor] = '';
+            setConteoBilletes(init);
+        }
+    }, [form.desglose]);
+
     useEffect(() => {
         if (!form.aperturaCajaId) {
             setResumen(null);
@@ -191,15 +213,56 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
 
     const saldoDisponible = resumen ? Number(resumen.saldoDisponible ?? 0) : null;
     const esSalida = form.tipo === 'SALIDA';
-    const montoNum = Number(form.monto || 0);
-    const superaSaldo = esSalida && saldoDisponible !== null && montoNum > saldoDisponible;
+    const montoUsuario = Number(form.monto || 0);
+    const superaSaldo = esSalida && saldoDisponible !== null && montoUsuario > saldoDisponible;
+
+    // Total acumulado actual del desglose de efectivo
+    const totalDesglose = useMemo(() => {
+        let total = 0;
+        for (const d of DENOMINACIONES) {
+            const c = conteoBilletes[d.valor] === '' ? 0 : Number(conteoBilletes[d.valor]);
+            total += d.valor * c;
+        }
+        return Math.round(total * 100) / 100;
+    }, [conteoBilletes]);
+
+    const desgloseExcedeMonto = montoUsuario > 0 && totalDesglose > montoUsuario;
+
+    // Calcula el subtotal de todas las demás denominaciones excepto la indicada
+    const calcularTotalOtras = (valorActual) => {
+        let sum = 0;
+        for (const item of DENOMINACIONES) {
+            if (item.valor !== valorActual) {
+                const cant = conteoBilletes[item.valor] === '' ? 0 : Number(conteoBilletes[item.valor]);
+                sum += item.valor * cant;
+            }
+        }
+        return Math.round(sum * 100) / 100;
+    };
+
+    // Calcula la cantidad máxima permitida para una denominación específica según el monto ingresado
+    const maxCantidadPermitida = (valor) => {
+        if (montoUsuario <= 0) return 500;
+        const totalOtras = calcularTotalOtras(valor);
+        const restante = Math.max(0, Math.round((montoUsuario - totalOtras) * 100) / 100);
+        return Math.floor(restante / valor);
+    };
 
     // Manejar cambio en conteo de denominaciones
     const actualizarDenominacion = (valor, cantidad) => {
         let cant = 0;
         if (cantidad !== '' && !isNaN(Number(cantidad))) {
-            cant = Math.max(0, Math.min(500, Math.floor(Number(cantidad))));
+            cant = Math.max(0, Math.floor(Number(cantidad)));
         }
+
+        // Si el usuario ingresó una cantidad en Monto, los billetes/monedas NO deben superar ese monto
+        if (montoUsuario > 0) {
+            const maxPermitido = maxCantidadPermitida(valor);
+            cant = Math.min(cant, maxPermitido);
+        } else {
+            cant = Math.min(cant, 500);
+        }
+
         const valToStore = cantidad === '' ? '' : cant;
         const nuevoConteo = { ...conteoBilletes, [valor]: valToStore };
         setConteoBilletes(nuevoConteo);
@@ -212,9 +275,19 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
         total = Math.round(total * 100) / 100;
 
         onChange('desglose', nuevoConteo);
-        if (total > 0 || Object.values(nuevoConteo).some((v) => v !== '' && Number(v) > 0)) {
+
+        // Si el usuario NO había ingresado un monto previamente, el desglose llena el monto automáticamente.
+        // Si ya había ingresado un monto, NO se sobreescribe para respetar la cantidad que puso.
+        if (montoUsuario <= 0 && (total > 0 || Object.values(nuevoConteo).some((v) => v !== '' && Number(v) > 0))) {
             onChange('monto', total);
         }
+    };
+
+    const limpiarDesglose = () => {
+        const init = {};
+        for (const d of DENOMINACIONES) init[d.valor] = '';
+        setConteoBilletes(init);
+        onChange('desglose', null);
     };
 
     const opcionesConceptos = (CATALOGO_CONCEPTOS[form.tipo] || CATALOGO_CONCEPTOS.ENTRADA).map((c) => ({
@@ -320,7 +393,13 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="Ej. $500.00 (Máx. $50,000.00)"
                         description="Límite máximo por movimiento: $50,000.00"
                         value={form.monto ?? ''}
-                        error={superaSaldo ? `Supera el saldo disponible (${saldoDisponible.toFixed(2)})` : errors.monto}
+                        error={
+                            superaSaldo
+                                ? `Supera el saldo disponible (${saldoDisponible.toFixed(2)})`
+                                : (desgloseExcedeMonto
+                                    ? `El total de billetes/monedas ($${totalDesglose.toFixed(2)}) supera este monto`
+                                    : errors.monto)
+                        }
                         size="md"
                         radius="md"
                         leftSection={<IconCash size={16} stroke={1.5} />}
@@ -374,20 +453,61 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                 </div>
 
                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fffdfa' }}>
-                    <Group justify="space-between" mb="xs">
+                    <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
                         <Text size="xs" c="dimmed">
-                            Captura la cantidad de billetes y monedas que componen este movimiento (el monto total se actualizará automáticamente).
+                            {montoUsuario > 0
+                                ? `Desglose de efectivo para el monto de $${montoUsuario.toFixed(2)}. La suma no puede superar el monto.`
+                                : 'Captura la cantidad de billetes y monedas que componen este movimiento.'}
                         </Text>
-                        <Badge color="apex" variant="light" size="md">
-                            Total Desglose: ${Number(form.monto || 0).toFixed(2)}
-                        </Badge>
+                        <Group gap="xs">
+                            {totalDesglose > 0 && (
+                                <Button
+                                    variant="subtle"
+                                    color="gray"
+                                    size="compact-xs"
+                                    onClick={limpiarDesglose}
+                                >
+                                    Limpiar desglose
+                                </Button>
+                            )}
+                            <Badge
+                                color={
+                                    desgloseExcedeMonto
+                                        ? 'red'
+                                        : montoUsuario > 0 && totalDesglose === montoUsuario
+                                        ? 'green'
+                                        : 'apex'
+                                }
+                                variant="light"
+                                size="md"
+                            >
+                                Total Desglose: ${totalDesglose.toFixed(2)}
+                                {montoUsuario > 0 && ` / $${montoUsuario.toFixed(2)}`}
+                            </Badge>
+                        </Group>
                     </Group>
+
+                    {desgloseExcedeMonto && (
+                        <Alert
+                            icon={<IconAlertCircle size={15} />}
+                            title="Desglose excede el monto ingresado"
+                            color="red"
+                            variant="light"
+                            radius="sm"
+                            p="xs"
+                            mb="xs"
+                        >
+                            <Text size="xs">
+                                El desglose (${totalDesglose.toFixed(2)}) supera el monto establecido (${montoUsuario.toFixed(2)}). Reduce las cantidades de billetes o limpia el desglose.
+                            </Text>
+                        </Alert>
+                    )}
 
                     <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
                         <Table.Thead>
                             <Table.Tr>
                                 <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ width: 110, textAlign: 'center' }}>Cantidad</Table.Th>
+                                <Table.Th style={{ width: 130, textAlign: 'center' }}>Cantidad</Table.Th>
                                 <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
@@ -396,18 +516,42 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                                 const cantStr = conteoBilletes[d.valor] ?? '';
                                 const cantNum = cantStr === '' ? 0 : Number(cantStr);
                                 const subtotal = d.valor * cantNum;
+                                const maxPerm = maxCantidadPermitida(d.valor);
+                                const noPermiteMas = montoUsuario > 0 && maxPerm <= 0 && cantNum === 0;
 
                                 return (
-                                    <Table.Tr key={d.valor}>
-                                        <Table.Td fw={600}>{d.label}</Table.Td>
+                                    <Table.Tr
+                                        key={d.valor}
+                                        style={{
+                                            backgroundColor: subtotal > 0 ? '#fff9f4' : undefined,
+                                            opacity: noPermiteMas ? 0.6 : 1,
+                                        }}
+                                    >
+                                        <Table.Td fw={600}>
+                                            <Group gap={6} wrap="nowrap">
+                                                <span>{d.label}</span>
+                                                {montoUsuario > 0 && (
+                                                    <Badge
+                                                        size="xs"
+                                                        variant="subtle"
+                                                        color={maxPerm > 0 || cantNum > 0 ? 'gray' : 'red'}
+                                                        style={{ fontSize: 10 }}
+                                                    >
+                                                        Máx: {maxPerm}
+                                                    </Badge>
+                                                )}
+                                            </Group>
+                                        </Table.Td>
                                         <Table.Td style={{ padding: 4 }}>
                                             <NumberInput
                                                 size="xs"
                                                 min={0}
-                                                max={100000}
+                                                max={montoUsuario > 0 ? maxPerm : 500}
+                                                clampBehavior="strict"
                                                 allowDecimal={false}
                                                 placeholder="0"
                                                 value={cantStr}
+                                                disabled={noPermiteMas}
                                                 onChange={(v) => actualizarDenominacion(d.valor, v)}
                                                 styles={{ input: { textAlign: 'center' } }}
                                             />
@@ -466,7 +610,10 @@ export function MovimientosCaja() {
     const mapRecordToForm = useMemo(() => (record) => {
         let desglose = null;
         try {
-            if (record.observaciones && record.observaciones.includes('{"desglose":')) {
+            if (record.observaciones && record.observaciones.includes('Desglose: {')) {
+                const jsonPart = record.observaciones.split('Desglose: ')[1]?.split('|')[0]?.trim();
+                if (jsonPart) desglose = JSON.parse(jsonPart);
+            } else if (record.observaciones && record.observaciones.includes('{"desglose":')) {
                 const parsed = JSON.parse(record.observaciones);
                 desglose = parsed.desglose;
             }
@@ -579,6 +726,19 @@ export function MovimientosCaja() {
         if (!form.concepto?.trim()) errors.concepto = 'El concepto es requerido';
         if (form.concepto?.trim().length > 255) errors.concepto = 'El concepto no puede exceder 255 caracteres';
         if (form.observaciones?.trim().length > 500) errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
+
+        // Validar que el desglose de efectivo no supere el monto ingresado
+        if (form.desglose && typeof form.desglose === 'object' && Number(form.monto) > 0) {
+            let totalDesglose = 0;
+            for (const d of DENOMINACIONES) {
+                const c = form.desglose[d.valor] === '' || form.desglose[d.valor] == null ? 0 : Number(form.desglose[d.valor]);
+                totalDesglose += d.valor * c;
+            }
+            totalDesglose = Math.round(totalDesglose * 100) / 100;
+            if (totalDesglose > Number(form.monto)) {
+                errors.monto = `El total de billetes y monedas ($${totalDesglose.toFixed(2)}) no puede superar el monto ingresado ($${Number(form.monto).toFixed(2)})`;
+            }
+        }
 
         // Validar saldo si es salida
         if (form.tipo === 'SALIDA' && form.aperturaCajaId && Number(form.monto) > 0) {
