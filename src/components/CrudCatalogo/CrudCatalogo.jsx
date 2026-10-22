@@ -134,6 +134,8 @@ export function CrudCatalogo({
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
+    initialSortBy,
+    initialSortDirection,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -226,10 +228,13 @@ export function CrudCatalogo({
                 }
             }
         }
-        Object.assign(nextErrors, validateForm?.(form) ?? {});
+        const customErrors = (await validateForm?.(form)) ?? {};
+        Object.assign(nextErrors, customErrors);
         if (Object.keys(nextErrors).length) {
             setErrors(nextErrors);
-            notifications.show({ title: 'Formulario incompleto', message: 'Revisa los campos marcados.', color: 'red' });
+            const errorList = Object.values(nextErrors).filter(Boolean);
+            const msg = errorList.length === 1 ? errorList[0] : errorList.join(' — ');
+            notifications.show({ title: 'Formulario incompleto', message: msg, color: 'red', autoClose: 7000 });
             return;
         }
 
@@ -368,6 +373,8 @@ export function CrudCatalogo({
                             fetchData();
                             fetchOptions();
                         }}
+                        initialSortBy={initialSortBy}
+                        initialSortDirection={initialSortDirection}
                     />
                 )}
             </div>

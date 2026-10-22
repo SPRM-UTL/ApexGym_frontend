@@ -1,27 +1,55 @@
 /**
- * Genera y descarga / imprime el reporte oficial de Corte de Caja en PDF.
- * Incluye distinción de ORIGINAL vs COPIA con huella digital de seguridad,
- * resumen financiero compacto en una sola fila y tabla de movimientos optimizada.
+ * Issue: [CAJA-06] Frontend: Diseno y generacion del reporte oficial de Corte de Caja en PDF #91
+ * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
+ *
+ * Tareas:
+ * - Refactorizar src/scripts/generarPdfCorte.js con el diseno oficial institucional de ApexGym.
+ * - Incluir tabla detallada de todos los movimientos de caja registrados en el turno.
+ * - Incluir tabla con el arqueo fisico de billetes y monedas.
+ * - Incluir resumen financiero de totales, diferencias y seccion para firmas de recepcion y gerencia.
+ * - Soportar logotipo oficial del sistema y visibilidad configurable de huella digital/auditoría.
+ * - Marca de agua obligatoria "REIMPRESIÓN" y badges dinámicos cuando se trate de una reimpresión/copia.
  * 
  * @param {object} corte - Datos del corte de caja
  * @param {Array} movimientos - Lista de movimientos de la caja
  * @param {object} [desglose] - Desglose de billetes (opcional)
+ * @param {Array|object} [configuraciones] - Configuraciones del sistema para personalizar el reporte
+ * @param {object} [opciones] - Opciones adicionales (ej. forzar reimpresión)
  */
-export function generarPdfCorte(corte, movimientos = [], desglose = null) {
+export function generarPdfCorte(corte, movimientos = [], desglose = null, configuraciones = [], opciones = {}) {
     const ventana = window.open('', '_blank', 'width=950,height=1000');
     if (!ventana) {
         alert('Por favor permite las ventanas emergentes en tu navegador para generar el comprobante PDF.');
         return;
     }
 
-    // ── Conteo de impresiones y control de ORIGINAL vs COPIA ─────────────────
+    // ── Mapeo de Configuraciones del Sistema ─────────────────────────────────
+    const configMap = Array.isArray(configuraciones)
+        ? Object.fromEntries(configuraciones.map((c) => [c.clave, c.valor]))
+        : (configuraciones || {});
+
+    // Configuración para mostrar u ocultar la sección de huella digital y auditoría
+    const configHuella = configMap['mostrar_huella_digital_corte'] ?? configMap['mostrar_auditoria_digital'];
+    const mostrarHuella = configHuella !== undefined ? String(configHuella).toLowerCase() === 'true' : true;
+
+    // Configuración para el logo del sistema
+    const logoConfig = configMap['logo_sistema'] ?? configMap['imagen_sistema'] ?? configMap['logo'] ?? '/favicon.svg';
+    let logoUrl = logoConfig;
+    if (logoUrl && !logoUrl.startsWith('http://') && !logoUrl.startsWith('https://') && !logoUrl.startsWith('data:')) {
+        const origin = window.location.origin || '';
+        logoUrl = `${origin}${logoUrl.startsWith('/') ? '' : '/'}${logoUrl}`;
+    }
+
+    // ── Conteo de impresiones y control de ORIGINAL vs REIMPRESIÓN ───────────
     const storageKey = `corte_impresiones_${corte?.id ?? 0}`;
     const vecesImpreso = Number(localStorage.getItem(storageKey) || 0);
-    const esOriginal = vecesImpreso === 0;
+    const esOriginal = opciones.esReimpresion !== undefined 
+        ? !opciones.esReimpresion 
+        : (vecesImpreso === 0);
 
-    // Registrar nueva impresión
+    // Registrar nueva impresión en almacenamiento local
     localStorage.setItem(storageKey, String(vecesImpreso + 1));
-    const numeroCopia = vecesImpreso; // 1ra copia = Copia #1, etc.
+    const numeroCopia = vecesImpreso === 0 ? 1 : vecesImpreso;
 
     // ── Generación de Huella Digital de Seguridad ────────────────────────────
     const seed = `${corte?.id || 0}-${corte?.fechaCorte || ''}-${corte?.efectivoContado || 0}-${corte?.diferencia || 0}`;
@@ -43,7 +71,8 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
     const montoInicial = Number(corte?.aperturaCaja?.montoInicial ?? 0);
     const totalEntradas = Number(corte?.totalEntradas ?? 0);
     const totalSalidas = Number(corte?.totalSalidas ?? 0);
-    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas;
+    const totalVentasEfectivo = Number(corte?.totalVentasEfectivo ?? 0);
+    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas + totalVentasEfectivo;
     const efectivoContado = Number(corte?.efectivoContado ?? 0);
     const diferenciaNum = Number(corte?.diferencia ?? (efectivoContado - efectivoEsperado));
 
@@ -100,32 +129,77 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         body { margin: 0; padding: 28px; color: #1B1F3A; background: #fff; font-size: 12px; line-height: 1.45; position: relative; }
         
-        ${!esOriginal ? `
-        /* Marca de agua diagonal en fondo para copias */
-        .watermark-copia {
+        /* ── Barra de Herramientas Superior (Solo visible en pantalla) ── */
+        .toolbar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1B1F3A;
+            color: #ffffff;
+            padding: 10px 18px;
+            border-radius: 8px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        }
+        .btn-action {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #ced4da;
+            background: #ffffff;
+            color: #1B1F3A;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-action.primary {
+            background: #FF6A00;
+            border-color: #FF6A00;
+            color: #ffffff;
+        }
+        .btn-action:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* ── Marca de agua de REIMPRESIÓN (Obligatoria para reimpresiones) ── */
+        .watermark-container {
             position: fixed;
-            top: 45%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-35deg);
-            font-size: 110px;
-            font-weight: 900;
-            color: rgba(230, 77, 0, 0.08);
-            letter-spacing: 20px;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             pointer-events: none;
-            z-index: 0;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .watermark-reimpresion {
+            transform: rotate(-32deg);
+            font-size: 88px;
+            font-weight: 900;
+            color: rgba(220, 53, 69, 0.13);
+            border: 8px solid rgba(220, 53, 69, 0.18);
+            padding: 16px 48px;
+            border-radius: 16px;
+            letter-spacing: 16px;
             text-transform: uppercase;
             user-select: none;
+            white-space: nowrap;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        ` : ''}
 
-        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 14px; position: relative; z-index: 1; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 14px; position: relative; z-index: 1; }
         .logo-title h1 { margin: 0; font-size: 26px; font-weight: 900; color: #FF6A00; letter-spacing: 0.5px; }
         .logo-title p { margin: 3px 0 0 0; font-size: 11px; color: #666; font-weight: 500; }
         
         .header-badges { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
         .badge-doc { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-doc.original { background: #e7f5ff; color: #1971c2; border: 1px solid #74c0fc; }
-        .badge-doc.copia { background: #fff3bf; color: #d9480f; border: 1px solid #fcc419; }
+        .badge-doc.reimpresion { background: #fff5f5; color: #c92a2a; border: 1px solid #fa5252; }
         .badge-estado { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-size: 10px; text-transform: uppercase; background: ${corte?.estado === 'VALIDADO' ? '#ebfbee' : '#fff9db'}; color: ${estadoColor}; border: 1px solid ${estadoColor}; }
         
         .huella-box { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 6px 12px; font-size: 10px; color: #495057; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; z-index: 1; }
@@ -140,7 +214,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
         .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1B1F3A; margin: 16px 0 8px 0; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px; position: relative; z-index: 1; }
         
         /* ── Resumen Financiero en UNA SOLA FILA compacta ── */
-        .resumen-fila { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 14px; position: relative; z-index: 1; }
+        .resumen-fila { display: grid; grid-template-columns: repeat(${totalVentasEfectivo > 0 ? 7 : 6}, 1fr); gap: 6px; margin-bottom: 14px; position: relative; z-index: 1; }
         .kpi-compact { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 7px 6px; text-align: center; }
         .kpi-compact.highlight { background: #fff9f5; border-color: #FF6A00; }
         .kpi-compact.diff { background: ${diferenciaNum >= 0 ? '#f4fbf5' : '#fff5f5'}; border-color: ${difColor}; }
@@ -163,34 +237,69 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
         
         @media print {
             body { padding: 10px; }
+            .toolbar-header { display: none !important; }
             .no-print { display: none !important; }
+            .watermark-container {
+                display: flex !important;
+            }
+            .watermark-reimpresion {
+                display: block !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
         }
     </style>
 </head>
 <body>
-    ${!esOriginal ? '<div class="watermark-copia">COPIA</div>' : ''}
+    <!-- Barra de acciones interactiva para pantalla (No se imprime) -->
+    <div class="no-print toolbar-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-weight: 700; font-size: 11px; color: rgba(255, 255, 255, 0.85);">Estado de Emisión:</span>
+            <span class="badge-doc ${esOriginal ? 'original' : 'reimpresion'}" id="toolbarStatusBadge">
+                ${esOriginal ? 'ORIGINAL' : `REIMPRESIÓN (COPIA #${numeroCopia})`}
+            </span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-action" onclick="toggleModoImpresion()" id="btnToggleModo">
+                ${esOriginal ? '🔄 Ver vista con Marca de Agua (Reimpresión)' : '🔄 Ver vista Original'}
+            </button>
+            <button type="button" class="btn-action primary" onclick="window.print()">
+                🖨️ Imprimir / Guardar PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Contenedor de Marca de Agua Oficial -->
+    <div class="watermark-container" id="watermarkContainer" style="${esOriginal ? 'display: none;' : 'display: flex;'}">
+        <div class="watermark-reimpresion">REIMPRESIÓN</div>
+    </div>
 
     <div class="header">
-        <div class="logo-title">
-            <h1>APEX GYM</h1>
-            <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno</p>
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoUrl ? `<img src="${logoUrl}" alt="Logo ApexGym" style="height: 52px; width: auto; max-width: 90px; object-fit: contain;" onerror="this.style.display='none'" />` : ''}
+            <div class="logo-title">
+                <h1>APEX GYM</h1>
+                <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno</p>
+            </div>
         </div>
         <div class="header-badges">
-            <span class="badge-doc ${esOriginal ? 'original' : 'copia'}">
-                ${esOriginal ? 'ORIGINAL' : `COPIA · REIMPRESIÓN #${numeroCopia}`}
+            <span class="badge-doc ${esOriginal ? 'original' : 'reimpresion'}" id="badgeDoc">
+                ${esOriginal ? 'ORIGINAL' : `REIMPRESIÓN · COPIA #${numeroCopia}`}
             </span>
             <div class="badge-estado">${estadoTexto}</div>
             <span style="font-size: 11px; font-weight: 700; color: #495057;">Folio: #CORTE-${corte?.id ?? '—'}</span>
         </div>
     </div>
 
-    <!-- Huella digital de seguridad -->
+    <!-- Huella digital de seguridad condicional según configuración del sistema -->
+    ${mostrarHuella ? `
     <div class="huella-box">
         <span><b>Seguridad y Auditoría Digital:</b> Huella <span class="huella-code">${huellaDigital}</span></span>
-        <span>${esOriginal ? '● <b>DOCUMENTO ORIGINAL OFICIAL</b>' : `▲ <b>COPIA AUTORIZADA #${numeroCopia}</b>`}</span>
+        <span id="huellaEstadoDoc">${esOriginal ? '● <b>DOCUMENTO ORIGINAL OFICIAL</b>' : `▲ <b>DOCUMENTO EN REIMPRESIÓN (COPIA #${numeroCopia})</b>`}</span>
     </div>
+    ` : ''}
 
-    <!-- Información General (Sin la palabra ID) -->
+    <!-- Información General -->
     <div class="info-grid">
         <div class="info-item">
             <span class="info-label">Caja Asignada</span>
@@ -229,6 +338,14 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
             <span class="kpi-compact-label">Salidas (-)</span>
             <span class="kpi-compact-value" style="color: #c92a2a;">-$${totalSalidas.toFixed(2)}</span>
         </div>
+        ${
+            totalVentasEfectivo > 0
+                ? `<div class="kpi-compact">
+            <span class="kpi-compact-label">Ventas Ef. (+)</span>
+            <span class="kpi-compact-value" style="color: #2b8a3e;">+$${totalVentasEfectivo.toFixed(2)}</span>
+        </div>`
+                : ''
+        }
         <div class="kpi-compact">
             <span class="kpi-compact-label">Ef. Teórico</span>
             <span class="kpi-compact-value">$${efectivoEsperado.toFixed(2)}</span>
@@ -344,10 +461,37 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
     </div>
 
     <div class="footer">
-        <p>Documento oficial emitido por ApexGym Nexus System · Huella de Auditoría: ${huellaDigital} · Fecha: ${new Date().toLocaleString('es-MX')}</p>
+        <p>Documento oficial emitido por ApexGym Nexus System${mostrarHuella ? ` · Huella de Auditoría: ${huellaDigital}` : ''} · Fecha: ${new Date().toLocaleString('es-MX')}</p>
     </div>
 
     <script>
+        function toggleModoImpresion() {
+            var wm = document.getElementById('watermarkContainer');
+            var badgeDoc = document.getElementById('badgeDoc');
+            var toolbarBadge = document.getElementById('toolbarStatusBadge');
+            var btnToggle = document.getElementById('btnToggleModo');
+            var huellaDoc = document.getElementById('huellaEstadoDoc');
+
+            var isCurrentlyHidden = wm.style.display === 'none';
+            if (isCurrentlyHidden) {
+                wm.style.display = 'flex';
+                badgeDoc.className = 'badge-doc reimpresion';
+                badgeDoc.innerText = 'REIMPRESIÓN · COPIA #${numeroCopia || 1}';
+                toolbarBadge.className = 'badge-doc reimpresion';
+                toolbarBadge.innerText = 'REIMPRESIÓN (#${numeroCopia || 1})';
+                btnToggle.innerText = '🔄 Ver vista Original';
+                if (huellaDoc) huellaDoc.innerHTML = '▲ <b>DOCUMENTO EN REIMPRESIÓN (COPIA #${numeroCopia || 1})</b>';
+            } else {
+                wm.style.display = 'none';
+                badgeDoc.className = 'badge-doc original';
+                badgeDoc.innerText = 'ORIGINAL';
+                toolbarBadge.className = 'badge-doc original';
+                toolbarBadge.innerText = 'ORIGINAL';
+                btnToggle.innerText = '🔄 Ver vista con Marca de Agua (Reimpresión)';
+                if (huellaDoc) huellaDoc.innerHTML = '● <b>DOCUMENTO ORIGINAL OFICIAL</b>';
+            }
+        }
+
         window.onload = function() {
             setTimeout(function() {
                 window.print();

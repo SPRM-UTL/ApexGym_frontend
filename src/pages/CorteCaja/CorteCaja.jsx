@@ -1,12 +1,16 @@
 /**
  * Sistema: ApexGym Frontend
- * Modificación: 01/10/2026 - Emmanuelle Hernández Oropeza
- * Descripción: Control operativo de caja: arqueo de billetes interactivo en 2 columnas,
- *              modal de detalle de ventas, KPIs y movimientos de corte, validación de corte,
- *              generación de reporte PDF de auditoría y restricciones de edición/eliminación.
+ * Issue: [CAJA-05] Frontend: Validaciones, arqueo fisico y modales en pantalla de Corte de Caja #90
+ * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
+ *
+ * Tareas:
+ * - Modificar src/pages/CorteCaja/CorteCaja.jsx para alertar si existen movimientos pendientes antes del cierre.
+ * - Modales de captura para desglose de billetes y monedas.
+ * - Calculo reactivo del efectivo contado frente al saldo teorico del sistema (deteccion de sobrantes y faltantes).
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
+    Accordion,
     ActionIcon,
     Alert,
     Badge,
@@ -40,6 +44,10 @@ import {
     IconEye,
     IconFileDownload,
     IconInfoCircle,
+    IconArrowDownRight,
+    IconArrowUpRight,
+    IconMinus,
+    IconPlus,
     IconReceipt2,
     IconReportAnalytics,
     IconShieldCheck,
@@ -95,12 +103,13 @@ const CAMPOS = [
             }));
         },
     },
-    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 99999999.99 },
+    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 200000 },
     { key: 'observaciones',   label: 'Observaciones', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
 const COLUMNAS = [
+    { key: 'numero',          label: '#',                sortable: true, filterable: true },
     { key: 'apertura',        label: 'Caja',             sortable: true, filterable: true },
     { key: 'empleado',        label: 'Cajero / Empleado', sortable: true, filterable: true },
     { key: 'fechaCorte',      label: 'Fecha Corte',       sortable: true, filterable: true },
@@ -147,9 +156,29 @@ function desglosarMonto(montoTotal) {
     return resultado;
 }
 
-/* ─── Modal 1: Detalle de Ventas del Turno (Puro Diseño) ─────────────────────── */
-function ModalDetalleVentas({ opened, onClose, aperturaId }) {
-    const totalVentas = 15840.0;
+/* ─── Modal 1: Detalle de Ventas y Movimientos del Turno ────────────────────── */
+function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
+    const totales = resumenApertura?.totales;
+    const totalVentas = totales ? Number(totales.totalVentas ?? 0) : 0;
+    const transacciones = totales ? Number(totales.transaccionesVentas ?? 0) : 0;
+    const ticketPromedio = totales ? Number(totales.ticketPromedio ?? 0) : 0;
+    const metodos = totales?.ventasPorMetodoPago ?? [];
+
+    const movimientos = resumenApertura?.movimientos ?? [];
+    const entradas = movimientos.filter((m) => m.tipo === 'ENTRADA');
+    const salidas = movimientos.filter((m) => m.tipo === 'SALIDA');
+    const totalEntradas = Number(resumenApertura?.totalEntradas ?? 0);
+    const totalSalidas = Number(resumenApertura?.totalSalidas ?? 0);
+    const balanceMovimientos = totalEntradas - totalSalidas;
+
+    const getMetodoIcon = (nombre = '') => {
+        const n = nombre.toLowerCase();
+        if (n.includes('efectivo')) return { icon: <IconCash size={16} />, color: 'green' };
+        if (n.includes('deb') || n.includes('déb')) return { icon: <IconCreditCard size={16} />, color: 'blue' };
+        if (n.includes('cred') || n.includes('créd')) return { icon: <IconCreditCard size={16} />, color: 'indigo' };
+        if (n.includes('transf') || n.includes('spei')) return { icon: <IconDeviceMobile size={16} />, color: 'cyan' };
+        return { icon: <IconWallet size={16} />, color: 'gray' };
+    };
 
     return (
         <Modal
@@ -160,11 +189,14 @@ function ModalDetalleVentas({ opened, onClose, aperturaId }) {
             zIndex={999999}
             transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" style={{ backgroundColor: '#fff0e6', color: '#FF6A00' }}>
+                <Group gap="sm">
+                    <ThemeIcon size="md" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
                         <IconReportAnalytics size={18} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={5}>Detalle de Ventas y Métodos de Pago del Turno</Title>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>Detalle de Ventas y Movimientos de Caja del Turno</Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Auditoría completa de ventas por método de pago y movimientos manuales del turno</Text>
+                    </div>
                 </Group>
             }
         >
@@ -174,96 +206,184 @@ function ModalDetalleVentas({ opened, onClose, aperturaId }) {
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                         <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
                             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Ventas</Text>
-                            <Text fw={800} size="xl" c="#FF6A00">$15,840.00</Text>
+                            <Text fw={800} size="xl" c="#FF6A00">${totalVentas.toFixed(2)}</Text>
                             <Text size="xs" c="dimmed" mt={2}>Turno actual</Text>
                         </Paper>
                         <Paper p="sm" radius="md" withBorder>
                             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
-                            <Text fw={800} size="xl" c="dark">38</Text>
+                            <Text fw={800} size="xl" c="dark">{transacciones}</Text>
                             <Text size="xs" c="dimmed" mt={2}>Tickets generados</Text>
                         </Paper>
                         <Paper p="sm" radius="md" withBorder>
                             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
-                            <Text fw={800} size="xl" c="dark">$416.84</Text>
+                            <Text fw={800} size="xl" c="dark">${ticketPromedio.toFixed(2)}</Text>
                             <Text size="xs" c="dimmed" mt={2}>Por cliente</Text>
                         </Paper>
                     </SimpleGrid>
 
-                    <Divider label="Desglose por Tipo de Pago" labelPosition="left" />
-
-                    {/* Métodos de Pago */}
+                    {/* Desglose por Tipo de Pago */}
+                    <Divider label="Ventas por Método de Pago" labelPosition="left" />
                     <Stack gap="sm">
-                        {/* Efectivo */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="green" variant="light" radius="md" size="sm">
-                                        <IconCash size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Efectivo en Caja</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="green" variant="light">24 transacciones</Badge>
-                                    <Text fw={700} size="sm">$9,240.00 (58.3%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={58.3} color="green" size="sm" radius="xl" />
-                        </Paper>
+                        {metodos.length > 0 ? (
+                            metodos.map((m) => {
+                                const { icon, color } = getMetodoIcon(m.nombre);
+                                const totalNum = Number(m.total ?? 0);
+                                const pct = totalVentas > 0 ? ((totalNum / totalVentas) * 100).toFixed(1) : '0.0';
 
-                        {/* Tarjeta Débito */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="blue" variant="light" radius="md" size="sm">
-                                        <IconCreditCard size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Tarjeta de Débito (Terminal)</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="blue" variant="light">8 transacciones</Badge>
-                                    <Text fw={700} size="sm">$3,900.00 (24.6%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={24.6} color="blue" size="sm" radius="xl" />
-                        </Paper>
-
-                        {/* Tarjeta Crédito */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="indigo" variant="light" radius="md" size="sm">
-                                        <IconCreditCard size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Tarjeta de Crédito</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="indigo" variant="light">4 transacciones</Badge>
-                                    <Text fw={700} size="sm">$1,850.00 (11.7%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={11.7} color="indigo" size="sm" radius="xl" />
-                        </Paper>
-
-                        {/* Transferencia */}
-                        <Paper p="sm" radius="md" withBorder>
-                            <Group justify="space-between" mb={4}>
-                                <Group gap="xs">
-                                    <ThemeIcon color="cyan" variant="light" radius="md" size="sm">
-                                        <IconDeviceMobile size={16} />
-                                    </ThemeIcon>
-                                    <Text fw={600} size="sm">Transferencia / SPEI</Text>
-                                </Group>
-                                <Group gap="xs">
-                                    <Badge color="cyan" variant="light">2 transacciones</Badge>
-                                    <Text fw={700} size="sm">$850.00 (5.4%)</Text>
-                                </Group>
-                            </Group>
-                            <Progress value={5.4} color="cyan" size="sm" radius="xl" />
-                        </Paper>
+                                return (
+                                    <Paper key={m.metodoPagoId ?? m.nombre} p="sm" radius="md" withBorder>
+                                        <Group justify="space-between" mb={4}>
+                                            <Group gap="xs">
+                                                <ThemeIcon color={color} variant="light" radius="md" size="sm">
+                                                    {icon}
+                                                </ThemeIcon>
+                                                <Text fw={600} size="sm">{m.nombre}</Text>
+                                            </Group>
+                                            <Group gap="xs">
+                                                <Badge color={color} variant="light">{m.transacciones} transacciones</Badge>
+                                                <Text fw={700} size="sm">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                            </Group>
+                                        </Group>
+                                        <Progress value={Number(pct)} color={color} size="sm" radius="xl" />
+                                    </Paper>
+                                );
+                            })
+                        ) : (
+                            <Paper p="md" radius="md" withBorder style={{ textAlign: 'center' }}>
+                                <Text size="sm" c="dimmed">No se han registrado ventas en esta apertura de caja.</Text>
+                            </Paper>
+                        )}
                     </Stack>
 
-                    <Group justify="flex-end" mt="xs">
-                        <Button variant="default" onClick={onClose}>
+                    {/* ── Movimientos de Caja del Turno (Masterrows para Entradas y Salidas) ── */}
+                    <Divider label="Movimientos de Caja del Turno (Ingresos y Egresos)" labelPosition="left" mt="xs" />
+
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                        <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#f4fbf5', borderColor: '#40c057' }}>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Entradas (+)</Text>
+                            <Text fw={800} size="lg" c="green">+${totalEntradas.toFixed(2)}</Text>
+                            <Text size="xs" c="dimmed">{entradas.length} movimiento(s)</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#fff5f5', borderColor: '#fa5252' }}>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Salidas (-)</Text>
+                            <Text fw={800} size="lg" c="red">-${totalSalidas.toFixed(2)}</Text>
+                            <Text size="xs" c="dimmed">{salidas.length} movimiento(s)</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Balance Neto Movimientos</Text>
+                            <Text fw={800} size="lg" c={balanceMovimientos >= 0 ? 'green' : 'red'}>
+                                {balanceMovimientos >= 0 ? '+' : ''}${balanceMovimientos.toFixed(2)}
+                            </Text>
+                            <Text size="xs" c="dimmed">Ingresos menos Egresos</Text>
+                        </Paper>
+                    </SimpleGrid>
+
+                    <Accordion variant="separated" radius="md" defaultValue={['entradas', 'salidas']} multiple>
+                        {/* Masterrow 1: Entradas / Ingresos */}
+                        <Accordion.Item value="entradas">
+                            <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={16} /></ThemeIcon>}>
+                                <Group justify="space-between" w="100%" pr="sm">
+                                    <div>
+                                        <Text fw={700} size="sm">Ingresos / Entradas de Efectivo (+)</Text>
+                                        <Text size="xs" c="dimmed">{entradas.length} registro(s) capturados</Text>
+                                    </div>
+                                    <Badge color="green" variant="filled" size="md">
+                                        +${totalEntradas.toFixed(2)}
+                                    </Badge>
+                                </Group>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                                {entradas.length > 0 ? (
+                                    <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                                        <Table.Thead>
+                                            <Table.Tr>
+                                                <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                <Table.Th>Concepto</Table.Th>
+                                                <Table.Th>Responsable</Table.Th>
+                                                <Table.Th>Hora</Table.Th>
+                                                <Table.Th style={{ textAlign: 'right' }}>Monto (+)</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {entradas.map((m) => (
+                                                <Table.Tr key={m.id}>
+                                                    <Table.Td fw={700}>#{m.id}</Table.Td>
+                                                    <Table.Td>{m.concepto}</Table.Td>
+                                                    <Table.Td>
+                                                        {m.empleado ? `${m.empleado.nombre} ${m.empleado.apellidoPaterno}` : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>
+                                                        <Text fw={700} c="green">+${Number(m.monto).toFixed(2)}</Text>
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))}
+                                        </Table.Tbody>
+                                    </Table>
+                                ) : (
+                                    <Paper p="sm" radius="sm" withBorder style={{ textAlign: 'center', backgroundColor: '#fcfcfc' }}>
+                                        <Text size="xs" c="dimmed">No se registraron entradas de efectivo en este turno.</Text>
+                                    </Paper>
+                                )}
+                            </Accordion.Panel>
+                        </Accordion.Item>
+
+                        {/* Masterrow 2: Salidas / Egresos */}
+                        <Accordion.Item value="salidas">
+                            <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={16} /></ThemeIcon>}>
+                                <Group justify="space-between" w="100%" pr="sm">
+                                    <div>
+                                        <Text fw={700} size="sm">Egresos / Salidas de Efectivo (-)</Text>
+                                        <Text size="xs" c="dimmed">{salidas.length} registro(s) capturados</Text>
+                                    </div>
+                                    <Badge color="red" variant="filled" size="md">
+                                        -${totalSalidas.toFixed(2)}
+                                    </Badge>
+                                </Group>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                                {salidas.length > 0 ? (
+                                    <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                                        <Table.Thead>
+                                            <Table.Tr>
+                                                <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                <Table.Th>Concepto</Table.Th>
+                                                <Table.Th>Responsable</Table.Th>
+                                                <Table.Th>Hora</Table.Th>
+                                                <Table.Th style={{ textAlign: 'right' }}>Monto (-)</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {salidas.map((m) => (
+                                                <Table.Tr key={m.id}>
+                                                    <Table.Td fw={700}>#{m.id}</Table.Td>
+                                                    <Table.Td>{m.concepto}</Table.Td>
+                                                    <Table.Td>
+                                                        {m.empleado ? `${m.empleado.nombre} ${m.empleado.apellidoPaterno}` : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                    </Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>
+                                                        <Text fw={700} c="red">-${Number(m.monto).toFixed(2)}</Text>
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))}
+                                        </Table.Tbody>
+                                    </Table>
+                                ) : (
+                                    <Paper p="sm" radius="sm" withBorder style={{ textAlign: 'center', backgroundColor: '#fcfcfc' }}>
+                                        <Text size="xs" c="dimmed">No se registraron salidas de efectivo en este turno.</Text>
+                                    </Paper>
+                                )}
+                            </Accordion.Panel>
+                        </Accordion.Item>
+                    </Accordion>
+
+                    <Group grow mt="md">
+                        <Button variant="default" size="md" radius="md" onClick={onClose}>
                             Cerrar
                         </Button>
                     </Group>
@@ -297,9 +417,10 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
     const montoInicial = Number(corte.aperturaCaja?.montoInicial ?? 0);
     const totalEntradas = Number(corte.totalEntradas ?? 0);
     const totalSalidas = Number(corte.totalSalidas ?? 0);
-    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas;
+    const totalVentasEfectivo = Number(corte.totalVentasEfectivo ?? 0);
+    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas + totalVentasEfectivo;
     const efectivoContado = Number(corte.efectivoContado ?? 0);
-    const diferencia = Number(corte.diferencia ?? 0);
+    const diferencia = Number(corte.diferencia ?? (efectivoContado - efectivoEsperado));
     const esValidado = corte.estado === 'VALIDADO';
 
     let desgloseFin = null;
@@ -318,39 +439,21 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
             zIndex={999999}
             transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group justify="space-between" w="100%" pr="xl">
-                    <Group gap="xs">
-                        <ThemeIcon size="lg" radius="md" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconReportAnalytics size={22} stroke={1.8} />
-                        </ThemeIcon>
-                        <div>
-                            <Title order={4}>Auditoría de Corte de Caja #{corte.id}</Title>
-                            <Text size="xs" c="dimmed">Detalle completo de arqueo y movimientos</Text>
-                        </div>
-                        <Badge color={esValidado ? 'green' : 'yellow'} variant="filled" size="md">
-                            {corte.estado ?? 'PENDIENTE'}
-                        </Badge>
-                    </Group>
-                    {!esValidado && (
-                        <Button
-                            color="green"
-                            size="xs"
-                            leftSection={<IconShieldCheck size={16} />}
-                            onClick={() => {
-                                onValidar(corte);
-                                onClose();
-                            }}
-                        >
-                            Validar Corte
-                        </Button>
-                    )}
+                <Group gap="xs">
+                    <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                        <IconReportAnalytics size={22} stroke={1.8} />
+                    </ThemeIcon>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>Auditoría de Corte de Caja #{corte.id}</Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Detalle completo de arqueo y movimientos</Text>
+                    </div>
                 </Group>
             }
         >
             <Box maw={1200} mx="auto" mt="xl" pt="md">
                 <Stack gap="md">
                     {/* ── KPIs Principales del Corte ───────────────────────────── */}
-                    <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs">
+                    <SimpleGrid cols={{ base: 2, sm: 3, md: totalVentasEfectivo > 0 ? 7 : 6 }} spacing="xs">
                         <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
                             <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fondo Inicial</Text>
                             <Text fw={800} size="md">${montoInicial.toFixed(2)}</Text>
@@ -363,6 +466,12 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
                             <Text size="xs" c="dimmed" fw={700} tt="uppercase">Salidas (-)</Text>
                             <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
                         </Paper>
+                        {totalVentasEfectivo > 0 && (
+                            <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
+                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ventas Ef. (+)</Text>
+                                <Text fw={800} size="md" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                            </Paper>
+                        )}
                         <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
                             <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Esperado</Text>
                             <Text fw={800} size="md">${efectivoEsperado.toFixed(2)}</Text>
@@ -494,7 +603,14 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
                                     color="apex"
                                     leftSection={<IconFileDownload size={16} />}
                                     disabled={!esValidado}
-                                    onClick={() => generarPdfCorte(corte, movimientos, desgloseFin)}
+                                    onClick={async () => {
+                                        let configuraciones = [];
+                                        try {
+                                            const resConfig = await api.configuracionSistema.obtenerTodos();
+                                            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+                                        } catch (e) {}
+                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones);
+                                    }}
                                 >
                                     Descargar PDF
                                 </Button>
@@ -532,6 +648,9 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
 
     // Estado local para conteo de billetes de cierre
     const [conteoCierre, setConteoCierre] = useState(() => {
+        if (form.desgloseFin && typeof form.desgloseFin === 'object') {
+            return form.desgloseFin;
+        }
         const init = {};
         for (const d of DENOMINACIONES) init[d.valor] = '';
         return init;
@@ -552,17 +671,34 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             .catch(() => setResumenApertura(null));
     }, [form.aperturaCajaId]);
 
-    // Calcular desglose de inicio a partir del monto inicial
+    // Obtener desglose de inicio directamente del registro de apertura o por distribución del monto inicial
     const desgloseInicio = useMemo(() => {
-        const monto = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
+        if (resumenApertura?.apertura?.desgloseInicio) {
+            try {
+                const parsed = typeof resumenApertura.apertura.desgloseInicio === 'string'
+                    ? JSON.parse(resumenApertura.apertura.desgloseInicio)
+                    : resumenApertura.apertura.desgloseInicio;
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (e) {}
+        }
+        const monto = resumenApertura
+            ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
+            : 0;
         return desglosarMonto(monto);
     }, [resumenApertura]);
+
+    // Sincronizar desgloseInicio en el form cuando esté disponible
+    useEffect(() => {
+        if (desgloseInicio) {
+            onChange('desgloseInicio', desgloseInicio);
+        }
+    }, [desgloseInicio]);
 
     // Recalcular efectivo contado a partir del conteo de cierre
     const actualizarConteoCierre = (valor, cantidad) => {
         let cant = 0;
         if (cantidad !== '' && !isNaN(Number(cantidad))) {
-            cant = Math.max(0, Math.min(100000, Math.floor(Number(cantidad))));
+            cant = Math.max(0, Math.min(1000, Math.floor(Number(cantidad))));
         }
         const valToStore = cantidad === '' ? '' : cant;
         const nuevoConteo = { ...conteoCierre, [valor]: valToStore };
@@ -571,19 +707,26 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         // Sumar total
         let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = nuevoConteo[d.valor] === '' ? 0 : Number(nuevoConteo[d.valor]);
+            const raw = nuevoConteo[d.valor];
+            const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;
+        total = Math.min(total, 200000);
         onChange('efectivoContado', total);
         onChange('desgloseFin', nuevoConteo);
         onChange('desgloseInicio', desgloseInicio);
     };
 
-    const fondoInicial = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
+    const fondoInicial = resumenApertura
+        ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
+        : 0;
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
-    const efectivoEsperado = fondoInicial + totalEntradas - totalSalidas;
+    const totalVentasEfectivo = resumenApertura ? Number(resumenApertura.totalVentasEfectivo ?? 0) : 0;
+    const efectivoEsperado = resumenApertura?.saldoDisponible !== undefined
+        ? Number(resumenApertura.saldoDisponible)
+        : (fondoInicial + totalEntradas - totalSalidas + totalVentasEfectivo);
     const efectivoContado = Number(form.efectivoContado || 0);
     const diferencia = efectivoContado - efectivoEsperado;
 
@@ -593,6 +736,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 opened={modalVentasAbierto}
                 onClose={() => setModalVentasAbierto(false)}
                 aperturaId={form.aperturaCajaId}
+                resumenApertura={resumenApertura}
             />
 
             {/* Alerta de movimientos pendientes de validación */}
@@ -668,9 +812,14 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                     {/* ── Columna Izquierda: Billetes de Inicio del Día ── */}
                     <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
                         <Group justify="space-between" mb="xs">
-                            <Text fw={700} size="sm" c="dimmed">
-                                💵 Billetes de inicio (Fondo del día)
-                            </Text>
+                            <Group gap="xs">
+                                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                    <IconCash size={14} />
+                                </ThemeIcon>
+                                <Text fw={700} size="sm" c="dimmed">
+                                    Billetes de inicio (Fondo del día)
+                                </Text>
+                            </Group>
                             <Badge color="blue" variant="light">
                                 Fondo: ${fondoInicial.toFixed(2)}
                             </Badge>
@@ -714,9 +863,14 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                     {/* ── Columna Derecha: Billetes de Fin del Día ── */}
                     <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fffdfa', borderColor: '#ffd8a8' }}>
                         <Group justify="space-between" mb="xs">
-                            <Text fw={700} size="sm" c="#FF6A00">
-                                🧮 Billetes con los que acaba el día
-                            </Text>
+                            <Group gap="xs">
+                                <ThemeIcon size="sm" radius="md" variant="light" color="apex">
+                                    <IconCalculator size={14} />
+                                </ThemeIcon>
+                                <Text fw={700} size="sm" c="#FF6A00">
+                                    Billetes con los que acaba el día
+                                </Text>
+                            </Group>
                             <Badge color="apex" variant="filled">
                                 Arqueo Final
                             </Badge>
@@ -746,7 +900,8 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                                                 <NumberInput
                                                     size="xs"
                                                     min={0}
-                                                    max={100000}
+                                                    max={1000}
+                                                    clampBehavior="strict"
                                                     allowDecimal={false}
                                                     placeholder="0"
                                                     value={cantStr}
@@ -763,26 +918,71 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                             </Table.Tbody>
                         </Table>
 
-                        {/* Totales y Cálculo de Diferencia en Vivo */}
-                        <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                            <Stack gap={4}>
+                        {/* Totales y Cálculo de Diferencia en Vivo con Desglose Completo */}
+                        <Paper p="sm" radius="md" mt="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
+                            <Stack gap={6}>
+                                <Text fw={700} size="xs" c="dimmed" tt="uppercase">
+                                    Balance Teórico del Turno
+                                </Text>
                                 <Group justify="space-between">
-                                    <Text size="xs" c="dimmed">Efectivo Teórico Esperado:</Text>
-                                    <Text fw={600} size="xs">${efectivoEsperado.toFixed(2)}</Text>
+                                    <Text size="xs" c="dimmed">Fondo Inicial de Caja:</Text>
+                                    <Text fw={600} size="xs">${fondoInicial.toFixed(2)}</Text>
                                 </Group>
                                 <Group justify="space-between">
-                                    <Text fw={700} size="sm" c="#FF6A00">EFECTIVO CONTADO:</Text>
+                                    <Text size="xs" c="dimmed">(+) Entradas registradas:</Text>
+                                    <Text fw={600} size="xs" c="green">+${totalEntradas.toFixed(2)}</Text>
+                                </Group>
+                                <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
+                                    <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                </Group>
+                                {totalVentasEfectivo > 0 && (
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                        <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                    </Group>
+                                )}
+                                <Divider my={2} />
+                                <Group justify="space-between">
+                                    <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
+                                    <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
+                                </Group>
+                                {errors.efectivoContado && (
+                                    <Alert icon={<IconAlertCircle size={16} />} color="red" variant="filled" p="xs" radius="sm">
+                                        <Text size="xs" fw={700}>{errors.efectivoContado}</Text>
+                                    </Alert>
+                                )}
+                                <Group justify="space-between">
+                                    <Text fw={700} size="sm" c="#FF6A00">EFECTIVO CONTADO (FÍSICO):</Text>
                                     <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
                                 </Group>
                                 <Divider my={2} />
                                 <Group justify="space-between">
-                                    <Text fw={700} size="xs" c={diferencia >= 0 ? 'green' : 'red'}>
-                                        {diferencia >= 0 ? 'Sobrante / Cuadrado:' : 'Faltante en Caja:'}
+                                    <Text fw={700} size="xs" c={Math.abs(diferencia) < 0.01 ? 'blue' : (diferencia > 0 ? 'green' : 'red')}>
+                                        {Math.abs(diferencia) < 0.01
+                                            ? 'Caja Cuadrada (Sin diferencia):'
+                                            : (diferencia > 0 ? 'Sobrante en Caja (+):' : 'Faltante en Caja (-):')}
                                     </Text>
-                                    <Text fw={800} size="sm" c={diferencia >= 0 ? 'green' : 'red'}>
-                                        {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
+                                    <Text fw={800} size="sm" c={Math.abs(diferencia) < 0.01 ? 'blue' : (diferencia > 0 ? 'green' : 'red')}>
+                                        {diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}
                                     </Text>
                                 </Group>
+
+                                {Math.abs(diferencia) > 0.01 && (
+                                    <Alert
+                                        icon={<IconAlertCircle size={16} />}
+                                        color={diferencia < 0 ? 'red' : 'yellow'}
+                                        variant="light"
+                                        p="xs"
+                                        radius="sm"
+                                    >
+                                        <Text size="xs" fw={600}>
+                                            {diferencia < 0
+                                                ? `Se detectó un faltante de $${Math.abs(diferencia).toFixed(2)}. Es obligatorio justificar el motivo en el campo de observaciones.`
+                                                : `Se detectó un sobrante de $${diferencia.toFixed(2)}. Es obligatorio justificar el motivo en el campo de observaciones.`}
+                                        </Text>
+                                    </Alert>
+                                )}
                             </Stack>
                         </Paper>
                     </Paper>
@@ -792,7 +992,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             {/* Observaciones */}
             <Textarea
                 label="Observaciones del corte"
-                placeholder="Notas o incidencias del turno (opcional)"
+                placeholder="Notas o justificación de diferencias (obligatorio si hay faltante o sobrante)"
                 value={form.observaciones ?? ''}
                 error={errors.observaciones}
                 maxLength={500}
@@ -802,6 +1002,27 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 minRows={2}
                 onChange={(e) => onChange('observaciones', e.currentTarget.value)}
             />
+
+            {/* Banner de errores visibles para evitar cualquier error oculto */}
+            {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
+                <Alert
+                    icon={<IconAlertCircle size={18} />}
+                    title="Campos que requieren atención"
+                    color="red"
+                    variant="light"
+                    radius="md"
+                >
+                    <Stack gap={2}>
+                        {Object.entries(errors)
+                            .filter(([_, msg]) => Boolean(msg))
+                            .map(([key, msg]) => (
+                                <Text size="xs" key={key} fw={600} c="red">
+                                    • {msg}
+                                </Text>
+                            ))}
+                    </Stack>
+                </Alert>
+            )}
         </Stack>
     );
 }
@@ -839,6 +1060,11 @@ export function CorteCaja() {
 
         return {
             id:              record.id,
+            numero: (
+                <Badge variant="light" color="gray" size="sm" radius="sm">
+                    #{record.id}
+                </Badge>
+            ),
             apertura:        record.aperturaCaja?.caja?.nombre ?? '—',
             empleado:        record.empleado
                 ? `${record.empleado.nombre} ${record.empleado.apellidoPaterno}`
@@ -897,20 +1123,54 @@ export function CorteCaja() {
         if (form.efectivoContado === undefined || form.efectivoContado === null || Number(form.efectivoContado) < 0) {
             errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
         }
-        if (form.observaciones?.trim().length > 500) {
-            errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
+        if (Number(form.efectivoContado) > 200000) {
+            errors.efectivoContado = 'El efectivo contado físico no puede exceder el límite de $200,000.00';
+            errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
         }
 
-        // Validación de movimientos pendientes en la apertura
+        // Validación de movimientos pendientes y balance contable
         if (form.aperturaCajaId) {
             try {
                 const res = await api.movimientoCaja.obtenerResumenApertura(form.aperturaCajaId);
-                if (res.responseFlag === 0 && res.data?.movimientosPendientes > 0) {
-                    errors.aperturaCajaId = `No se puede realizar el corte: existen ${res.data.movimientosPendientes} movimiento(s) pendientes de validar en este turno.`;
+                if (res.responseFlag === 0 && res.data) {
+                    const data = res.data;
+                    const movPendientes = Number(data.movimientosPendientes ?? 0);
+                    if (movPendientes > 0) {
+                        errors.aperturaCajaId = `No se puede realizar el corte: existen ${movPendientes} movimiento(s) pendientes de validar en este turno.`;
+                    }
+
+                    const fondo = Number(data.montoInicial ?? data.apertura?.montoInicial ?? 0);
+                    const entradas = Number(data.totalEntradas ?? 0);
+                    const salidas = Number(data.totalSalidas ?? 0);
+                    const ventasEf = Number(data.totalVentasEfectivo ?? 0);
+                    const esperado = data.saldoDisponible !== undefined
+                        ? Number(data.saldoDisponible)
+                        : (fondo + entradas - salidas + ventasEf);
+                    const contado = Number(form.efectivoContado || 0);
+                    const diff = contado - esperado;
+
+                    // Si hay dinero teórico esperado en caja pero el usuario dejó el conteo en 0 sin contar
+                    if (esperado > 0 && contado === 0) {
+                        const tieneConteo = form.desgloseFin && Object.values(form.desgloseFin).some((v) => v !== '' && Number(v) > 0);
+                        if (!tieneConteo) {
+                            errors.efectivoContado = `Debe realizar el conteo físico de billetes y monedas. El saldo teórico esperado en caja es de $${esperado.toFixed(2)}.`;
+                        }
+                    }
+
+                    // Justificación obligatoria si hay diferencia
+                    if (Math.abs(diff) > 0.01) {
+                        if (!form.observaciones || !form.observaciones.trim()) {
+                            errors.observaciones = `Existe una diferencia de ${diff < 0 ? 'faltante' : 'sobrante'} ($${Math.abs(diff).toFixed(2)}). Debe ingresar obligatoriamente una justificación detallada en las observaciones.`;
+                        }
+                    }
                 }
             } catch (e) {
                 // Validación respaldada en backend
             }
+        }
+
+        if (form.observaciones?.trim().length > 500) {
+            errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
         }
 
         return errors;
@@ -1013,7 +1273,13 @@ export function CorteCaja() {
                                                 }
                                             } catch (e) {}
 
-                                            generarPdfCorte(corte, movs, desglose);
+                                            let configuraciones = [];
+                                            try {
+                                                const resConfig = await api.configuracionSistema.obtenerTodos();
+                                                if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+                                            } catch (e) {}
+
+                                            generarPdfCorte(corte, movs, desglose, configuraciones);
                                         }}
                                     >
                                         <IconFileDownload size={18} stroke={1.8} />
