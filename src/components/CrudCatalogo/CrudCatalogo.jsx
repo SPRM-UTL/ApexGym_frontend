@@ -286,7 +286,7 @@ export function CrudCatalogo({
                 onConfirm={confirmDelete}
                 loading={deleting}
                 title="Confirmar eliminación"
-                message={`¿Deseas eliminar el registro de ${pendingDelete?.nombre ?? pendingDelete?.clave ?? singular.toLowerCase()}? Esta acción no se puede deshacer.`}
+                message={`¿Deseas eliminar el registro de ${pendingDelete?.nombreTexto ?? (typeof pendingDelete?.nombre === 'string' ? pendingDelete.nombre : null) ?? pendingDelete?.clave ?? singular.toLowerCase()}? Esta acción no se puede deshacer.`}
             />
 
             {formMode === 'drawer' ? (
@@ -378,10 +378,10 @@ export function CrudCatalogo({
                             onClick={save}
                             loading={loading}
                             radius="md"
-                            style={{ backgroundColor: 'var(--ag-color-primary)', color: '#ffffff' }}
+                            className={classes.addButtonUnified}
                             styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
                         >
-                            {editingId ? `Actualizar ${singular.toLowerCase()}` : `Guardar ${singular.toLowerCase()}`}
+                            {editingId ? 'Actualizar' : 'Guardar'}
                         </Button>
                     </Group>
                 </Drawer>
@@ -451,7 +451,7 @@ export function CrudCatalogo({
                             size="md"
                             radius="md"
                         >
-                            Nuevo {singular.toLowerCase()}
+                            Agregar
                         </Button>
                     </div>
                 ) : (

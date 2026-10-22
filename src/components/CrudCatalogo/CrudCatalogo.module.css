@@ -72,13 +72,12 @@
 
 .addButtonUnified {
     background-color: var(--ag-color-primary) !important;
+    color: #ffffff !important;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(255, 106, 0, 0.25);
-    transition: transform 120ms ease, box-shadow 120ms ease;
+    transition: background-color 150ms ease;
 
     &:hover {
-        background-color: var(--ag-color-primary) !important;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 14px rgba(255, 106, 0, 0.35);
+        background-color: #d95800 !important;
+        transform: none !important;
     }
 }

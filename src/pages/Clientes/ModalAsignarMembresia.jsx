@@ -265,10 +265,10 @@ export function ModalAsignarMembresia({ opened, onClose, cliente }) {
                     radius="md"
                     loading={loading}
                     onClick={handleAsignar}
-                    style={{ backgroundColor: 'var(--ag-color-primary)', color: '#ffffff' }}
+                    style={{ color: '#ffffff' }}
                     styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
                 >
-                    Asignar Membresía
+                    Asignar
                 </Button>
             </Group>
         </Drawer>

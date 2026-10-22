@@ -3,75 +3,66 @@
 }
 
 .search {
-    flex: 1;
-    max-width: 260px;
-}
-
-.search input {
-    border-color: var(--ag-color-border);
+    width: 100%;
 }
 
 .accordion {
     display: grid;
-    gap: var(--mantine-spacing-sm);
+    gap: 8px;
 }
 
 .accordion :global(.mantine-Accordion-item) {
     overflow: hidden;
-    border: 1px solid var(--ag-color-secondary);
+    border: 1px solid #E2E8F0;
     border-radius: 8px;
-    background: var(--ag-color-surface-elevated);
+    background: #ffffff;
 }
 
 .accordion :global(.mantine-Accordion-control) {
-    color: #ffffff;
-    background: var(--ag-color-secondary);
+    color: #1E293B;
+    background: #F8FAFC;
+    padding: 10px 14px;
+    transition: background-color 140ms ease;
 }
 
 .accordion :global(.mantine-Accordion-control:hover) {
-    background: #252a50;
+    background: #F1F5F9;
 }
 
 .accordion :global(.mantine-Accordion-label) {
-    color: #ffffff;
+    color: #1E293B;
+    padding: 0;
 }
 
 .accordion :global(.mantine-Accordion-chevron) {
-    color: #ffffff;
+    color: #64748B;
 }
 
-.accordion :global(.mantine-Accordion-panel) {
-    background: var(--ag-color-surface-elevated);
+.accordion :global(.mantine-Accordion-content) {
+    padding: 12px;
+    background: #ffffff;
+    border-top: 1px solid #E2E8F0;
 }
 
-.moduleAccordion {
-    display: grid;
-    gap: var(--mantine-spacing-xs);
+.moduleCard {
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    background-color: #ffffff;
+    overflow: hidden;
 }
 
-.moduleAccordion :global(.mantine-Accordion-item) {
-    border: 1px solid var(--ag-color-border);
-    border-radius: 6px;
-    background: var(--ag-color-surface-elevated);
+.moduleCardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: #F8FAFC;
+    border-bottom: 1px solid #E2E8F0;
 }
 
-.moduleAccordion :global(.mantine-Accordion-control) {
-    color: var(--ag-color-secondary);
-    background: #f4f6fb;
-}
-
-.moduleAccordion :global(.mantine-Accordion-control:hover) {
-    background: #e8ebf5;
-}
-
-.moduleAccordion :global(.mantine-Accordion-label),
-.moduleAccordion :global(.mantine-Accordion-chevron) {
-    color: var(--ag-color-secondary);
-}
-
-.permissionBadge {
-    color: var(--ag-color-secondary) !important;
-    background: var(--ag-color-tertiary) !important;
+.switchesGrid {
+    padding: 10px 12px;
 }
 
 .loadingPermissions {
@@ -79,8 +70,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--mantine-spacing-sm);
-    min-height: 180px;
-    border: 1px solid var(--ag-color-border);
+    min-height: 160px;
+    border: 1px solid #E2E8F0;
     border-radius: 8px;
-    background: var(--ag-color-surface-elevated);
+    background: #F8FAFC;
 }

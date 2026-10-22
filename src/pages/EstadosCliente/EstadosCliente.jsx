@@ -1,26 +1,29 @@
 import { useMemo } from 'react';
 import {
+    ActionIcon,
+    Badge,
     Box,
+    Divider,
     Group,
     SimpleGrid,
     Stack,
+    Text,
     Textarea,
     TextInput,
-    ThemeIcon,
-    Title,
+    Tooltip,
 } from '@mantine/core';
 import {
-    IconId,
-    IconFileText,
-    IconUserShield
+    IconEdit,
+    IconTrash,
+    IconUserShield,
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 const CAMPOS = [
-    { key: 'nombre', required: true },
-    { key: 'descripcion' }
+    { key: 'nombre', label: 'Nombre del Estado', required: true },
+    { key: 'descripcion', label: 'Descripción' }
 ];
 
 const COLUMNAS = [
@@ -30,45 +33,70 @@ const COLUMNAS = [
 
 const INICIAL = { nombre: '', descripcion: '' };
 
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
+const SectionTitle = ({ children }) => (
+    <Box mb="xs" mt="xs">
+        <Text fw={600} size="sm" c="#1E293B" mb={4}>
+            {children}
+        </Text>
+        <Divider color="#E2E8F0" />
+    </Box>
+);
 
-function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, onChange }) {
+function FInput({ label, required, placeholder, type = 'text', value, error, onChange }) {
     return (
-        <TextInput label={label} withAsterisk={required} placeholder={placeholder} type={type} value={value ?? ''} error={error} size="md" radius="md" leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined} onChange={(e) => onChange(e.currentTarget.value)} />
+        <TextInput
+            label={label}
+            withAsterisk={required}
+            placeholder={placeholder}
+            type={type}
+            value={value ?? ''}
+            error={error}
+            size="md"
+            radius="md"
+            onChange={(e) => onChange(e.currentTarget.value)}
+        />
     );
 }
 
-function FTextarea({ label, icon: Icon, placeholder, value, error, onChange }) {
+function FTextarea({ label, placeholder, value, error, onChange }) {
     return (
-        <Textarea label={label} placeholder={placeholder} value={value ?? ''} error={error} size="md" radius="md" minRows={2} leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined} onChange={(e) => onChange(e.currentTarget.value)} />
+        <Textarea
+            label={label}
+            placeholder={placeholder}
+            value={value ?? ''}
+            error={error}
+            size="md"
+            radius="md"
+            minRows={3}
+            onChange={(e) => onChange(e.currentTarget.value)}
+        />
     );
 }
 
 function EstadoClienteForm({ form, errors, onChange }) {
     return (
-        <Group align="stretch" gap="xl" wrap="nowrap">
-            <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconUserShield size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Datos del Estado</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 1 }} spacing="md" verticalSpacing="xs">
-                        <FInput label="Nombre del Estado" required icon={IconId} placeholder="Ej. Activo" value={form.nombre} error={errors.nombre} onChange={(v) => onChange('nombre', v)} />
-                        <FTextarea label="Descripción" icon={IconFileText} placeholder="Breve descripción del estado" value={form.descripcion} error={errors.descripcion} onChange={(v) => onChange('descripcion', v)} />
-                    </SimpleGrid>
-                </Box>
-            </Stack>
-        </Group>
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle>Datos del estado</SectionTitle>
+                <SimpleGrid cols={1} spacing="md" verticalSpacing="xs">
+                    <FInput
+                        label="Nombre del Estado"
+                        required
+                        placeholder="Ej. Activo"
+                        value={form.nombre}
+                        error={errors.nombre}
+                        onChange={(v) => onChange('nombre', v)}
+                    />
+                    <FTextarea
+                        label="Descripción"
+                        placeholder="Breve descripción del estado"
+                        value={form.descripcion}
+                        error={errors.descripcion}
+                        onChange={(v) => onChange('descripcion', v)}
+                    />
+                </SimpleGrid>
+            </Box>
+        </Stack>
     );
 }
 
@@ -85,11 +113,65 @@ export function EstadosCliente() {
         descripcion: form.descripcion,
     });
 
-    const mapRecordToRow = (record) => ({
-        id: record.id,
-        nombre: record.nombre,
-        descripcion: record.descripcion ?? '—',
-    });
+    const colorEstadoCliente = (estado) => {
+        if (!estado || estado === '—') return 'gray';
+        const e = estado.toLowerCase().trim();
+        if (e === 'inactivo' || e.includes('inactiv') || e.includes('baja') || e.includes('cancelad')) return 'red';
+        if (e.includes('suspendid') || e.includes('pendiente') || e.includes('vencid') || e.includes('moros')) return 'orange';
+        if (e === 'activo' || e.includes('activ') || e.includes('vigente')) return 'green';
+        return 'gray';
+    };
+
+    const mapRecordToRow = (record) => {
+        const nombreEstado = record.nombre ?? '—';
+        return {
+            id: record.id,
+            nombreTexto: nombreEstado,
+            nombre: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={colorEstadoCliente(nombreEstado)}
+                    radius="sm"
+                    fw={700}
+                >
+                    {nombreEstado.toUpperCase()}
+                </Badge>
+            ),
+            descripcion: record.descripcion ?? '—',
+        };
+    };
+
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Estado" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+            {setPendingDelete && (
+                <Tooltip label="Eliminar Estado" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => setPendingDelete(fila)}
+                    >
+                        <IconTrash size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
 
     return (
         <CrudCatalogo 
@@ -104,6 +186,13 @@ export function EstadosCliente() {
             mapFormToPayload={mapFormToPayload} 
             mapRecordToRow={mapRecordToRow} 
             renderForm={(props) => <EstadoClienteForm {...props} />} 
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            formMode="drawer"
+            drawerSize={500}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
         />
     );
 }
