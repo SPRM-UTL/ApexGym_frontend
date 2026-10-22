@@ -1,10 +1,10 @@
-import { Group, Loader } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Loader, Title, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
 import { ModalFormulario } from '../../components/ModalFormulario/ModalFormulario.jsx';
 import { TablaRegistros } from '../../components/TablaRegistros/TablaRegistros.jsx';
-import { BarraAcciones } from '../../components/BarraAcciones/BarraAcciones.jsx';
 import { api } from '../../scripts/services/api.js';
 import {
     guardarUsuarioActual,
@@ -30,7 +30,6 @@ export function Usuarios() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // ── Carga de usuarios ────────────────────────────────────────────────────
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -48,7 +47,6 @@ export function Usuarios() {
         }
     };
 
-    // ── Carga de roles ───────────────────────────────────────────────────────
     const fetchRoles = async () => {
         try {
             setLoadingRoles(true);
@@ -89,7 +87,6 @@ export function Usuarios() {
         [fotoPreview]
     );
 
-    // Opciones para el Select de rol
     const opcionesRoles = useMemo(
         () => roles.map((r) => ({ value: String(r.id), label: r.nombre })),
         [roles]
@@ -101,7 +98,27 @@ export function Usuarios() {
                 id,
                 nombre: n,
                 email,
-                rolesLabel: userRoles.map((r) => r.nombre).join(', ') || '—',
+                rolesLabel:
+                    userRoles.length > 0 ? (
+                        <Group gap={6} wrap="wrap">
+                            {userRoles.map((r) => (
+                                <Badge
+                                    key={r.id ?? r.nombre}
+                                    size="sm"
+                                    variant="light"
+                                    color="blue"
+                                    radius="sm"
+                                    fw={700}
+                                >
+                                    {String(r.nombre).toUpperCase()}
+                                </Badge>
+                            ))}
+                        </Group>
+                    ) : (
+                        <Badge size="sm" variant="light" color="gray" radius="sm" fw={700}>
+                            SIN ROL
+                        </Badge>
+                    ),
             })),
         [users]
     );
@@ -170,8 +187,8 @@ export function Usuarios() {
         if (Object.keys(nuevosErrores).length > 0) {
             setErrores(nuevosErrores);
             notifications.show({
-                title: 'Error en el formulario',
-                message: 'Por favor, revise los campos marcados en rojo.',
+                title: 'Formulario incompleto',
+                message: 'Revisa los campos marcados.',
                 color: 'red',
             });
             return;
@@ -195,7 +212,7 @@ export function Usuarios() {
                 );
                 alerta = {
                     title: 'Actualizado',
-                    message: 'Usuario actualizado correctamente',
+                    message: 'Usuario actualizado correctamente.',
                     color: 'green',
                 };
             } else {
@@ -208,7 +225,7 @@ export function Usuarios() {
                 );
                 alerta = {
                     title: 'Agregado',
-                    message: 'Usuario agregado correctamente',
+                    message: 'Usuario agregado correctamente.',
                     color: 'green',
                 };
                 usuarioId = response.data?.id;
@@ -218,7 +235,6 @@ export function Usuarios() {
                 throw new Error(response.message || 'Error al guardar usuario');
             }
 
-            // Si el usuario editado es el usuario en sesión, actualizar su información local
             if (usuarioId) {
                 const sesionUsuario = obtenerUsuarioActual();
                 if (sesionUsuario && Number(sesionUsuario.id) === Number(usuarioId)) {
@@ -235,6 +251,8 @@ export function Usuarios() {
 
             notifications.show(alerta);
             await fetchData();
+            limpiarFormulario();
+            setAbierto(false);
         } catch (err) {
             notifications.show({
                 title: 'Error',
@@ -244,9 +262,6 @@ export function Usuarios() {
         } finally {
             setLoading(false);
         }
-
-        limpiarFormulario();
-        setAbierto(false);
     };
 
     const abrirAgregar = () => {
@@ -317,6 +332,33 @@ export function Usuarios() {
         fetchRoles();
     };
 
+    const renderAccionesFila = (fila) => (
+        <Group gap={6} wrap="nowrap">
+            <Tooltip label="Editar Usuario" withArrow openDelay={250}>
+                <ActionIcon
+                    variant="light"
+                    color="blue"
+                    size="md"
+                    radius="md"
+                    onClick={() => handleEditar(fila)}
+                >
+                    <IconEdit size={17} stroke={1.8} />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Eliminar Usuario" withArrow openDelay={250}>
+                <ActionIcon
+                    variant="light"
+                    color="red"
+                    size="md"
+                    radius="md"
+                    onClick={() => solicitarEliminacion(fila)}
+                >
+                    <IconTrash size={17} stroke={1.8} />
+                </ActionIcon>
+            </Tooltip>
+        </Group>
+    );
+
     return (
         <>
             <ModalConfirmacion
@@ -332,6 +374,7 @@ export function Usuarios() {
                 usuarioEditando={usuarioEditando}
                 loadingRoles={loadingRoles}
                 opcionesRoles={opcionesRoles}
+                loading={loading}
                 form={{
                     nombre,
                     correo,
@@ -352,8 +395,22 @@ export function Usuarios() {
             />
 
             <div className={classes.crudLayout}>
-              
-                 <BarraAcciones onAdd={abrirAgregar} title='Gestion de Usuarios'/>
+                <div className={classes.unifiedHeader}>
+                    <Title order={2} className={classes.unifiedTitle}>
+                        Usuarios
+                    </Title>
+                    <Button
+                        className={classes.addButtonUnified}
+                        onClick={abrirAgregar}
+                        aria-label="Agregar usuario"
+                        leftSection={<IconPlus size={18} stroke={2.2} />}
+                        size="md"
+                        radius="md"
+                        styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
+                    >
+                        Agregar
+                    </Button>
+                </div>
 
                 {error && <div className={classes.errorBanner}>{error}</div>}
 
@@ -368,15 +425,17 @@ export function Usuarios() {
                     <TablaRegistros
                         data={datosTabla}
                         columns={COLUMNAS_USUARIOS}
-                        onEditar={handleEditar}
-                        onEliminar={solicitarEliminacion}
+                        renderAcciones={renderAccionesFila}
                         entityLabel="usuario"
                         pageSizeOptions={[10, 25, 50, 100]}
                         loading={loading}
                         onReload={handleReload}
+                        headerVariant="neutral"
                     />
                 )}
             </div>
         </>
     );
 }
+
+export default Usuarios;
