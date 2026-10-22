@@ -631,6 +631,18 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                 onChange={(e) => onChange('observaciones', e.currentTarget.value)}
             />
 
+            {/* Aviso informativo de inmutabilidad */}
+            <Alert
+                icon={<IconInfoCircle size={18} />}
+                color="blue"
+                variant="light"
+                radius="md"
+            >
+                <Text size="xs">
+                    <b>Nota de control contable:</b> Una vez registrado el movimiento no se podrá editar ni eliminar. En caso de haberse equivocado, deberás abrir otro movimiento y corregir ese movimiento en ese nuevo.
+                </Text>
+            </Alert>
+
             {/* Banner de errores para evitar cualquier error invisible */}
             {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
                 <Alert
@@ -876,6 +888,19 @@ function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
                             </Stack>
                         </Paper>
                     </SimpleGrid>
+
+                    {/* Aviso de Corrección y Auditoría */}
+                    <Alert
+                        icon={<IconInfoCircle size={20} />}
+                        title="¿Hubo alguna equivocación en este movimiento?"
+                        color="blue"
+                        variant="light"
+                        radius="md"
+                    >
+                        <Text size="sm">
+                            Por control de auditoría contable, los movimientos registrados no se pueden editar ni eliminar. <b>En caso de haberse equivocado, debes abrir otro movimiento</b> y corregir ese movimiento en ese nuevo registro especificando el motivo en las observaciones.
+                        </Text>
+                    </Alert>
 
                     {/* Acciones inferiores del modal */}
                     <Group justify="space-between" mt="md">
