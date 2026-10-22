@@ -131,7 +131,7 @@ const CAMPOS = [
         ],
     },
     { key: 'monto',         label: 'Monto',            required: true, type: 'number', min: 0.01, max: 50000 },
-    { key: 'concepto',      label: 'Tipo de Concepto', required: true, maxLength: 255 },
+    { key: 'concepto',      label: 'Concepto',         required: true, maxLength: 255 },
     { key: 'observaciones', label: 'Observaciones',    maxLength: 500 },
 ];
 
@@ -469,9 +469,9 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         </Alert>
                     )}
 
-                    {/* Full width — Tipo de Concepto (Catálogo) */}
+                    {/* Full width — Concepto */}
                     <NativeSelect
-                        label="Tipo de Concepto (Catálogo)"
+                        label="Concepto"
                         withAsterisk
                         value={form.concepto ?? ''}
                         error={errors.concepto}
@@ -480,7 +480,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         leftSection={<IconInfoCircle size={16} stroke={1.5} />}
                         style={{ gridColumn: '1 / -1' }}
                         data={[
-                            { value: '', label: 'Selecciona un concepto del catálogo' },
+                            { value: '', label: 'Selecciona un concepto' },
                             ...opcionesConceptos,
                             ...(form.concepto && !opcionesConceptos.some((o) => o.value === form.concepto)
                                 ? [{ value: form.concepto, label: form.concepto }]
