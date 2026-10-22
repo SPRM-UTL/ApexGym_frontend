@@ -489,116 +489,197 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
     }
 
     const fondoInicial = Number(apertura.montoInicial ?? 0);
+    const esAbierta = apertura.estado === 'ABIERTA';
+
+    // Totales calculados del desglose
+    let totalBilletes = 0;
+    let totalMonedas = 0;
+    let totalPiezas = 0;
+    if (desglose && typeof desglose === 'object') {
+        for (const d of DENOMINACIONES) {
+            const cant = Number(desglose[d.valor] ?? 0);
+            const sub = d.valor * cant;
+            totalPiezas += cant;
+            if (d.tipo === 'billete') totalBilletes += sub;
+            else totalMonedas += sub;
+        }
+    }
 
     return (
         <Modal
             opened={opened}
             onClose={onClose}
-            size="lg"
-            radius="md"
+            fullScreen
+            radius={0}
+            zIndex={999999}
+            transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
-                        <IconCoins size={18} stroke={1.8} />
-                    </ThemeIcon>
-                    <div>
-                        <Title order={4} style={{ color: '#ffffff' }}>
-                            Fondo Inicial y Desglose — #{apertura.id} ({apertura.caja?.nombre ?? 'Caja'})
-                        </Title>
-                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                            Detalle físico de billetes y monedas con el que aperturó la caja
-                        </Text>
-                    </div>
-                </Group>
-            }
-        >
-            <Stack gap="md" mt="xs">
-                {/* Info adicional idéntica a Corte de Caja */}
-                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
-                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                <Group justify="space-between" w="100%" pr="xl">
+                    <Group gap="xs">
+                        <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                            <IconCash size={22} stroke={1.8} />
+                        </ThemeIcon>
                         <div>
-                            <Text size="xs" c="dimmed" fw={600}>Caja Asignada</Text>
-                            <Text fw={600} size="sm">{apertura.caja?.nombre ?? '—'}</Text>
-                        </div>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Cajero Responsable</Text>
-                            <Text fw={600} size="sm">
-                                {apertura.empleado ? `${apertura.empleado.nombre} ${apertura.empleado.apellidoPaterno}` : '—'}
+                            <Title order={4} style={{ color: '#ffffff' }}>
+                                Detalle de Apertura de Caja #{apertura.id} — {apertura.caja?.nombre ?? 'Caja'}
+                            </Title>
+                            <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                Fondo inicial y desglose físico con el que aperturó la caja
                             </Text>
                         </div>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Apertura</Text>
-                            <Text fw={600} size="sm">
-                                {formatearFechaHora(apertura.fechaApertura)}
-                            </Text>
-                        </div>
-                    </SimpleGrid>
-                </Paper>
-
-                {/* Card de Billetes de Inicio del Día (Exactamente idéntica a Corte de Caja) */}
-                <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
-                    <Group justify="space-between" mb="xs">
-                        <Group gap="xs">
-                            <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                                <IconCash size={14} />
-                            </ThemeIcon>
-                            <Text fw={700} size="sm" c="dimmed">
-                                Billetes de inicio (Fondo del día)
-                            </Text>
-                        </Group>
-                        <Badge color="blue" variant="light">
-                            Fondo: ${fondoInicial.toFixed(2)}
+                        <Badge color={esAbierta ? 'green' : 'red'} variant="filled" size="md">
+                            {apertura.estado ?? 'ABIERTA'}
                         </Badge>
                     </Group>
-                    <Text size="xs" c="dimmed" mb="md">
-                        Desglose con el que se aperturó la caja física.
-                    </Text>
-
-                    <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ textAlign: 'center' }}>Cantidad</Table.Th>
-                                <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {DENOMINACIONES.map((d) => {
-                                const cant = desglose ? Number(desglose[d.valor] ?? 0) : 0;
-                                return (
-                                    <Table.Tr key={d.valor}>
-                                        <Table.Td fw={600}>{d.label}</Table.Td>
-                                        <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
-                                        <Table.Td style={{ textAlign: 'right' }}>
-                                            ${(d.valor * cant).toFixed(2)}
-                                        </Table.Td>
-                                    </Table.Tr>
-                                );
-                            })}
-                        </Table.Tbody>
-                    </Table>
-
-                    <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd' }}>
-                        <Group justify="space-between">
-                            <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
-                            <Text fw={800} size="sm" c="blue">${fondoInicial.toFixed(2)}</Text>
-                        </Group>
-                    </Paper>
-                </Paper>
-
-                {apertura.observaciones && (
-                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
-                        <Text size="xs" c="dimmed" fw={600}>Observaciones:</Text>
-                        <Text size="sm">{apertura.observaciones}</Text>
-                    </Paper>
-                )}
-
-                <Group justify="flex-end" mt="xs">
-                    <Button variant="default" onClick={onClose} size="sm" radius="md">
+                    <Button variant="default" size="xs" radius="md" onClick={onClose}>
                         Cerrar
                     </Button>
                 </Group>
-            </Stack>
+            }
+        >
+            <Box maw={1200} mx="auto" mt="xl" pt="md">
+                <Stack gap="md">
+                    {/* Info adicional idéntica a Corte de Caja */}
+                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
+                        <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="xs">
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Caja Asignada</Text>
+                                <Text fw={600} size="sm">{apertura.caja?.nombre ?? '—'}</Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Cajero Responsable</Text>
+                                <Text fw={600} size="sm">
+                                    {apertura.empleado ? `${apertura.empleado.nombre} ${apertura.empleado.apellidoPaterno}` : '—'}
+                                </Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Apertura</Text>
+                                <Text fw={600} size="sm">
+                                    {formatearFechaHora(apertura.fechaApertura)}
+                                </Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Estado de la Sesión</Text>
+                                <Badge color={esAbierta ? 'green' : 'red'} variant="light" size="sm">
+                                    {apertura.estado ?? 'ABIERTA'}
+                                </Badge>
+                            </div>
+                        </SimpleGrid>
+                    </Paper>
+
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                        {/* ── Columna 1: Card de Billetes de Inicio del Día (Exactamente idéntica a Corte de Caja) ── */}
+                        <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
+                            <Group justify="space-between" mb="xs">
+                                <Group gap="xs">
+                                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                        <IconCash size={14} />
+                                    </ThemeIcon>
+                                    <Text fw={700} size="sm" c="dimmed">
+                                        Billetes de inicio (Fondo del día)
+                                    </Text>
+                                </Group>
+                                <Badge color="blue" variant="light">
+                                    Fondo: ${fondoInicial.toFixed(2)}
+                                </Badge>
+                            </Group>
+                            <Text size="xs" c="dimmed" mb="md">
+                                Desglose con el que se aperturó la caja física.
+                            </Text>
+
+                            <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>Denominación</Table.Th>
+                                        <Table.Th style={{ textAlign: 'center', width: 100 }}>Cantidad</Table.Th>
+                                        <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {DENOMINACIONES.map((d) => {
+                                        const cant = desglose ? Number(desglose[d.valor] ?? 0) : 0;
+                                        return (
+                                            <Table.Tr key={d.valor}>
+                                                <Table.Td fw={600}>{d.label}</Table.Td>
+                                                <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                <Table.Td style={{ textAlign: 'right' }}>
+                                                    ${(d.valor * cant).toFixed(2)}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        );
+                                    })}
+                                </Table.Tbody>
+                            </Table>
+
+                            <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
+                                <Group justify="space-between">
+                                    <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
+                                    <Text fw={800} size="sm" c="blue">${fondoInicial.toFixed(2)}</Text>
+                                </Group>
+                            </Paper>
+                        </Paper>
+
+                        {/* ── Columna 2: Resumen del Fondo ── */}
+                        <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
+                            <Group justify="space-between" mb="xs">
+                                <Group gap="xs">
+                                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                        <IconCoins size={14} />
+                                    </ThemeIcon>
+                                    <Text fw={700} size="sm" c="dimmed">
+                                        Resumen del Fondo
+                                    </Text>
+                                </Group>
+                            </Group>
+                            <Text size="xs" c="dimmed" mb="md">
+                                Composición y balance físico del fondo inicial.
+                            </Text>
+
+                            <Stack gap="sm">
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                                    <Group justify="space-between" mb="xs">
+                                        <Text size="xs" c="dimmed">Total en Billetes:</Text>
+                                        <Text size="sm" fw={700}>${totalBilletes.toFixed(2)}</Text>
+                                    </Group>
+                                    <Divider my="xs" />
+                                    <Group justify="space-between" mb="xs">
+                                        <Text size="xs" c="dimmed">Total en Monedas:</Text>
+                                        <Text size="sm" fw={700}>${totalMonedas.toFixed(2)}</Text>
+                                    </Group>
+                                    <Divider my="xs" />
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">Piezas físicas totales:</Text>
+                                        <Text size="sm" fw={700}>{totalPiezas} piezas</Text>
+                                    </Group>
+                                </Paper>
+
+                                {apertura.observaciones && (
+                                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                                        <Text size="xs" c="dimmed" fw={600} mb={4}>Observaciones registradas:</Text>
+                                        <Text size="sm">{apertura.observaciones}</Text>
+                                    </Paper>
+                                )}
+
+                                <Paper p="sm" radius="md" mt="auto" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
+                                    <Group justify="space-between" align="center">
+                                        <div>
+                                            <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
+                                            <Text size="10px" c="dimmed">Fondo físico con el que abrió la caja</Text>
+                                        </div>
+                                        <Text fw={800} size="lg" c="blue">${fondoInicial.toFixed(2)}</Text>
+                                    </Group>
+                                </Paper>
+                            </Stack>
+                        </Paper>
+                    </SimpleGrid>
+
+                    <Group justify="flex-end" mt="md">
+                        <Button variant="default" onClick={onClose} size="md" radius="md">
+                            Cerrar
+                        </Button>
+                    </Group>
+                </Stack>
+            </Box>
         </Modal>
     );
 }
