@@ -1,50 +1,88 @@
 /**
  * Genera y descarga / imprime el reporte oficial de Corte de Caja en PDF.
+ * Incluye distinción de ORIGINAL vs COPIA con huella digital de seguridad,
+ * resumen financiero compacto en una sola fila y tabla de movimientos optimizada.
+ * 
  * @param {object} corte - Datos del corte de caja
  * @param {Array} movimientos - Lista de movimientos de la caja
  * @param {object} [desglose] - Desglose de billetes (opcional)
  */
 export function generarPdfCorte(corte, movimientos = [], desglose = null) {
-    const ventana = window.open('', '_blank', 'width=850,height=950');
+    const ventana = window.open('', '_blank', 'width=950,height=1000');
     if (!ventana) {
-        alert('Por favor permite las ventanas emergentes para generar el PDF.');
+        alert('Por favor permite las ventanas emergentes en tu navegador para generar el comprobante PDF.');
         return;
     }
 
-    const fechaHora = corte.fechaCorte
+    // ── Conteo de impresiones y control de ORIGINAL vs COPIA ─────────────────
+    const storageKey = `corte_impresiones_${corte?.id ?? 0}`;
+    const vecesImpreso = Number(localStorage.getItem(storageKey) || 0);
+    const esOriginal = vecesImpreso === 0;
+
+    // Registrar nueva impresión
+    localStorage.setItem(storageKey, String(vecesImpreso + 1));
+    const numeroCopia = vecesImpreso; // 1ra copia = Copia #1, etc.
+
+    // ── Generación de Huella Digital de Seguridad ────────────────────────────
+    const seed = `${corte?.id || 0}-${corte?.fechaCorte || ''}-${corte?.efectivoContado || 0}-${corte?.diferencia || 0}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        hash = (hash << 5) - hash + seed.charCodeAt(i);
+        hash |= 0;
+    }
+    const hashHex = Math.abs(hash).toString(16).toUpperCase().padStart(8, '0');
+    const huellaDigital = `APX-${String(corte?.id || 0).padStart(4, '0')}-${hashHex}`;
+
+    const fechaHora = corte?.fechaCorte
         ? new Date(corte.fechaCorte).toLocaleString('es-MX', {
               dateStyle: 'full',
               timeStyle: 'medium',
           })
         : new Date().toLocaleString('es-MX');
 
-    const diferenciaNum = Number(corte.diferencia ?? 0);
+    const montoInicial = Number(corte?.aperturaCaja?.montoInicial ?? 0);
+    const totalEntradas = Number(corte?.totalEntradas ?? 0);
+    const totalSalidas = Number(corte?.totalSalidas ?? 0);
+    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas;
+    const efectivoContado = Number(corte?.efectivoContado ?? 0);
+    const diferenciaNum = Number(corte?.diferencia ?? (efectivoContado - efectivoEsperado));
+
     const difColor = diferenciaNum >= 0 ? '#2b8a3e' : '#c92a2a';
-    const difTexto = diferenciaNum >= 0 ? `+$${diferenciaNum.toFixed(2)} (Sobrante / Cuadrado)` : `-$${Math.abs(diferenciaNum).toFixed(2)} (Faltante)`;
+    const difTexto = diferenciaNum >= 0 ? `+$${diferenciaNum.toFixed(2)} (Sobrante)` : `-$${Math.abs(diferenciaNum).toFixed(2)} (Faltante)`;
 
-    const cajaNombre = corte.aperturaCaja?.caja?.nombre ?? corte.caja ?? 'Caja Principal';
-    const empleadoNombre = corte.empleado
+    const cajaNombre = corte?.aperturaCaja?.caja?.nombre ?? corte?.caja ?? 'Caja Principal';
+    const empleadoNombre = corte?.empleado
         ? `${corte.empleado.nombre} ${corte.empleado.apellidoPaterno ?? ''} ${corte.empleado.apellidoMaterno ?? ''}`.trim()
-        : corte.empleadoNombre ?? 'Empleado';
+        : corte?.empleadoNombre ?? 'Empleado';
 
-    const estadoTexto = corte.estado === 'VALIDADO' ? 'VALIDADO / AUDITADO' : 'PENDIENTE DE VALIDACIÓN';
-    const estadoColor = corte.estado === 'VALIDADO' ? '#2b8a3e' : '#e67700';
+    const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id ?? '—';
+    const estadoTexto = corte?.estado === 'VALIDADO' ? 'VALIDADO / AUDITADO' : 'PENDIENTE DE VALIDACIÓN';
+    const estadoColor = corte?.estado === 'VALIDADO' ? '#2b8a3e' : '#e67700';
 
     const desgloseItems = desglose && typeof desglose === 'object' ? Object.entries(desglose) : [];
+
+    const totalMovs = (movimientos ?? []).length;
+    const sumEntradas = (movimientos ?? []).filter(m => m.tipo === 'ENTRADA').reduce((acc, m) => acc + Number(m.monto || 0), 0);
+    const sumSalidas = (movimientos ?? []).filter(m => m.tipo === 'SALIDA').reduce((acc, m) => acc + Number(m.monto || 0), 0);
 
     const filasMovimientos = (movimientos ?? [])
         .map(
             (m, i) => `
-        <tr>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: center;">${i + 1}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">
-                <span style="font-weight: 600; color: ${m.tipo === 'ENTRADA' ? '#2b8a3e' : '#c92a2a'};">
+        <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#fcfcfd'};">
+            <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef; text-align: center; font-weight: 600; color: #495057;">${i + 1}</td>
+            <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef;">
+                <span class="badge-tipo ${m.tipo === 'ENTRADA' ? 'tipo-entrada' : 'tipo-salida'}">
                     ${m.tipo}
                 </span>
             </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${m.concepto ?? '—'}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: 600;">$${Number(m.monto ?? 0).toFixed(2)}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 11px; color: #666;">
+            <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef; word-break: break-word;">
+                <div style="font-weight: 600; color: #212529;">${m.concepto ?? '—'}</div>
+                ${m.observaciones ? `<div style="font-size: 11px; color: #868e96; margin-top: 2px;">${m.observaciones}</div>` : ''}
+            </td>
+            <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef; text-align: right; font-weight: 700; color: ${m.tipo === 'ENTRADA' ? '#2b8a3e' : '#c92a2a'};">
+                ${m.tipo === 'ENTRADA' ? '+' : '-'}$${Number(m.monto ?? 0).toFixed(2)}
+            </td>
+            <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef; font-size: 11px; color: #666; text-align: center;">
                 ${m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
             </td>
         </tr>
@@ -57,35 +95,71 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Corte de Caja #${corte.id ?? ''} - ApexGym</title>
+    <title>Corte de Caja #${corte?.id ?? ''} - ApexGym</title>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-        body { margin: 0; padding: 24px; color: #1B1F3A; background: #fff; font-size: 13px; line-height: 1.4; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 18px; }
-        .logo-title h1 { margin: 0; font-size: 24px; font-weight: 800; color: #FF6A00; letter-spacing: 0.5px; }
-        .logo-title p { margin: 3px 0 0 0; font-size: 11px; color: #666; }
-        .badge-estado { display: inline-block; padding: 5px 12px; border-radius: 14px; font-weight: 700; font-size: 11px; text-transform: uppercase; background: ${corte.estado === 'VALIDADO' ? '#ebfbee' : '#fff9db'}; color: ${estadoColor}; border: 1px solid ${estadoColor}; }
+        body { margin: 0; padding: 28px; color: #1B1F3A; background: #fff; font-size: 12px; line-height: 1.45; position: relative; }
         
-        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; background: #f8f9fa; padding: 12px 16px; border-radius: 8px; border: 1px solid #e9ecef; }
+        ${!esOriginal ? `
+        /* Marca de agua diagonal en fondo para copias */
+        .watermark-copia {
+            position: fixed;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-35deg);
+            font-size: 110px;
+            font-weight: 900;
+            color: rgba(230, 77, 0, 0.08);
+            letter-spacing: 20px;
+            pointer-events: none;
+            z-index: 0;
+            text-transform: uppercase;
+            user-select: none;
+        }
+        ` : ''}
+
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 14px; position: relative; z-index: 1; }
+        .logo-title h1 { margin: 0; font-size: 26px; font-weight: 900; color: #FF6A00; letter-spacing: 0.5px; }
+        .logo-title p { margin: 3px 0 0 0; font-size: 11px; color: #666; font-weight: 500; }
+        
+        .header-badges { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+        .badge-doc { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-doc.original { background: #e7f5ff; color: #1971c2; border: 1px solid #74c0fc; }
+        .badge-doc.copia { background: #fff3bf; color: #d9480f; border: 1px solid #fcc419; }
+        .badge-estado { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-size: 10px; text-transform: uppercase; background: ${corte?.estado === 'VALIDADO' ? '#ebfbee' : '#fff9db'}; color: ${estadoColor}; border: 1px solid ${estadoColor}; }
+        
+        .huella-box { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 6px 12px; font-size: 10px; color: #495057; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; z-index: 1; }
+        .huella-code { font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #1B1F3A; }
+
+        /* Grid de información general */
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; background: #f8f9fa; padding: 10px 14px; border-radius: 6px; border: 1px solid #e9ecef; position: relative; z-index: 1; }
         .info-item { display: flex; flex-direction: column; }
-        .info-label { font-size: 10px; text-transform: uppercase; font-weight: 700; color: #868e96; margin-bottom: 2px; }
-        .info-value { font-size: 13px; font-weight: 600; color: #212529; }
+        .info-label { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #868e96; margin-bottom: 2px; }
+        .info-value { font-size: 12px; font-weight: 600; color: #212529; }
         
-        .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: #1B1F3A; margin: 18px 0 8px 0; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1B1F3A; margin: 16px 0 8px 0; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px; position: relative; z-index: 1; }
         
-        .kpi-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
-        .kpi-card { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px; text-align: center; }
-        .kpi-card.highlight { background: #fff9f5; border-color: #FF6A00; }
-        .kpi-label { font-size: 10px; font-weight: 700; color: #666; text-transform: uppercase; }
-        .kpi-value { font-size: 16px; font-weight: 800; color: #1B1F3A; margin-top: 4px; }
+        /* ── Resumen Financiero en UNA SOLA FILA compacta ── */
+        .resumen-fila { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 14px; position: relative; z-index: 1; }
+        .kpi-compact { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 7px 6px; text-align: center; }
+        .kpi-compact.highlight { background: #fff9f5; border-color: #FF6A00; }
+        .kpi-compact.diff { background: ${diferenciaNum >= 0 ? '#f4fbf5' : '#fff5f5'}; border-color: ${difColor}; }
+        .kpi-compact-label { font-size: 9px; font-weight: 700; color: #6c757d; text-transform: uppercase; display: block; margin-bottom: 3px; }
+        .kpi-compact-value { font-size: 13px; font-weight: 800; color: #1B1F3A; display: block; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-        th { background: #e8eaf0; color: #1B1F3A; font-weight: 700; font-size: 11px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid #ced4da; }
+        /* Tablas */
+        table { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 14px; position: relative; z-index: 1; }
+        th { background: #e8eaf0; color: #1B1F3A; font-weight: 700; font-size: 10px; text-transform: uppercase; padding: 7px 10px; border-bottom: 2px solid #ced4da; letter-spacing: 0.4px; }
+        tfoot td { background: #f8f9fa; font-weight: 700; border-top: 2px solid #ced4da; padding: 7px 10px; }
         
-        .firmas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-top: 45px; text-align: center; }
-        .linea-firma { border-top: 1px solid #333; margin-top: 40px; padding-top: 6px; font-size: 11px; font-weight: 600; }
+        .badge-tipo { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .tipo-entrada { background: #ebfbee; color: #2b8a3e; border: 1px solid #b2f2bb; }
+        .tipo-salida { background: #fff5f5; color: #c92a2a; border: 1px solid #ffc9c9; }
+
+        .firmas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 50px; margin-top: 35px; text-align: center; position: relative; z-index: 1; }
+        .linea-firma { border-top: 1px solid #333; margin-top: 36px; padding-top: 6px; font-size: 11px; font-weight: 600; }
         
-        .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #868e96; border-top: 1px dashed #ced4da; padding-top: 8px; }
+        .footer { margin-top: 25px; text-align: center; font-size: 10px; color: #868e96; border-top: 1px dashed #ced4da; padding-top: 8px; position: relative; z-index: 1; }
         
         @media print {
             body { padding: 10px; }
@@ -94,17 +168,29 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
     </style>
 </head>
 <body>
+    ${!esOriginal ? '<div class="watermark-copia">COPIA</div>' : ''}
+
     <div class="header">
         <div class="logo-title">
             <h1>APEX GYM</h1>
-            <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Caja</p>
+            <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno</p>
         </div>
-        <div style="text-align: right;">
+        <div class="header-badges">
+            <span class="badge-doc ${esOriginal ? 'original' : 'copia'}">
+                ${esOriginal ? 'ORIGINAL' : `COPIA · REIMPRESIÓN #${numeroCopia}`}
+            </span>
             <div class="badge-estado">${estadoTexto}</div>
-            <p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">Folio: <b>#CORTE-${corte.id ?? '—'}</b></p>
+            <span style="font-size: 11px; font-weight: 700; color: #495057;">Folio: #CORTE-${corte?.id ?? '—'}</span>
         </div>
     </div>
 
+    <!-- Huella digital de seguridad -->
+    <div class="huella-box">
+        <span><b>Seguridad y Auditoría Digital:</b> Huella <span class="huella-code">${huellaDigital}</span></span>
+        <span>${esOriginal ? '● <b>DOCUMENTO ORIGINAL OFICIAL</b>' : `▲ <b>COPIA AUTORIZADA #${numeroCopia}</b>`}</span>
+    </div>
+
+    <!-- Información General (Sin la palabra ID) -->
     <div class="info-grid">
         <div class="info-item">
             <span class="info-label">Caja Asignada</span>
@@ -119,47 +205,49 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
             <span class="info-value">${fechaHora}</span>
         </div>
         <div class="info-item">
-            <span class="info-label">ID Apertura Relacionada</span>
-            <span class="info-value">#APERTURA-${corte.aperturaCajaId ?? '—'}</span>
+            <span class="info-label"># Apertura Relacionada</span>
+            <span class="info-value">#${aperturaId}</span>
         </div>
     </div>
 
+    <!-- ── 1 SOLA FILA COMPACTA DE RESUMEN FINANCIERO ── -->
     <div class="section-title">
         <span>Resumen Financiero del Turno</span>
+        <span style="font-size: 9px; font-weight: 600; color: #868e96;">Cálculo Oficial Automatizado</span>
     </div>
 
-    <div class="kpi-cards">
-        <div class="kpi-card">
-            <div class="kpi-label">Fondo Inicial</div>
-            <div class="kpi-value">$${Number(corte.aperturaCaja?.montoInicial ?? 0).toFixed(2)}</div>
+    <div class="resumen-fila">
+        <div class="kpi-compact">
+            <span class="kpi-compact-label">Fondo Inicial</span>
+            <span class="kpi-compact-value">$${montoInicial.toFixed(2)}</span>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Total Entradas (+)</div>
-            <div class="kpi-value" style="color: #2b8a3e;">+$${Number(corte.totalEntradas ?? 0).toFixed(2)}</div>
+        <div class="kpi-compact">
+            <span class="kpi-compact-label">Entradas (+)</span>
+            <span class="kpi-compact-value" style="color: #2b8a3e;">+$${totalEntradas.toFixed(2)}</span>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Total Salidas (-)</div>
-            <div class="kpi-value" style="color: #c92a2a;">-$${Number(corte.totalSalidas ?? 0).toFixed(2)}</div>
+        <div class="kpi-compact">
+            <span class="kpi-compact-label">Salidas (-)</span>
+            <span class="kpi-compact-value" style="color: #c92a2a;">-$${totalSalidas.toFixed(2)}</span>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Efectivo Teórico Esperado</div>
-            <div class="kpi-value">$${(Number(corte.aperturaCaja?.montoInicial ?? 0) + Number(corte.totalEntradas ?? 0) - Number(corte.totalSalidas ?? 0)).toFixed(2)}</div>
+        <div class="kpi-compact">
+            <span class="kpi-compact-label">Ef. Teórico</span>
+            <span class="kpi-compact-value">$${efectivoEsperado.toFixed(2)}</span>
         </div>
-        <div class="kpi-card highlight">
-            <div class="kpi-label">Efectivo Contado (Físico)</div>
-            <div class="kpi-value" style="color: #FF6A00;">$${Number(corte.efectivoContado ?? 0).toFixed(2)}</div>
+        <div class="kpi-compact highlight">
+            <span class="kpi-compact-label" style="color: #FF6A00;">Ef. Contado</span>
+            <span class="kpi-compact-value" style="color: #FF6A00;">$${efectivoContado.toFixed(2)}</span>
         </div>
-        <div class="kpi-card" style="background: ${diferenciaNum >= 0 ? '#f4fbf5' : '#fff5f5'}; border-color: ${difColor};">
-            <div class="kpi-label">Diferencia</div>
-            <div class="kpi-value" style="color: ${difColor};">${difTexto}</div>
+        <div class="kpi-compact diff">
+            <span class="kpi-compact-label" style="color: ${difColor};">Diferencia</span>
+            <span class="kpi-compact-value" style="color: ${difColor};">${difTexto}</span>
         </div>
     </div>
 
     ${
-        corte.observaciones
-            ? `<div style="background: #f8f9fa; border-left: 3px solid #FF6A00; padding: 8px 12px; margin-bottom: 16px; border-radius: 4px;">
-                <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #868e96;">Observaciones del Corte:</span>
-                <p style="margin: 3px 0 0 0; font-size: 12px;">${corte.observaciones}</p>
+        corte?.observaciones
+            ? `<div style="background: #fff9f5; border-left: 3px solid #FF6A00; padding: 7px 12px; margin-bottom: 12px; border-radius: 4px;">
+                <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #FF6A00;">Observaciones del Corte:</span>
+                <p style="margin: 2px 0 0 0; font-size: 11px; color: #212529;">${corte.observaciones}</p>
             </div>`
             : ''
     }
@@ -168,13 +256,13 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
         desgloseItems.length > 0
             ? `
         <div class="section-title">
-            <span>Desglose de Billetes y Monedas (Conteo Físico)</span>
+            <span>Arqueo de Efectivo Físico por Denominación</span>
         </div>
-        <table style="margin-bottom: 16px;">
+        <table>
             <thead>
                 <tr>
                     <th style="text-align: left;">Denominación</th>
-                    <th style="text-align: center;">Cantidad</th>
+                    <th style="text-align: center;">Cantidad Contada</th>
                     <th style="text-align: right;">Subtotal</th>
                 </tr>
             </thead>
@@ -186,58 +274,77 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null) {
                         if (!cant) return '';
                         return `
                             <tr>
-                                <td style="padding: 4px 8px; border-bottom: 1px solid #eee;">$${val >= 1 ? val.toLocaleString() : '0.50'}</td>
-                                <td style="padding: 4px 8px; border-bottom: 1px solid #eee; text-align: center;">${cant}</td>
-                                <td style="padding: 4px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: 600;">$${(val * cant).toFixed(2)}</td>
+                                <td style="padding: 5px 10px; border-bottom: 1px solid #e9ecef; font-weight: 600;">$${val >= 1 ? val.toLocaleString() : '0.50'}</td>
+                                <td style="padding: 5px 10px; border-bottom: 1px solid #e9ecef; text-align: center;">${cant}</td>
+                                <td style="padding: 5px 10px; border-bottom: 1px solid #e9ecef; text-align: right; font-weight: 700;">$${(val * cant).toFixed(2)}</td>
                             </tr>
                         `;
                     })
                     .join('')}
             </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2" style="text-align: right;">TOTAL ARQUEO FÍSICO:</td>
+                    <td style="text-align: right; color: #FF6A00;">$${efectivoContado.toFixed(2)}</td>
+                </tr>
+            </tfoot>
         </table>
     `
             : ''
     }
 
+    <!-- ── Tabla de Movimientos del Turno ── -->
     <div class="section-title">
-        <span>Movimientos Operativos de Caja Realizados (${(movimientos ?? []).length})</span>
+        <span>Movimientos Operativos Registrados en el Turno (${totalMovs})</span>
+        <span style="font-size: 9px; font-weight: 600; color: #868e96;">Entradas: +$${sumEntradas.toFixed(2)} · Salidas: -$${sumSalidas.toFixed(2)}</span>
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>#</th>
-                <th style="text-align: left;">Tipo</th>
-                <th style="text-align: left;">Concepto</th>
-                <th style="text-align: right;">Monto</th>
-                <th style="text-align: left;">Hora</th>
+                <th style="width: 40px; text-align: center;">#</th>
+                <th style="width: 110px; text-align: left;">Tipo</th>
+                <th style="text-align: left;">Concepto y Detalles</th>
+                <th style="width: 120px; text-align: right;">Monto</th>
+                <th style="width: 90px; text-align: center;">Hora</th>
             </tr>
         </thead>
         <tbody>
             ${
                 filasMovimientos ||
-                '<tr><td colspan="5" style="text-align: center; padding: 12px; color: #868e96;">No se registraron movimientos manuales durante este turno.</td></tr>'
+                '<tr><td colspan="5" style="text-align: center; padding: 14px; color: #868e96; font-style: italic;">No se registraron movimientos manuales de caja en este turno.</td></tr>'
             }
         </tbody>
+        ${totalMovs > 0 ? `
+        <tfoot>
+            <tr>
+                <td colspan="3" style="text-align: right;">TOTALES DEL TURNO:</td>
+                <td style="text-align: right; font-size: 11px;">
+                    <span style="color: #2b8a3e;">+$${sumEntradas.toFixed(2)}</span> / 
+                    <span style="color: #c92a2a;">-$${sumSalidas.toFixed(2)}</span>
+                </td>
+                <td></td>
+            </tr>
+        </tfoot>` : ''}
     </table>
 
     <div class="firmas">
         <div>
             <div class="linea-firma">
                 ${empleadoNombre}<br>
-                <span style="font-weight: 400; color: #666;">Cajero en Turno</span>
+                <span style="font-weight: 400; color: #666; font-size: 10px;">Cajero Responsable</span>
             </div>
         </div>
         <div>
             <div class="linea-firma">
                 Firma de Supervisor / Gerente<br>
-                <span style="font-weight: 400; color: #666;">Auditoría y Validación</span>
+                <span style="font-weight: 400; color: #666; font-size: 10px;">Auditoría y Validación Oficial</span>
             </div>
         </div>
     </div>
 
     <div class="footer">
-        <p>Documento generado por ApexGym Nexus System · Impreso el ${new Date().toLocaleString('es-MX')}</p>
+        <p>Documento oficial emitido por ApexGym Nexus System · Huella de Auditoría: ${huellaDigital} · Fecha: ${new Date().toLocaleString('es-MX')}</p>
     </div>
 
     <script>

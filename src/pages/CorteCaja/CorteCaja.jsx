@@ -155,6 +155,10 @@ function ModalDetalleVentas({ opened, onClose, aperturaId }) {
         <Modal
             opened={opened}
             onClose={onClose}
+            fullScreen
+            radius={0}
+            zIndex={999999}
+            transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
                 <Group gap="xs">
                     <ThemeIcon size="md" radius="md" style={{ backgroundColor: '#fff0e6', color: '#FF6A00' }}>
@@ -163,108 +167,108 @@ function ModalDetalleVentas({ opened, onClose, aperturaId }) {
                     <Title order={5}>Detalle de Ventas y Métodos de Pago del Turno</Title>
                 </Group>
             }
-            size="lg"
-            radius="md"
         >
-            <Stack gap="md">
-                {/* Tarjetas KPI Superiores */}
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
-                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Ventas</Text>
-                        <Text fw={800} size="xl" c="#FF6A00">$15,840.00</Text>
-                        <Text size="xs" c="dimmed" mt={2}>Turno actual</Text>
-                    </Paper>
-                    <Paper p="sm" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
-                        <Text fw={800} size="xl" c="dark">38</Text>
-                        <Text size="xs" c="dimmed" mt={2}>Tickets generados</Text>
-                    </Paper>
-                    <Paper p="sm" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
-                        <Text fw={800} size="xl" c="dark">$416.84</Text>
-                        <Text size="xs" c="dimmed" mt={2}>Por cliente</Text>
-                    </Paper>
-                </SimpleGrid>
+            <Box maw={1200} mx="auto" mt="xl" pt="md">
+                <Stack gap="md">
+                    {/* Tarjetas KPI Superiores */}
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Ventas</Text>
+                            <Text fw={800} size="xl" c="#FF6A00">$15,840.00</Text>
+                            <Text size="xs" c="dimmed" mt={2}>Turno actual</Text>
+                        </Paper>
+                        <Paper p="sm" radius="md" withBorder>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
+                            <Text fw={800} size="xl" c="dark">38</Text>
+                            <Text size="xs" c="dimmed" mt={2}>Tickets generados</Text>
+                        </Paper>
+                        <Paper p="sm" radius="md" withBorder>
+                            <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
+                            <Text fw={800} size="xl" c="dark">$416.84</Text>
+                            <Text size="xs" c="dimmed" mt={2}>Por cliente</Text>
+                        </Paper>
+                    </SimpleGrid>
 
-                <Divider label="Desglose por Tipo de Pago" labelPosition="left" />
+                    <Divider label="Desglose por Tipo de Pago" labelPosition="left" />
 
-                {/* Métodos de Pago */}
-                <Stack gap="sm">
-                    {/* Efectivo */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="green" variant="light" radius="md" size="sm">
-                                    <IconCash size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Efectivo en Caja</Text>
+                    {/* Métodos de Pago */}
+                    <Stack gap="sm">
+                        {/* Efectivo */}
+                        <Paper p="sm" radius="md" withBorder>
+                            <Group justify="space-between" mb={4}>
+                                <Group gap="xs">
+                                    <ThemeIcon color="green" variant="light" radius="md" size="sm">
+                                        <IconCash size={16} />
+                                    </ThemeIcon>
+                                    <Text fw={600} size="sm">Efectivo en Caja</Text>
+                                </Group>
+                                <Group gap="xs">
+                                    <Badge color="green" variant="light">24 transacciones</Badge>
+                                    <Text fw={700} size="sm">$9,240.00 (58.3%)</Text>
+                                </Group>
                             </Group>
-                            <Group gap="xs">
-                                <Badge color="green" variant="light">24 transacciones</Badge>
-                                <Text fw={700} size="sm">$9,240.00 (58.3%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={58.3} color="green" size="sm" radius="xl" />
-                    </Paper>
+                            <Progress value={58.3} color="green" size="sm" radius="xl" />
+                        </Paper>
 
-                    {/* Tarjeta Débito */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="blue" variant="light" radius="md" size="sm">
-                                    <IconCreditCard size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Tarjeta de Débito (Terminal)</Text>
+                        {/* Tarjeta Débito */}
+                        <Paper p="sm" radius="md" withBorder>
+                            <Group justify="space-between" mb={4}>
+                                <Group gap="xs">
+                                    <ThemeIcon color="blue" variant="light" radius="md" size="sm">
+                                        <IconCreditCard size={16} />
+                                    </ThemeIcon>
+                                    <Text fw={600} size="sm">Tarjeta de Débito (Terminal)</Text>
+                                </Group>
+                                <Group gap="xs">
+                                    <Badge color="blue" variant="light">8 transacciones</Badge>
+                                    <Text fw={700} size="sm">$3,900.00 (24.6%)</Text>
+                                </Group>
                             </Group>
-                            <Group gap="xs">
-                                <Badge color="blue" variant="light">8 transacciones</Badge>
-                                <Text fw={700} size="sm">$3,900.00 (24.6%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={24.6} color="blue" size="sm" radius="xl" />
-                    </Paper>
+                            <Progress value={24.6} color="blue" size="sm" radius="xl" />
+                        </Paper>
 
-                    {/* Tarjeta Crédito */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="indigo" variant="light" radius="md" size="sm">
-                                    <IconCreditCard size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Tarjeta de Crédito</Text>
+                        {/* Tarjeta Crédito */}
+                        <Paper p="sm" radius="md" withBorder>
+                            <Group justify="space-between" mb={4}>
+                                <Group gap="xs">
+                                    <ThemeIcon color="indigo" variant="light" radius="md" size="sm">
+                                        <IconCreditCard size={16} />
+                                    </ThemeIcon>
+                                    <Text fw={600} size="sm">Tarjeta de Crédito</Text>
+                                </Group>
+                                <Group gap="xs">
+                                    <Badge color="indigo" variant="light">4 transacciones</Badge>
+                                    <Text fw={700} size="sm">$1,850.00 (11.7%)</Text>
+                                </Group>
                             </Group>
-                            <Group gap="xs">
-                                <Badge color="indigo" variant="light">4 transacciones</Badge>
-                                <Text fw={700} size="sm">$1,850.00 (11.7%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={11.7} color="indigo" size="sm" radius="xl" />
-                    </Paper>
+                            <Progress value={11.7} color="indigo" size="sm" radius="xl" />
+                        </Paper>
 
-                    {/* Transferencia */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="cyan" variant="light" radius="md" size="sm">
-                                    <IconDeviceMobile size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Transferencia / SPEI</Text>
+                        {/* Transferencia */}
+                        <Paper p="sm" radius="md" withBorder>
+                            <Group justify="space-between" mb={4}>
+                                <Group gap="xs">
+                                    <ThemeIcon color="cyan" variant="light" radius="md" size="sm">
+                                        <IconDeviceMobile size={16} />
+                                    </ThemeIcon>
+                                    <Text fw={600} size="sm">Transferencia / SPEI</Text>
+                                </Group>
+                                <Group gap="xs">
+                                    <Badge color="cyan" variant="light">2 transacciones</Badge>
+                                    <Text fw={700} size="sm">$850.00 (5.4%)</Text>
+                                </Group>
                             </Group>
-                            <Group gap="xs">
-                                <Badge color="cyan" variant="light">2 transacciones</Badge>
-                                <Text fw={700} size="sm">$850.00 (5.4%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={5.4} color="cyan" size="sm" radius="xl" />
-                    </Paper>
+                            <Progress value={5.4} color="cyan" size="sm" radius="xl" />
+                        </Paper>
+                    </Stack>
+
+                    <Group justify="flex-end" mt="xs">
+                        <Button variant="default" onClick={onClose}>
+                            Cerrar
+                        </Button>
+                    </Group>
                 </Stack>
-
-                <Group justify="flex-end" mt="xs">
-                    <Button variant="default" onClick={onClose}>
-                        Cerrar
-                    </Button>
-                </Group>
-            </Stack>
+            </Box>
         </Modal>
     );
 }
@@ -274,17 +278,19 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
     const [movimientos, setMovimientos] = useState([]);
     const [cargando, setCargando] = useState(false);
 
+    const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
+
     useEffect(() => {
-        if (!corte?.aperturaCajaId || !opened) return;
+        if (!aperturaId || !opened) return;
         setCargando(true);
         api.movimientoCaja
-            .obtenerPorApertura(corte.aperturaCajaId)
+            .obtenerPorApertura(aperturaId)
             .then((r) => {
                 if (r.responseFlag === 0) setMovimientos(r.data ?? []);
             })
             .catch(() => setMovimientos([]))
             .finally(() => setCargando(false));
-    }, [corte?.aperturaCajaId, opened]);
+    }, [aperturaId, opened]);
 
     if (!corte) return null;
 
@@ -307,184 +313,214 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
         <Modal
             opened={opened}
             onClose={onClose}
-            size="xl"
-            radius="md"
+            fullScreen
+            radius={0}
+            zIndex={999999}
+            transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                        <IconReportAnalytics size={18} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={4}>Auditoría de Corte de Caja #{corte.id}</Title>
-                    <Badge color={esValidado ? 'green' : 'yellow'} variant="filled" size="md">
-                        {corte.estado ?? 'PENDIENTE'}
-                    </Badge>
+                <Group justify="space-between" w="100%" pr="xl">
+                    <Group gap="xs">
+                        <ThemeIcon size="lg" radius="md" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                            <IconReportAnalytics size={22} stroke={1.8} />
+                        </ThemeIcon>
+                        <div>
+                            <Title order={4}>Auditoría de Corte de Caja #{corte.id}</Title>
+                            <Text size="xs" c="dimmed">Detalle completo de arqueo y movimientos</Text>
+                        </div>
+                        <Badge color={esValidado ? 'green' : 'yellow'} variant="filled" size="md">
+                            {corte.estado ?? 'PENDIENTE'}
+                        </Badge>
+                    </Group>
+                    {!esValidado && (
+                        <Button
+                            color="green"
+                            size="xs"
+                            leftSection={<IconShieldCheck size={16} />}
+                            onClick={() => {
+                                onValidar(corte);
+                                onClose();
+                            }}
+                        >
+                            Validar Corte
+                        </Button>
+                    )}
                 </Group>
             }
         >
-            <Stack gap="md">
-                {/* ── KPIs Principales del Corte ───────────────────────────── */}
-                <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs">
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fondo Inicial</Text>
-                        <Text fw={800} size="md">${montoInicial.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Entradas (+)</Text>
-                        <Text fw={800} size="md" c="green">+${totalEntradas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Salidas (-)</Text>
-                        <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Esperado</Text>
-                        <Text fw={800} size="md">${efectivoEsperado.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Contado</Text>
-                        <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper
-                        p="xs"
-                        radius="md"
-                        withBorder
-                        style={{
-                            textAlign: 'center',
-                            backgroundColor: diferencia >= 0 ? '#f4fbf5' : '#fff5f5',
-                            borderColor: diferencia >= 0 ? '#40c057' : '#fa5252',
-                        }}
-                    >
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Diferencia</Text>
-                        <Text fw={800} size="md" c={diferencia >= 0 ? 'green' : 'red'}>
-                            {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
-                        </Text>
-                    </Paper>
-                </SimpleGrid>
-
-                {/* Info adicional */}
-                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
-                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Caja Asignada</Text>
-                            <Text fw={600} size="sm">{corte.aperturaCaja?.caja?.nombre ?? '—'}</Text>
-                        </div>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Cajero Responsable</Text>
-                            <Text fw={600} size="sm">
-                                {corte.empleado ? `${corte.empleado.nombre} ${corte.empleado.apellidoPaterno}` : '—'}
+            <Box maw={1200} mx="auto" mt="xl" pt="md">
+                <Stack gap="md">
+                    {/* ── KPIs Principales del Corte ───────────────────────────── */}
+                    <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs">
+                        <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fondo Inicial</Text>
+                            <Text fw={800} size="md">${montoInicial.toFixed(2)}</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">Entradas (+)</Text>
+                            <Text fw={800} size="md" c="green">+${totalEntradas.toFixed(2)}</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">Salidas (-)</Text>
+                            <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Esperado</Text>
+                            <Text fw={800} size="md">${efectivoEsperado.toFixed(2)}</Text>
+                        </Paper>
+                        <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Contado</Text>
+                            <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
+                        </Paper>
+                        <Paper
+                            p="xs"
+                            radius="md"
+                            withBorder
+                            style={{
+                                textAlign: 'center',
+                                backgroundColor: diferencia >= 0 ? '#f4fbf5' : '#fff5f5',
+                                borderColor: diferencia >= 0 ? '#40c057' : '#fa5252',
+                            }}
+                        >
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">Diferencia</Text>
+                            <Text fw={800} size="md" c={diferencia >= 0 ? 'green' : 'red'}>
+                                {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
                             </Text>
-                        </div>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Corte</Text>
-                            <Text fw={600} size="sm">
-                                {corte.fechaCorte ? new Date(corte.fechaCorte).toLocaleString('es-MX') : '—'}
-                            </Text>
-                        </div>
+                        </Paper>
                     </SimpleGrid>
-                </Paper>
 
-                {/* Desglose de billetes si está disponible */}
-                {desgloseFin && (
+                    {/* Info adicional */}
+                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
+                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Caja Asignada</Text>
+                                <Text fw={600} size="sm">{corte.aperturaCaja?.caja?.nombre ?? '—'}</Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Cajero Responsable</Text>
+                                <Text fw={600} size="sm">
+                                    {corte.empleado ? `${corte.empleado.nombre} ${corte.empleado.apellidoPaterno}` : '—'}
+                                </Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Corte</Text>
+                                <Text fw={600} size="sm">
+                                    {corte.fechaCorte ? new Date(corte.fechaCorte).toLocaleString('es-MX') : '—'}
+                                </Text>
+                            </div>
+                        </SimpleGrid>
+                    </Paper>
+
+                    {/* Desglose de billetes si está disponible */}
+                    {desgloseFin && (
+                        <Box>
+                            <div style={sectionHeader}>
+                                <ThemeIcon size="sm" radius="md" variant="light" color="apex">
+                                    <IconCoins size={14} />
+                                </ThemeIcon>
+                                <Title order={6}>Arqueo de Billetes y Monedas Registrado</Title>
+                            </div>
+                            <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+                                {Object.entries(desgloseFin).map(([valor, cant]) => {
+                                    const v = Number(valor);
+                                    const c = Number(cant);
+                                    if (!c) return null;
+                                    return (
+                                        <Paper key={valor} p="xs" radius="sm" withBorder style={{ fontSize: 12 }}>
+                                            <Text size="xs" fw={700}>${v >= 1 ? v : '0.50'} × {c}</Text>
+                                            <Text size="xs" c="dimmed">${(v * c).toFixed(2)}</Text>
+                                        </Paper>
+                                    );
+                                })}
+                            </SimpleGrid>
+                        </Box>
+                    )}
+
+                    {/* ── Tabla de Movimientos del Turno ──────────────────────── */}
                     <Box>
                         <div style={sectionHeader}>
-                            <ThemeIcon size="sm" radius="md" variant="light" color="apex">
-                                <IconCoins size={14} />
+                            <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                <IconArrowsExchange size={14} />
                             </ThemeIcon>
-                            <Title order={6}>Arqueo de Billetes y Monedas Registrado</Title>
+                            <Title order={6}>Movimientos Manuales del Turno ({movimientos.length})</Title>
                         </div>
-                        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-                            {Object.entries(desgloseFin).map(([valor, cant]) => {
-                                const v = Number(valor);
-                                const c = Number(cant);
-                                if (!c) return null;
-                                return (
-                                    <Paper key={valor} p="xs" radius="sm" withBorder style={{ fontSize: 12 }}>
-                                        <Text size="xs" fw={700}>${v >= 1 ? v : '0.50'} × {c}</Text>
-                                        <Text size="xs" c="dimmed">${(v * c).toFixed(2)}</Text>
-                                    </Paper>
-                                );
-                            })}
-                        </SimpleGrid>
-                    </Box>
-                )}
 
-                {/* ── Tabla de Movimientos del Turno ──────────────────────── */}
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                            <IconArrowsExchange size={14} />
-                        </ThemeIcon>
-                        <Title order={6}>Movimientos Manuales del Turno ({movimientos.length})</Title>
-                    </div>
-
-                    <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>#</Table.Th>
-                                <Table.Th>Tipo</Table.Th>
-                                <Table.Th>Concepto</Table.Th>
-                                <Table.Th>Monto</Table.Th>
-                                <Table.Th>Hora</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {movimientos.length > 0 ? (
-                                movimientos.map((m, idx) => (
-                                    <Table.Tr key={m.id}>
-                                        <Table.Td>{idx + 1}</Table.Td>
-                                        <Table.Td>
-                                            <Badge color={m.tipo === 'ENTRADA' ? 'green' : 'red'} size="sm">
-                                                {m.tipo}
-                                            </Badge>
-                                        </Table.Td>
-                                        <Table.Td>{m.concepto}</Table.Td>
-                                        <Table.Td fw={700}>${Number(m.monto).toFixed(2)}</Table.Td>
-                                        <Table.Td>
-                                            {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>#</Table.Th>
+                                    <Table.Th>Tipo</Table.Th>
+                                    <Table.Th>Concepto</Table.Th>
+                                    <Table.Th>Monto</Table.Th>
+                                    <Table.Th>Hora</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {movimientos.length > 0 ? (
+                                    movimientos.map((m, idx) => (
+                                        <Table.Tr key={m.id}>
+                                            <Table.Td>{idx + 1}</Table.Td>
+                                            <Table.Td>
+                                                <Badge color={m.tipo === 'ENTRADA' ? 'green' : 'red'} size="sm">
+                                                    {m.tipo}
+                                                </Badge>
+                                            </Table.Td>
+                                            <Table.Td>{m.concepto}</Table.Td>
+                                            <Table.Td fw={700}>${Number(m.monto).toFixed(2)}</Table.Td>
+                                            <Table.Td>
+                                                {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                ) : (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={5} style={{ textAlign: 'center', color: '#868e96' }}>
+                                            {cargando ? 'Cargando movimientos…' : 'No se registraron movimientos en este turno.'}
                                         </Table.Td>
                                     </Table.Tr>
-                                ))
-                            ) : (
-                                <Table.Tr>
-                                    <Table.Td colSpan={5} style={{ textAlign: 'center', color: '#868e96' }}>
-                                        {cargando ? 'Cargando movimientos…' : 'No se registraron movimientos en este turno.'}
-                                    </Table.Td>
-                                </Table.Tr>
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </Box>
+
+                    {/* Acciones del Modal */}
+                    <Group justify="space-between" mt="md">
+                        <Tooltip
+                            label={!esValidado ? 'Debe validar el corte para descargar el comprobante oficial en PDF' : 'Descargar reporte PDF oficial'}
+                            withArrow
+                        >
+                            <span style={{ display: 'inline-block' }}>
+                                <Button
+                                    variant="light"
+                                    color="apex"
+                                    leftSection={<IconFileDownload size={16} />}
+                                    disabled={!esValidado}
+                                    onClick={() => generarPdfCorte(corte, movimientos, desgloseFin)}
+                                >
+                                    Descargar PDF
+                                </Button>
+                            </span>
+                        </Tooltip>
+
+                        <Group gap="xs">
+                            {!esValidado && (
+                                <Button
+                                    color="green"
+                                    leftSection={<IconShieldCheck size={16} />}
+                                    onClick={() => {
+                                        onValidar(corte);
+                                        onClose();
+                                    }}
+                                >
+                                    Validar Corte
+                                </Button>
                             )}
-                        </Table.Tbody>
-                    </Table>
-                </Box>
-
-                {/* Acciones del Modal */}
-                <Group justify="space-between" mt="md">
-                    <Button
-                        variant="light"
-                        color="apex"
-                        leftSection={<IconFileDownload size={16} />}
-                        onClick={() => generarPdfCorte(corte, movimientos, desgloseFin)}
-                    >
-                        Descargar PDF
-                    </Button>
-
-                    <Group gap="xs">
-                        {!esValidado && (
-                            <Button
-                                color="green"
-                                leftSection={<IconShieldCheck size={16} />}
-                                onClick={() => {
-                                    onValidar(corte);
-                                    onClose();
-                                }}
-                            >
-                                Validar Corte
+                            <Button variant="default" onClick={onClose}>
+                                Cerrar
                             </Button>
-                        )}
-                        <Button variant="default" onClick={onClose}>
-                            Cerrar
-                        </Button>
+                        </Group>
                     </Group>
-                </Group>
-            </Stack>
+                </Stack>
+            </Box>
         </Modal>
     );
 }
@@ -558,6 +594,19 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 onClose={() => setModalVentasAbierto(false)}
                 aperturaId={form.aperturaCajaId}
             />
+
+            {/* Alerta de movimientos pendientes de validación */}
+            {resumenApertura?.movimientosPendientes > 0 && (
+                <Alert
+                    color="red"
+                    variant="filled"
+                    icon={<IconAlertCircle size={20} />}
+                    title="Movimientos de caja pendientes de validación"
+                >
+                    Existen <b>{resumenApertura.movimientosPendientes} movimiento(s)</b> de este turno en estado PENDIENTE.
+                    Por políticas de control financiero, debe validar todos los movimientos en el módulo de <b>Movimientos de Caja</b> antes de realizar el corte.
+                </Alert>
+            )}
 
             {/* Cabecera y botón Ver Detalle de Ventas */}
             <Box>
@@ -814,7 +863,9 @@ export function CorteCaja() {
         };
     };
 
-    const handleValidar = async (corte, { reload }) => {
+    const handleValidar = async (corte, helpers = {}) => {
+        const reload = helpers?.reload;
+        if (!corte?.id) return;
         try {
             const res = await api.corteCaja.validar(corte.id);
             if (res.responseFlag === 0) {
@@ -824,7 +875,9 @@ export function CorteCaja() {
                     color: 'green',
                     icon: <IconShieldCheck size={18} />,
                 });
-                reload?.();
+                if (typeof reload === 'function') {
+                    reload();
+                }
             } else {
                 throw new Error(res.message);
             }
@@ -835,6 +888,32 @@ export function CorteCaja() {
                 color: 'red',
             });
         }
+    };
+
+    const validateForm = async (form) => {
+        const errors = {};
+        if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una apertura de caja';
+        if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
+        if (form.efectivoContado === undefined || form.efectivoContado === null || Number(form.efectivoContado) < 0) {
+            errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
+        }
+        if (form.observaciones?.trim().length > 500) {
+            errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
+        }
+
+        // Validación de movimientos pendientes en la apertura
+        if (form.aperturaCajaId) {
+            try {
+                const res = await api.movimientoCaja.obtenerResumenApertura(form.aperturaCajaId);
+                if (res.responseFlag === 0 && res.data?.movimientosPendientes > 0) {
+                    errors.aperturaCajaId = `No se puede realizar el corte: existen ${res.data.movimientosPendientes} movimiento(s) pendientes de validar en este turno.`;
+                }
+            } catch (e) {
+                // Validación respaldada en backend
+            }
+        }
+
+        return errors;
     };
 
     return (
@@ -858,10 +937,13 @@ export function CorteCaja() {
                 mapFormToPayload={mapFormToPayload}
                 mapRecordToRow={mapRecordToRow}
                 renderForm={(props) => <CorteForm {...props} />}
+                validateForm={validateForm}
                 permitirEditar={false}
                 permitirEliminar={false}
-                renderAccionesFila={(fila, recordOriginal, { reload }) => {
-                    const esValidado = recordOriginal?.estado === 'VALIDADO';
+                renderAccionesFila={(fila, recordOriginal, helpers = {}) => {
+                    const reload = helpers?.reload;
+                    const corte = recordOriginal ?? fila?._recordOriginal ?? fila;
+                    const esValidado = corte?.estado === 'VALIDADO';
 
                     return (
                         <Group gap={6} wrap="nowrap">
@@ -872,7 +954,7 @@ export function CorteCaja() {
                                     color="blue"
                                     size="lg"
                                     onClick={() => {
-                                        setCorteSeleccionado(recordOriginal);
+                                        setCorteSeleccionado(corte);
                                         setModalDetalleAbierto(true);
                                     }}
                                 >
@@ -886,40 +968,57 @@ export function CorteCaja() {
                                 withArrow
                                 openDelay={200}
                             >
-                                <ActionIcon
-                                    variant={esValidado ? 'subtle' : 'light'}
-                                    color={esValidado ? 'gray' : 'green'}
-                                    size="lg"
-                                    disabled={esValidado}
-                                    onClick={() => handleValidar(recordOriginal, { reload })}
-                                >
-                                    {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
-                                </ActionIcon>
+                                <span style={{ display: 'inline-block' }}>
+                                    <ActionIcon
+                                        variant={esValidado ? 'subtle' : 'light'}
+                                        color={esValidado ? 'gray' : 'green'}
+                                        size="lg"
+                                        disabled={esValidado}
+                                        onClick={() => handleValidar(corte, { reload })}
+                                    >
+                                        {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
+                                    </ActionIcon>
+                                </span>
                             </Tooltip>
 
-                            {/* 3. Descargar PDF */}
-                            <Tooltip label="Descargar comprobante en PDF" withArrow openDelay={200}>
-                                <ActionIcon
-                                    variant="light"
-                                    color="apex"
-                                    size="lg"
-                                    onClick={async () => {
-                                        let movs = [];
-                                        try {
-                                            const r = await api.movimientoCaja.obtenerPorApertura(recordOriginal.aperturaCajaId);
-                                            if (r.responseFlag === 0) movs = r.data ?? [];
-                                        } catch (e) {}
+                            {/* 3. Descargar PDF (Solo si el corte está VALIDADO) */}
+                            <Tooltip
+                                label={!esValidado ? 'Debe validar el corte para descargar el comprobante en PDF' : 'Descargar comprobante en PDF'}
+                                withArrow
+                                openDelay={200}
+                            >
+                                <span style={{ display: 'inline-block' }}>
+                                    <ActionIcon
+                                        variant="light"
+                                        color={esValidado ? 'apex' : 'gray'}
+                                        size="lg"
+                                        disabled={!esValidado}
+                                        onClick={async () => {
+                                            if (!esValidado) return;
+                                            let movs = [];
+                                            const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
+                                            if (aperturaId) {
+                                                try {
+                                                    const r = await api.movimientoCaja.obtenerPorApertura(aperturaId);
+                                                    if (r.responseFlag === 0) movs = r.data ?? [];
+                                                } catch (e) {}
+                                            }
 
-                                        let desglose = null;
-                                        try {
-                                            if (recordOriginal.desgloseFin) desglose = JSON.parse(recordOriginal.desgloseFin);
-                                        } catch (e) {}
+                                            let desglose = null;
+                                            try {
+                                                if (corte?.desgloseFin) {
+                                                    desglose = typeof corte.desgloseFin === 'string'
+                                                        ? JSON.parse(corte.desgloseFin)
+                                                        : corte.desgloseFin;
+                                                }
+                                            } catch (e) {}
 
-                                        generarPdfCorte(recordOriginal, movs, desglose);
-                                    }}
-                                >
-                                    <IconFileDownload size={18} stroke={1.8} />
-                                </ActionIcon>
+                                            generarPdfCorte(corte, movs, desglose);
+                                        }}
+                                    >
+                                        <IconFileDownload size={18} stroke={1.8} />
+                                    </ActionIcon>
+                                </span>
                             </Tooltip>
                         </Group>
                     );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+    ActionIcon,
     Alert,
     Badge,
     Box,
@@ -14,15 +15,21 @@ import {
     TextInput,
     ThemeIcon,
     Title,
+    Tooltip,
 } from '@mantine/core';
 import {
     IconAlertCircle,
     IconArrowsExchange,
     IconCash,
+    IconCheck,
+    IconEdit,
     IconInfoCircle,
+    IconShieldCheck,
+    IconTrash,
     IconUser,
     IconWallet,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
@@ -72,6 +79,7 @@ const COLUMNAS = [
     { key: 'tipo',      label: 'Tipo',      sortable: true, filterable: true },
     { key: 'monto',     label: 'Monto',     sortable: true, filterable: true },
     { key: 'concepto',  label: 'Concepto',  sortable: true, filterable: true },
+    { key: 'estado',    label: 'Estado',    sortable: true, filterable: true },
 ];
 
 const INICIAL = {
@@ -306,6 +314,8 @@ export function MovimientosCaja() {
         const aperturaLabel = apertura
             ? `${apertura.caja?.nombre ?? 'Caja'} — ${apertura.fechaApertura ? new Date(apertura.fechaApertura).toLocaleDateString('es-MX') : ''}`
             : '—';
+        const esValidado = record.estado === 'VALIDADO';
+
         return {
             id:       record.id,
             apertura: aperturaLabel,
@@ -319,7 +329,37 @@ export function MovimientosCaja() {
             ),
             monto:    `$${Number(record.monto ?? 0).toFixed(2)}`,
             concepto: record.concepto ?? '—',
+            estado: (
+                <Badge color={esValidado ? 'green' : 'yellow'} variant="light">
+                    {record.estado ?? 'PENDIENTE'}
+                </Badge>
+            ),
         };
+    };
+
+    const handleValidar = async (movimiento, helpers = {}) => {
+        const reload = helpers?.reload;
+        if (!movimiento?.id) return;
+        try {
+            const res = await api.movimientoCaja.validar(movimiento.id);
+            if (res.responseFlag === 0) {
+                notifications.show({
+                    title: 'Movimiento Validado',
+                    message: `El movimiento #${movimiento.id} ha sido validado correctamente.`,
+                    color: 'green',
+                    icon: <IconShieldCheck size={18} />,
+                });
+                reload?.();
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (e) {
+            notifications.show({
+                title: 'Error al validar',
+                message: e.message || 'No se pudo validar el movimiento de caja.',
+                color: 'red',
+            });
+        }
     };
 
     const validateForm = async (form) => {
@@ -364,6 +404,76 @@ export function MovimientosCaja() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <MovimientoForm {...props} />}
             validateForm={validateForm}
+            permitirEditar={false}
+            permitirEliminar={false}
+            renderAccionesFila={(fila, recordOriginal, helpers = {}) => {
+                const reload = helpers?.reload;
+                const openEdit = helpers?.openEdit;
+                const deleteRecord = helpers?.deleteRecord;
+                const mov = recordOriginal ?? fila?._recordOriginal ?? fila;
+                const esValidado = mov?.estado === 'VALIDADO';
+
+                return (
+                    <Group gap={6} wrap="nowrap">
+                        {/* 1. Botón Validar Movimiento */}
+                        <Tooltip
+                            label={esValidado ? 'Movimiento ya validado y auditado' : 'Validar movimiento de caja'}
+                            withArrow
+                            openDelay={200}
+                        >
+                            <span style={{ display: 'inline-block' }}>
+                                <ActionIcon
+                                    variant={esValidado ? 'subtle' : 'light'}
+                                    color={esValidado ? 'gray' : 'green'}
+                                    size="lg"
+                                    disabled={esValidado}
+                                    onClick={() => handleValidar(mov, { reload })}
+                                >
+                                    {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
+                                </ActionIcon>
+                            </span>
+                        </Tooltip>
+
+                        {/* 2. Botón Editar (Deshabilitado si está validado) */}
+                        <Tooltip
+                            label={esValidado ? 'No se puede editar: movimiento ya validado' : 'Editar movimiento'}
+                            withArrow
+                            openDelay={200}
+                        >
+                            <span style={{ display: 'inline-block' }}>
+                                <ActionIcon
+                                    variant="light"
+                                    color={esValidado ? 'gray' : 'blue'}
+                                    size="lg"
+                                    disabled={esValidado}
+                                    onClick={() => !esValidado && openEdit?.()}
+                                >
+                                    <IconEdit size={18} stroke={1.8} />
+                                </ActionIcon>
+                            </span>
+                        </Tooltip>
+
+                        {/* 3. Botón Eliminar (Deshabilitado si está validado) */}
+                        <Tooltip
+                            label={esValidado ? 'No se puede eliminar: movimiento ya validado' : 'Eliminar movimiento'}
+                            withArrow
+                            openDelay={200}
+                        >
+                            <span style={{ display: 'inline-block' }}>
+                                <ActionIcon
+                                    variant="light"
+                                    color={esValidado ? 'gray' : 'red'}
+                                    size="lg"
+                                    disabled={esValidado}
+                                    onClick={() => !esValidado && deleteRecord?.()}
+                                >
+                                    <IconTrash size={18} stroke={1.8} />
+                                </ActionIcon>
+                            </span>
+                        </Tooltip>
+                    </Group>
+                );
+            }}
         />
     );
 }
