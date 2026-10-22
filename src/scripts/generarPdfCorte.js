@@ -47,8 +47,6 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
         ? !opciones.esReimpresion 
         : (vecesImpreso === 0);
 
-    // Registrar nueva impresión en almacenamiento local
-    localStorage.setItem(storageKey, String(vecesImpreso + 1));
     const numeroCopia = vecesImpreso === 0 ? 1 : vecesImpreso;
 
     // ── Generación de Huella Digital de Seguridad ────────────────────────────
@@ -169,7 +167,6 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
             left: 0;
             width: 100vw;
             height: 100vh;
-            display: flex;
             align-items: center;
             justify-content: center;
             pointer-events: none;
@@ -190,6 +187,20 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
             white-space: nowrap;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+        }
+
+        /* Control estricto de visibilidad según el modo */
+        body.modo-original .watermark-container,
+        body.modo-original .watermark-reimpresion {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        body.modo-reimpresion .watermark-container {
+            display: flex !important;
+        }
+        body.modo-reimpresion .watermark-reimpresion {
+            display: block !important;
         }
 
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #FF6A00; padding-bottom: 12px; margin-bottom: 14px; position: relative; z-index: 1; }
@@ -239,10 +250,19 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
             body { padding: 10px; }
             .toolbar-header { display: none !important; }
             .no-print { display: none !important; }
-            .watermark-container {
+            
+            /* En modo original: NUNCA imprimir la marca de agua */
+            body.modo-original .watermark-container,
+            body.modo-original .watermark-reimpresion {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+            /* En modo reimpresión: imprimir la marca de agua */
+            body.modo-reimpresion .watermark-container {
                 display: flex !important;
             }
-            .watermark-reimpresion {
+            body.modo-reimpresion .watermark-reimpresion {
                 display: block !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
@@ -250,7 +270,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
         }
     </style>
 </head>
-<body>
+<body class="${esOriginal ? 'modo-original' : 'modo-reimpresion'}">
     <!-- Barra de acciones interactiva para pantalla (No se imprime) -->
     <div class="no-print toolbar-header">
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -261,7 +281,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
             <button type="button" class="btn-action" onclick="toggleModoImpresion()" id="btnToggleModo">
-                ${esOriginal ? '🔄 Ver vista con Marca de Agua (Reimpresión)' : '🔄 Ver vista Original'}
+                ${esOriginal ? '⚠️ Ver vista con Marca de Agua (Reimpresión)' : '📄 Ver vista Original (Sin Marca de Agua)'}
             </button>
             <button type="button" class="btn-action primary" onclick="window.print()">
                 🖨️ Imprimir / Guardar PDF
@@ -270,7 +290,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
     </div>
 
     <!-- Contenedor de Marca de Agua Oficial -->
-    <div class="watermark-container" id="watermarkContainer" style="${esOriginal ? 'display: none;' : 'display: flex;'}">
+    <div class="watermark-container" id="watermarkContainer">
         <div class="watermark-reimpresion">REIMPRESIÓN</div>
     </div>
 
@@ -465,32 +485,62 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
     </div>
 
     <script>
+        var storageKey = '${storageKey}';
+        var numeroCopia = ${numeroCopia};
+
         function toggleModoImpresion() {
-            var wm = document.getElementById('watermarkContainer');
+            var body = document.body;
             var badgeDoc = document.getElementById('badgeDoc');
             var toolbarBadge = document.getElementById('toolbarStatusBadge');
             var btnToggle = document.getElementById('btnToggleModo');
             var huellaDoc = document.getElementById('huellaEstadoDoc');
 
-            var isCurrentlyHidden = wm.style.display === 'none';
-            if (isCurrentlyHidden) {
-                wm.style.display = 'flex';
-                badgeDoc.className = 'badge-doc reimpresion';
-                badgeDoc.innerText = 'REIMPRESIÓN · COPIA #${numeroCopia || 1}';
-                toolbarBadge.className = 'badge-doc reimpresion';
-                toolbarBadge.innerText = 'REIMPRESIÓN (#${numeroCopia || 1})';
-                btnToggle.innerText = '🔄 Ver vista Original';
-                if (huellaDoc) huellaDoc.innerHTML = '▲ <b>DOCUMENTO EN REIMPRESIÓN (COPIA #${numeroCopia || 1})</b>';
+            var esModoOriginal = body.classList.contains('modo-original');
+            if (esModoOriginal) {
+                // Cambiar a REIMPRESIÓN
+                body.classList.remove('modo-original');
+                body.classList.add('modo-reimpresion');
+                if (badgeDoc) {
+                    badgeDoc.className = 'badge-doc reimpresion';
+                    badgeDoc.innerText = 'REIMPRESIÓN · COPIA #' + (numeroCopia || 1);
+                }
+                if (toolbarBadge) {
+                    toolbarBadge.className = 'badge-doc reimpresion';
+                    toolbarBadge.innerText = 'REIMPRESIÓN (COPIA #' + (numeroCopia || 1) + ')';
+                }
+                if (btnToggle) {
+                    btnToggle.innerText = '📄 Ver vista Original (Sin Marca de Agua)';
+                }
+                if (huellaDoc) {
+                    huellaDoc.innerHTML = '▲ <b>DOCUMENTO EN REIMPRESIÓN (COPIA #' + (numeroCopia || 1) + ')</b>';
+                }
             } else {
-                wm.style.display = 'none';
-                badgeDoc.className = 'badge-doc original';
-                badgeDoc.innerText = 'ORIGINAL';
-                toolbarBadge.className = 'badge-doc original';
-                toolbarBadge.innerText = 'ORIGINAL';
-                btnToggle.innerText = '🔄 Ver vista con Marca de Agua (Reimpresión)';
-                if (huellaDoc) huellaDoc.innerHTML = '● <b>DOCUMENTO ORIGINAL OFICIAL</b>';
+                // Cambiar a ORIGINAL
+                body.classList.remove('modo-reimpresion');
+                body.classList.add('modo-original');
+                if (badgeDoc) {
+                    badgeDoc.className = 'badge-doc original';
+                    badgeDoc.innerText = 'ORIGINAL';
+                }
+                if (toolbarBadge) {
+                    toolbarBadge.className = 'badge-doc original';
+                    toolbarBadge.innerText = 'ORIGINAL';
+                }
+                if (btnToggle) {
+                    btnToggle.innerText = '⚠️ Ver vista con Marca de Agua (Reimpresión)';
+                }
+                if (huellaDoc) {
+                    huellaDoc.innerHTML = '● <b>DOCUMENTO ORIGINAL OFICIAL</b>';
+                }
             }
         }
+
+        window.onafterprint = function() {
+            try {
+                var actual = Number(localStorage.getItem(storageKey) || 0);
+                localStorage.setItem(storageKey, String(actual + 1));
+            } catch (e) {}
+        };
 
         window.onload = function() {
             setTimeout(function() {
