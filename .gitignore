@@ -19,14 +19,19 @@ dev-dist
 *.local
 !.env.example
 
-# Directorios de herramientas de IA y editores
+# Directorios de herramientas de IA, agentes y editores
 .agents/
+agents/
+.agent/
+agent/
 .claude/
 .cursor/
 .devin/
+.copilot/
 .gemini/
 .antigravity/
 .system_generated/
+.brain/
 
 # Editor directories and files
 .vscode/*
@@ -52,3 +57,12 @@ imagenes/
 /imagenes/
 usuarios/
 /usuarios/
+
+# Archivos de imágenes subidas, capturas y multimedia
+.user_uploaded/
+media_*
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
