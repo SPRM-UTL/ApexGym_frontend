@@ -756,7 +756,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             <Box>
                 <Group justify="space-between" align="center" style={sectionHeader}>
                     <Group gap="xs">
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                        <ThemeIcon size="md" radius="md" variant="light" color="apex">
                             <IconCalculator size={16} stroke={1.8} />
                         </ThemeIcon>
                         <Title order={5}>Datos del arqueo</Title>

@@ -349,7 +349,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
         <Stack gap="md">
             <Box>
                 <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
                         <IconArrowsExchange size={16} stroke={1.8} />
                     </ThemeIcon>
                     <Title order={5}>Detalle del movimiento</Title>
@@ -839,7 +839,7 @@ function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
                         <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
                             <Group justify="space-between" mb="xs">
                                 <Group gap="xs">
-                                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                    <ThemeIcon size="sm" radius="md" variant="light" color="apex">
                                         <IconWallet size={14} />
                                     </ThemeIcon>
                                     <Text fw={700} size="sm" c="dimmed">

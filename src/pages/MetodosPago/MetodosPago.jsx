@@ -38,7 +38,7 @@ function MetodoPagoForm({ form, errors, onChange }) {
         <Stack gap="md">
             <Box>
                 <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
                         <IconCreditCard size={16} stroke={1.8} />
                     </ThemeIcon>
                     <Title order={5}>Información General</Title>

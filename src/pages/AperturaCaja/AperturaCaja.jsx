@@ -263,7 +263,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
             {/* ── Sección 1: Datos de la apertura ── */}
             <Box>
                 <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
                         <IconCash size={16} stroke={1.8} />
                     </ThemeIcon>
                     <Title order={5}>Datos de la apertura</Title>
@@ -641,7 +641,7 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
                         <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
                             <Group justify="space-between" mb="xs">
                                 <Group gap="xs">
-                                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                    <ThemeIcon size="sm" radius="md" variant="light" color="apex">
                                         <IconCoins size={14} />
                                     </ThemeIcon>
                                     <Text fw={700} size="sm" c="dimmed">

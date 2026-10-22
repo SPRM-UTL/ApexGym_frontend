@@ -53,7 +53,7 @@ function CajaForm({ form, errors, onChange }) {
             {/* Información general */}
             <Box>
                 <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
+                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
                         <IconCash size={16} stroke={1.8} />
                     </ThemeIcon>
                     <Title order={5}>Información de la caja</Title>
