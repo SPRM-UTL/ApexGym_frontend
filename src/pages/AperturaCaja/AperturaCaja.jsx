@@ -37,13 +37,15 @@ import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
 import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 
-/* ─── Obtener fecha local en formato YYYY-MM-DD ─────────────────────────────── */
-const obtenerFechaHoyLocal = () => {
+/* ─── Obtener fecha y hora local en formato YYYY-MM-DDTHH:mm ───────────────── */
+const obtenerFechaHoraActualLocal = () => {
     const d = new Date();
     const anio = d.getFullYear();
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     const dia = String(d.getDate()).padStart(2, '0');
-    return `${anio}-${mes}-${dia}`;
+    const horas = String(d.getHours()).padStart(2, '0');
+    const minutos = String(d.getMinutes()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}T${horas}:${minutos}`;
 };
 
 /* ─── Formatear fecha y hora para visualización en tabla (es-MX) ────────────── */
@@ -138,7 +140,7 @@ const CAMPOS = [
         },
     },
     { key: 'montoInicial', label: 'Monto Inicial', required: true, type: 'number', min: 0, max: 200000 },
-    { key: 'fechaApertura', label: 'Fecha de Apertura', required: true, type: 'date' },
+    { key: 'fechaApertura', label: 'Fecha y Hora de Apertura', required: true },
     { key: 'observaciones', label: 'Observaciones', maxLength: 500 },
 ];
 
@@ -156,7 +158,7 @@ const INICIAL = {
     cajaId: '',
     empleadoId: '',
     montoInicial: 0,
-    fechaApertura: obtenerFechaHoyLocal(),
+    fechaApertura: '',
     desgloseInicio: null,
     observaciones: '',
 };
@@ -292,10 +294,10 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
                     />
                     <TextInput
-                        label="Fecha de Apertura"
+                        label="Fecha y Hora de Apertura"
                         withAsterisk
-                        type="date"
-                        value={form.fechaApertura || obtenerFechaHoyLocal()}
+                        type="datetime-local"
+                        value={form.fechaApertura || obtenerFechaHoraActualLocal()}
                         error={errors.fechaApertura}
                         size="md"
                         radius="md"
@@ -451,8 +453,8 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                                     <Text size="xs" fw={600}>{nombreEmpleadoSeleccionado || '—'}</Text>
                                 </Group>
                                 <Group justify="space-between">
-                                    <Text size="xs" c="dimmed">Fecha programada:</Text>
-                                    <Text size="xs" fw={600}>{form.fechaApertura || obtenerFechaHoyLocal()}</Text>
+                                    <Text size="xs" c="dimmed">Fecha de apertura:</Text>
+                                    <Text size="xs" fw={600}>{formatearFechaHora(form.fechaApertura || new Date())}</Text>
                                 </Group>
                             </Paper>
 
@@ -718,11 +720,16 @@ export function AperturaCaja() {
     const recargarTablaRef = useRef(null);
 
     const mapRecordToForm = useMemo(() => (record) => {
-        let fechaForm = obtenerFechaHoyLocal();
+        let fechaForm = obtenerFechaHoraActualLocal();
         if (record.fechaApertura) {
             const d = new Date(record.fechaApertura);
             if (!isNaN(d.getTime())) {
-                fechaForm = d.toISOString().split('T')[0];
+                const anio = d.getFullYear();
+                const mes = String(d.getMonth() + 1).padStart(2, '0');
+                const dia = String(d.getDate()).padStart(2, '0');
+                const horas = String(d.getHours()).padStart(2, '0');
+                const minutos = String(d.getMinutes()).padStart(2, '0');
+                fechaForm = `${anio}-${mes}-${dia}T${horas}:${minutos}`;
             }
         }
 
@@ -757,11 +764,19 @@ export function AperturaCaja() {
             }
         }
 
+        let fechaEnvio;
+        if (form.fechaApertura) {
+            const d = new Date(form.fechaApertura);
+            fechaEnvio = !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString();
+        } else {
+            fechaEnvio = new Date().toISOString();
+        }
+
         return {
             cajaId:         Number(form.cajaId),
             empleadoId:     Number(form.empleadoId),
             montoInicial:   Number(form.montoInicial || 0),
-            fechaApertura:  form.fechaApertura || obtenerFechaHoyLocal(),
+            fechaApertura:  fechaEnvio,
             desgloseInicio: desgloseClean,
             observaciones:  form.observaciones || null,
         };
@@ -855,7 +870,7 @@ export function AperturaCaja() {
                 servicio={api.aperturaCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
-                valoresIniciales={{ ...INICIAL, fechaApertura: obtenerFechaHoyLocal() }}
+                valoresIniciales={{ ...INICIAL, fechaApertura: obtenerFechaHoraActualLocal() }}
                 mapRecordToForm={mapRecordToForm}
                 mapFormToPayload={mapFormToPayload}
                 mapRecordToRow={mapRecordToRow}
