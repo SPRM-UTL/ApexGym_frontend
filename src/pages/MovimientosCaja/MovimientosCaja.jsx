@@ -9,13 +9,15 @@
  * - Inclusión de número de apertura en tabla.
  * - Visualizacion del balance de movimientos del turno en tiempo real.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionIcon,
     Alert,
     Badge,
     Box,
     Button,
+    Divider,
+    Modal,
     Group,
     NativeSelect,
     NumberInput,
@@ -36,6 +38,7 @@ import {
     IconCheck,
     IconCoins,
     IconEdit,
+    IconEye,
     IconInfoCircle,
     IconShieldCheck,
     IconTrash,
@@ -168,6 +171,42 @@ const sectionHeader = {
  * Normaliza el objeto de desglose asegurando que todas las denominaciones
  * existan con valores numéricos limpios o cadena vacía, evitando undefined y NaN.
  */
+
+/**
+ * Distribuye automáticamente un monto en denominaciones para representar el movimiento
+ * cuando no se capturó un desglose individual en movimientos anteriores.
+ */
+function desglosarMonto(montoTotal) {
+    let restante = Number(montoTotal) || 0;
+    const resultado = {};
+    for (const d of DENOMINACIONES) {
+        if (restante >= d.valor) {
+            const cant = Math.floor(restante / d.valor);
+            resultado[d.valor] = cant;
+            restante = Math.round((restante - cant * d.valor) * 100) / 100;
+        } else {
+            resultado[d.valor] = 0;
+        }
+    }
+    return resultado;
+}
+
+function formatearFechaHora(fechaStr) {
+    if (!fechaStr) return '—';
+    try {
+        const d = new Date(fechaStr);
+        return d.toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch {
+        return String(fechaStr);
+    }
+}
+
 function normalizarDesglose(desglose) {
     const init = {};
     for (const d of DENOMINACIONES) {
@@ -616,8 +655,260 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     );
 }
 
+
+/* ─── Modal para ver el detalle completo del movimiento (Idéntico a Apertura y Corte) ─── */
+function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
+    if (!movimiento) return null;
+
+    let desglose = null;
+    try {
+        if (movimiento.desglose) {
+            desglose = typeof movimiento.desglose === 'string'
+                ? JSON.parse(movimiento.desglose)
+                : movimiento.desglose;
+        }
+    } catch (e) {
+        desglose = null;
+    }
+
+    const montoTotal = Number(movimiento.monto ?? 0);
+    const esEntrada = movimiento.tipo === 'ENTRADA';
+    const esValidado = movimiento.estado === 'VALIDADO';
+    const cajaAbierta = movimiento.aperturaCaja?.estado === 'ABIERTA';
+    const puedeValidar = !esValidado && cajaAbierta;
+
+    // Totales calculados del desglose (con fallback automático para movimientos sin desglose previo)
+    const desgloseFinal = useMemo(() => {
+        if (desglose && typeof desglose === 'object' && Object.values(desglose).some((v) => Number(v) > 0)) {
+            return desglose;
+        }
+        return desglosarMonto(montoTotal);
+    }, [desglose, montoTotal]);
+
+    let totalBilletes = 0;
+    let totalMonedas = 0;
+    let totalPiezas = 0;
+    for (const d of DENOMINACIONES) {
+        const cant = Number(desgloseFinal[d.valor] ?? 0);
+        const sub = d.valor * cant;
+        totalPiezas += cant;
+        if (d.tipo === 'billete') totalBilletes += sub;
+        else totalMonedas += sub;
+    }
+
+    return (
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            fullScreen
+            radius={0}
+            zIndex={999999}
+            transitionProps={{ transition: 'slide-up', duration: 200 }}
+            title={
+                <Group gap="xs">
+                    <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                        <IconArrowsExchange size={22} stroke={1.8} />
+                    </ThemeIcon>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>
+                            Detalle de Movimiento de Caja #{movimiento.id}
+                        </Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            Información completa de la transacción y desglose de efectivo
+                        </Text>
+                    </div>
+                </Group>
+            }
+        >
+            <Box maw={1200} mx="auto" mt="xl" pt="md">
+                <Stack gap="md">
+                    {/* Tarjeta de Información General del Movimiento */}
+                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
+                        <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="xs">
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Apertura de Caja</Text>
+                                <Text fw={600} size="sm">
+                                    {movimiento.aperturaCaja ? `#${movimiento.aperturaCaja.id} — ${movimiento.aperturaCaja.caja?.nombre ?? 'Caja'}` : '—'}
+                                </Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Empleado Responsable</Text>
+                                <Text fw={600} size="sm">
+                                    {movimiento.empleado ? `${movimiento.empleado.nombre} ${movimiento.empleado.apellidoPaterno}` : '—'}
+                                </Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Registro</Text>
+                                <Text fw={600} size="sm">
+                                    {formatearFechaHora(movimiento.createdAt)}
+                                </Text>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Tipo de Movimiento</Text>
+                                <Badge color={esEntrada ? 'green' : 'red'} variant="light" size="sm">
+                                    {movimiento.tipo ?? '—'}
+                                </Badge>
+                            </div>
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Estado de Auditoría</Text>
+                                <Badge color={esValidado ? 'green' : 'yellow'} variant="light" size="sm">
+                                    {movimiento.estado ?? 'PENDIENTE'}
+                                </Badge>
+                            </div>
+                        </SimpleGrid>
+                        <Divider my="xs" />
+                        <Group justify="space-between" align="center" wrap="wrap">
+                            <div>
+                                <Text size="xs" c="dimmed" fw={600}>Concepto del Movimiento</Text>
+                                <Text fw={700} size="sm" c="dark">{movimiento.concepto ?? '—'}</Text>
+                            </div>
+                            <Group gap="xs">
+                                <Text size="xs" c="dimmed" fw={600}>Monto Total:</Text>
+                                <Text fw={800} size="lg" c={esEntrada ? 'green' : 'red'}>
+                                    {esEntrada ? '+' : '-'}${montoTotal.toFixed(2)}
+                                </Text>
+                            </Group>
+                        </Group>
+                    </Paper>
+
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                        {/* ── Columna 1: Billetes y Monedas ── */}
+                        <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
+                            <Group justify="space-between" mb="xs">
+                                <Group gap="xs">
+                                    <ThemeIcon size="sm" radius="md" variant="light" color={esEntrada ? 'green' : 'red'}>
+                                        <IconCoins size={14} />
+                                    </ThemeIcon>
+                                    <Text fw={700} size="sm" c="dimmed">
+                                        Billetes y monedas de {esEntrada ? 'ingreso' : 'egreso'}
+                                    </Text>
+                                </Group>
+                                <Badge color={esEntrada ? 'green' : 'red'} variant="light">
+                                    Monto: ${montoTotal.toFixed(2)}
+                                </Badge>
+                            </Group>
+                            <Text size="xs" c="dimmed" mb="md">
+                                Desglose físico registrado para este movimiento.
+                            </Text>
+
+                            <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>Denominación</Table.Th>
+                                        <Table.Th style={{ textAlign: 'center', width: 100 }}>Cantidad</Table.Th>
+                                        <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {DENOMINACIONES.map((d) => {
+                                        const cant = Number(desgloseFinal[d.valor] ?? 0);
+                                        return (
+                                            <Table.Tr key={d.valor}>
+                                                <Table.Td fw={600}>{d.label}</Table.Td>
+                                                <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                <Table.Td style={{ textAlign: 'right' }}>
+                                                    ${(d.valor * cant).toFixed(2)}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        );
+                                    })}
+                                </Table.Tbody>
+                            </Table>
+
+                            <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: esEntrada ? '#edfbf2' : '#fdf3f2', borderColor: esEntrada ? '#b7ebd0' : '#fad1ce' }}>
+                                <Group justify="space-between">
+                                    <Text fw={700} size="xs" c={esEntrada ? 'green' : 'red'}>TOTAL DEL MOVIMIENTO</Text>
+                                    <Text fw={800} size="sm" c={esEntrada ? 'green' : 'red'}>${montoTotal.toFixed(2)}</Text>
+                                </Group>
+                            </Paper>
+                        </Paper>
+
+                        {/* ── Columna 2: Resumen y Observaciones ── */}
+                        <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
+                            <Group justify="space-between" mb="xs">
+                                <Group gap="xs">
+                                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                        <IconWallet size={14} />
+                                    </ThemeIcon>
+                                    <Text fw={700} size="sm" c="dimmed">
+                                        Resumen del Movimiento
+                                    </Text>
+                                </Group>
+                            </Group>
+                            <Text size="xs" c="dimmed" mb="md">
+                                Composición del efectivo y observaciones de auditoría.
+                            </Text>
+
+                            <Stack gap="sm">
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                                    <Group justify="space-between" mb="xs">
+                                        <Text size="xs" c="dimmed">Total en Billetes:</Text>
+                                        <Text size="sm" fw={700}>${totalBilletes.toFixed(2)}</Text>
+                                    </Group>
+                                    <Divider my="xs" />
+                                    <Group justify="space-between" mb="xs">
+                                        <Text size="xs" c="dimmed">Total en Monedas:</Text>
+                                        <Text size="sm" fw={700}>${totalMonedas.toFixed(2)}</Text>
+                                    </Group>
+                                    <Divider my="xs" />
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">Piezas físicas totales:</Text>
+                                        <Text size="sm" fw={700}>{totalPiezas} piezas</Text>
+                                    </Group>
+                                </Paper>
+
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                                    <Text size="xs" c="dimmed" fw={600} mb={4}>Observaciones registradas:</Text>
+                                    <Text size="sm" c={movimiento.observaciones ? 'dark' : 'dimmed'}>
+                                        {movimiento.observaciones || 'Sin observaciones registradas'}
+                                    </Text>
+                                </Paper>
+
+                                <Paper p="sm" radius="md" mt="auto" withBorder style={{ backgroundColor: esEntrada ? '#edfbf2' : '#fdf3f2', borderColor: esEntrada ? '#b7ebd0' : '#fad1ce' }}>
+                                    <Group justify="space-between" align="center">
+                                        <div>
+                                            <Text fw={700} size="xs" c={esEntrada ? 'green' : 'red'}>TOTAL {esEntrada ? 'INGRESADO' : 'RETIRADO'}</Text>
+                                            <Text size="10px" c="dimmed">Efectivo {esEntrada ? 'ingresado a' : 'retirado de'} la caja</Text>
+                                        </div>
+                                        <Text fw={800} size="lg" c={esEntrada ? 'green' : 'red'}>${montoTotal.toFixed(2)}</Text>
+                                    </Group>
+                                </Paper>
+                            </Stack>
+                        </Paper>
+                    </SimpleGrid>
+
+                    {/* Acciones inferiores del modal */}
+                    <Group justify="space-between" mt="md">
+                        <div>
+                            {puedeValidar && (
+                                <Button
+                                    color="green"
+                                    size="md"
+                                    radius="md"
+                                    leftSection={<IconShieldCheck size={18} />}
+                                    onClick={() => {
+                                        onValidar?.(movimiento);
+                                        onClose();
+                                    }}
+                                >
+                                    Validar Movimiento
+                                </Button>
+                            )}
+                        </div>
+                        <Button variant="default" onClick={onClose} size="md" radius="md">
+                            Cerrar
+                        </Button>
+                    </Group>
+                </Stack>
+            </Box>
+        </Modal>
+    );
+}
+
 /* ─── Componente principal ──────────────────────────────────────────────────── */
 export function MovimientosCaja() {
+    const [movimientoDetalle, setMovimientoDetalle] = useState(null);
+    const recargarTablaRef = useRef(null);
     const mapRecordToForm = useMemo(() => (record) => {
         let desglose = null;
         let obsLimpia = record.observaciones ? String(record.observaciones).trim() : '';
@@ -737,7 +1028,7 @@ export function MovimientosCaja() {
     };
 
     const handleValidar = async (movimiento, helpers = {}) => {
-        const reload = helpers?.reload;
+        const reload = helpers?.reload || recargarTablaRef.current;
         if (!movimiento?.id) return;
         try {
             const res = await api.movimientoCaja.validar(movimiento.id);
@@ -803,94 +1094,79 @@ export function MovimientosCaja() {
     };
 
     return (
-        <CrudCatalogo
-            titulo="Movimientos de Caja"
-            singular="Movimiento"
-            icon={IconArrowsExchange}
-            servicio={api.movimientoCaja}
-            columnas={COLUMNAS}
-            campos={CAMPOS}
-            valoresIniciales={INICIAL}
-            mapRecordToForm={mapRecordToForm}
-            mapFormToPayload={mapFormToPayload}
-            mapRecordToRow={mapRecordToRow}
-            renderForm={(props) => <MovimientoForm {...props} />}
-            validateForm={validateForm}
-            permitirEditar={false}
-            permitirEliminar={false}
-            renderAccionesFila={(fila, recordOriginal, helpers = {}) => {
-                const reload = helpers?.reload;
-                const openEdit = helpers?.openEdit;
-                const deleteRecord = helpers?.deleteRecord;
-                const mov = recordOriginal ?? fila?._recordOriginal ?? fila;
-                const esValidado = mov?.estado === 'VALIDADO';
-                const cajaAbierta = mov?.aperturaCaja?.estado === 'ABIERTA';
+        <>
+            <CrudCatalogo
+                titulo="Movimientos de Caja"
+                singular="Movimiento"
+                icon={IconArrowsExchange}
+                servicio={api.movimientoCaja}
+                columnas={COLUMNAS}
+                campos={CAMPOS}
+                valoresIniciales={INICIAL}
+                mapRecordToForm={mapRecordToForm}
+                mapFormToPayload={mapFormToPayload}
+                mapRecordToRow={mapRecordToRow}
+                renderForm={(props) => <MovimientoForm {...props} />}
+                validateForm={validateForm}
+                permitirEditar={false}
+                permitirEliminar={false}
+                renderAccionesFila={(fila, recordOriginal, helpers = {}) => {
+                    const reload = helpers?.reload;
+                    if (helpers?.reload) {
+                        recargarTablaRef.current = helpers.reload;
+                    }
+                    const mov = recordOriginal ?? fila?._recordOriginal ?? fila;
+                    const esValidado = mov?.estado === 'VALIDADO';
+                    const cajaAbierta = mov?.aperturaCaja?.estado === 'ABIERTA';
 
-                const puedeValidar = !esValidado && cajaAbierta;
-                const tooltipValidar = esValidado
-                    ? 'Movimiento ya validado y auditado'
-                    : (!cajaAbierta
-                        ? 'No se puede validar si la caja no está abierta'
-                        : 'Validar movimiento de caja');
+                    const puedeValidar = !esValidado && cajaAbierta;
+                    const tooltipValidar = esValidado
+                        ? 'Movimiento ya validado y auditado'
+                        : (!cajaAbierta
+                            ? 'No se puede validar si la caja no está abierta'
+                            : 'Validar movimiento de caja');
 
-                return (
-                    <Group gap={6} wrap="nowrap">
-                        {/* 1. Botón Validar Movimiento */}
-                        <Tooltip label={tooltipValidar} withArrow openDelay={200}>
-                            <span style={{ display: 'inline-block' }}>
-                                <ActionIcon
-                                    variant={esValidado ? 'subtle' : 'light'}
-                                    color={puedeValidar ? 'green' : 'gray'}
-                                    size="lg"
-                                    disabled={!puedeValidar}
-                                    onClick={() => puedeValidar && handleValidar(mov, { reload })}
-                                >
-                                    {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
-                                </ActionIcon>
-                            </span>
-                        </Tooltip>
-
-                        {/* 2. Botón Editar (Deshabilitado si está validado) */}
-                        <Tooltip
-                            label={esValidado ? 'No se puede editar: movimiento ya validado' : 'Editar movimiento'}
-                            withArrow
-                            openDelay={200}
-                        >
-                            <span style={{ display: 'inline-block' }}>
+                    return (
+                        <Group gap={6} wrap="nowrap">
+                            {/* 1. Botón Ver Detalle del Movimiento */}
+                            <Tooltip label="Ver detalle del movimiento" withArrow openDelay={200}>
                                 <ActionIcon
                                     variant="light"
-                                    color={esValidado ? 'gray' : 'blue'}
+                                    color="blue"
                                     size="lg"
-                                    disabled={esValidado}
-                                    onClick={() => !esValidado && openEdit?.()}
+                                    aria-label="Ver detalle del movimiento"
+                                    onClick={() => setMovimientoDetalle(mov)}
                                 >
-                                    <IconEdit size={18} stroke={1.8} />
+                                    <IconEye size={18} stroke={1.8} />
                                 </ActionIcon>
-                            </span>
-                        </Tooltip>
+                            </Tooltip>
 
-                        {/* 3. Botón Eliminar (Deshabilitado si está validado) */}
-                        <Tooltip
-                            label={esValidado ? 'No se puede eliminar: movimiento ya validado' : 'Eliminar movimiento'}
-                            withArrow
-                            openDelay={200}
-                        >
-                            <span style={{ display: 'inline-block' }}>
-                                <ActionIcon
-                                    variant="light"
-                                    color={esValidado ? 'gray' : 'red'}
-                                    size="lg"
-                                    disabled={esValidado}
-                                    onClick={() => !esValidado && deleteRecord?.()}
-                                >
-                                    <IconTrash size={18} stroke={1.8} />
-                                </ActionIcon>
-                            </span>
-                        </Tooltip>
-                    </Group>
-                );
-            }}
-        />
+                            {/* 2. Botón Validar Movimiento */}
+                            <Tooltip label={tooltipValidar} withArrow openDelay={200}>
+                                <span style={{ display: 'inline-block' }}>
+                                    <ActionIcon
+                                        variant={esValidado ? 'subtle' : 'light'}
+                                        color={puedeValidar ? 'green' : 'gray'}
+                                        size="lg"
+                                        disabled={!puedeValidar}
+                                        onClick={() => puedeValidar && handleValidar(mov, { reload })}
+                                    >
+                                        {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
+                                    </ActionIcon>
+                                </span>
+                            </Tooltip>
+                        </Group>
+                    );
+                }}
+            />
+
+            <ModalDetalleMovimiento
+                movimiento={movimientoDetalle}
+                opened={Boolean(movimientoDetalle)}
+                onClose={() => setMovimientoDetalle(null)}
+                onValidar={handleValidar}
+            />
+        </>
     );
 }
 
