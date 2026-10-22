@@ -10,7 +10,6 @@ import {
     SimpleGrid,
     Stack,
     Text,
-    Textarea,
     TextInput,
     Tooltip,
 } from '@mantine/core';
@@ -32,7 +31,6 @@ const CAMPOS = [
     { key: 'apellidoMaterno',  label: 'Apellido Materno',                             maxLength: 100 },
     { key: 'telefono',         label: 'Teléfono',                     required: true, maxLength: 10 },
     { key: 'correo',           label: 'Correo electrónico',                           maxLength: 191 },
-    { key: 'direccion',        label: 'Dirección',                                    maxLength: 500 },
     { key: 'areaTrabajoId',    label: 'Área de trabajo',              required: true,
       loadOptions: async () => {
           const r = await api.areaTrabajo.obtenerTodos();
@@ -55,8 +53,24 @@ const CAMPOS = [
     { key: 'fechaNacimiento',  label: 'Fecha de Nacimiento',          required: true, type: 'date' },
     { key: 'usuarioId',        label: 'Usuario del sistema (opcional)',
       loadOptions: async () => {
-          const r = await api.user.obtenerTodos();
-          return (r.data ?? []).map((u) => ({ value: String(u.id), label: `${u.nombre} (${u.email})` }));
+          const [rUsers, rEmps] = await Promise.all([
+              api.user.obtenerTodos(),
+              api.empleado.obtenerTodos().catch(() => ({ data: [] })),
+          ]);
+          const usuarios = rUsers.data ?? [];
+          const empleados = rEmps.data ?? [];
+          const usuariosOcupados = new Map();
+          empleados.forEach((emp) => {
+              const uId = emp.usuario?.id ?? emp.usuarioId;
+              if (uId) {
+                  usuariosOcupados.set(String(uId), emp.id);
+              }
+          });
+          return usuarios.map((u) => ({
+              value: String(u.id),
+              label: `${u.nombre} (${u.email})`,
+              empleadoIdVinculado: usuariosOcupados.get(String(u.id)) ?? null,
+          }));
       },
     },
     { key: 'imagenUrl',        label: 'Fotografía de perfil',         type: 'dropzone' },
@@ -73,7 +87,9 @@ const COLUMNAS = [
 
 const INICIAL = {
     nombre: '', apellidoPaterno: '', apellidoMaterno: '',
-    telefono: '', correo: '', direccion: '',
+    telefono: '', correo: '',
+    calle: '', numeroExterior: '', numeroInterior: '',
+    colonia: '', codigoPostal: '', municipio: '', estado: '', entreCalles: '',
     areaTrabajoId: '', puestoId: '', estadoEmpleadoId: '',
     fechaIngreso: '', fechaNacimiento: '', usuarioId: '', imagenUrl: '',
 };
@@ -106,22 +122,6 @@ function FInput({ label, icon: Icon, required, placeholder, type = 'text', value
             size="md"
             radius="md"
             leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FTextarea({ label, placeholder, value, error, maxLength, onChange }) {
-    return (
-        <Textarea
-            label={label}
-            placeholder={placeholder}
-            value={value ?? ''}
-            error={error}
-            maxLength={maxLength}
-            size="md"
-            radius="md"
-            minRows={2}
             onChange={(e) => onChange(e.currentTarget.value)}
         />
     );
@@ -165,6 +165,14 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
         });
     };
 
+    const opcionesUsuario = useMemo(() => {
+        const rawOptions = fieldOptions.usuarioId ?? [];
+        return rawOptions.filter((opt) => {
+            if (!opt.empleadoIdVinculado) return true;
+            return String(opt.value) === String(form.usuarioId);
+        });
+    }, [fieldOptions.usuarioId, form.usuarioId]);
+
     return (
         <Stack gap="md" style={{ width: '100%' }}>
             <Box>
@@ -172,11 +180,23 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                     rightSection={
                         form.imagenUrl ? (
                             <Button
-                                variant="subtle"
+                                variant="outline"
                                 color="red"
                                 size="compact-xs"
+                                radius="md"
                                 leftSection={<IconTrash size={14} stroke={1.8} />}
                                 onClick={() => onChange('imagenUrl', '')}
+                                styles={{
+                                    root: {
+                                        border: '1px solid #EF4444',
+                                        backgroundColor: '#FEF2F2',
+                                        color: '#DC2626',
+                                        fontWeight: 600,
+                                        '&:hover': {
+                                            backgroundColor: '#FEE2E2',
+                                        },
+                                    },
+                                }}
                             >
                                 Quitar imagen
                             </Button>
@@ -236,7 +256,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                     <FInput
                         label="Teléfono"
                         required
-                        placeholder="Ej. 4771234567"
+                        placeholder="Ej. 4771234567 (10 dígitos)"
                         maxLength={10}
                         value={form.telefono}
                         error={errors.telefono}
@@ -252,16 +272,92 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                         onChange={(v) => onChange('correo', v)}
                     />
                 </SimpleGrid>
-                <Box mt="md">
-                    <FTextarea
-                        label="Dirección"
-                        placeholder="Ej. Av. Principal 123, Col. Centro"
-                        maxLength={500}
-                        value={form.direccion}
-                        error={errors.direccion}
-                        onChange={(v) => onChange('direccion', v)}
-                    />
-                </Box>
+            </Box>
+
+            <Box>
+                <SectionTitle>Dirección y residencia</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 12 }} spacing="md" verticalSpacing="xs">
+                    <Box style={{ gridColumn: 'span 8' }}>
+                        <FInput
+                            label="Calle"
+                            placeholder="Ej. Av. Principal"
+                            maxLength={150}
+                            value={form.calle}
+                            error={errors.calle}
+                            onChange={(v) => onChange('calle', v)}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 2' }}>
+                        <FInput
+                            label="Núm. ext."
+                            placeholder="Ej. 123"
+                            maxLength={20}
+                            value={form.numeroExterior}
+                            error={errors.numeroExterior}
+                            onChange={(v) => onChange('numeroExterior', v)}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 2' }}>
+                        <FInput
+                            label="Núm. int."
+                            placeholder="Ej. A-4"
+                            maxLength={20}
+                            value={form.numeroInterior}
+                            error={errors.numeroInterior}
+                            onChange={(v) => onChange('numeroInterior', v)}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 4' }}>
+                        <FInput
+                            label="Colonia"
+                            placeholder="Ej. Centro"
+                            maxLength={100}
+                            value={form.colonia}
+                            error={errors.colonia}
+                            onChange={(v) => onChange('colonia', v)}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 2' }}>
+                        <FInput
+                            label="Código Postal (CP)"
+                            placeholder="Ej. 37000"
+                            maxLength={5}
+                            value={form.codigoPostal}
+                            error={errors.codigoPostal}
+                            onChange={(v) => onChange('codigoPostal', v.replace(/\D/g, '').slice(0, 5))}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 3' }}>
+                        <FInput
+                            label="Municipio / Ciudad"
+                            placeholder="Ej. León"
+                            maxLength={100}
+                            value={form.municipio}
+                            error={errors.municipio}
+                            onChange={(v) => onChange('municipio', v)}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 3' }}>
+                        <FInput
+                            label="Estado"
+                            placeholder="Ej. Guanajuato"
+                            maxLength={100}
+                            value={form.estado}
+                            error={errors.estado}
+                            onChange={(v) => onChange('estado', v)}
+                        />
+                    </Box>
+                    <Box style={{ gridColumn: 'span 12' }}>
+                        <FInput
+                            label="Entre calles"
+                            placeholder="Ej. Entre Calle Hidalgo y Calle Juárez"
+                            maxLength={200}
+                            value={form.entreCalles}
+                            error={errors.entreCalles}
+                            onChange={(v) => onChange('entreCalles', v)}
+                        />
+                    </Box>
+                </SimpleGrid>
             </Box>
 
             <Box>
@@ -308,7 +404,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                     <FSelect
                         label="Usuario del sistema (opcional)"
                         placeholder="Sin usuario vinculado"
-                        options={fieldOptions.usuarioId ?? []}
+                        options={opcionesUsuario}
                         value={form.usuarioId}
                         error={errors.usuarioId}
                         onChange={(v) => onChange('usuarioId', v)}
@@ -322,37 +418,94 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
 export function Empleados() {
     cambioNombreWeb('Empleados');
 
-    const mapRecordToForm = useMemo(() => (record) => ({
-        nombre:           record.nombre ?? '',
-        apellidoPaterno:  record.apellidoPaterno ?? '',
-        apellidoMaterno:  record.apellidoMaterno ?? '',
-        areaTrabajoId:    record.areaTrabajo?.id   ? String(record.areaTrabajo.id)   : String(record.areaTrabajoId    ?? ''),
-        puestoId:         record.puesto?.id         ? String(record.puesto.id)         : String(record.puestoId         ?? ''),
-        estadoEmpleadoId: record.estadoEmpleado?.id ? String(record.estadoEmpleado.id) : String(record.estadoEmpleadoId ?? ''),
-        usuarioId:        record.usuario?.id        ? String(record.usuario.id)        : String(record.usuarioId        ?? ''),
-        telefono:         record.telefono    ?? '',
-        correo:           record.correo      ?? '',
-        direccion:        record.direccion   ?? '',
-        fechaNacimiento:  record.fechaNacimiento ? new Date(record.fechaNacimiento).toISOString().split('T')[0] : '',
-        fechaIngreso:     record.fechaIngreso    ? new Date(record.fechaIngreso).toISOString().split('T')[0]    : '',
-        imagenUrl:        record.imagenUrl   ?? '',
-    }), []);
+    const mapRecordToForm = useMemo(() => (record) => {
+        let dir = {
+            calle: '',
+            numeroExterior: '',
+            numeroInterior: '',
+            colonia: '',
+            codigoPostal: '',
+            municipio: '',
+            estado: '',
+            entreCalles: '',
+        };
+        if (record.direccion) {
+            try {
+                const parsed = JSON.parse(record.direccion);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    dir = { ...dir, ...parsed };
+                } else {
+                    dir.calle = String(record.direccion);
+                }
+            } catch {
+                dir.calle = String(record.direccion);
+            }
+        }
 
-    const mapFormToPayload = (form) => ({
-        nombre:           form.nombre,
-        apellidoPaterno:  form.apellidoPaterno,
-        apellidoMaterno:  form.apellidoMaterno  || null,
-        areaTrabajoId:    Number(form.areaTrabajoId),
-        puestoId:         Number(form.puestoId),
-        estadoEmpleadoId: Number(form.estadoEmpleadoId),
-        usuarioId:        form.usuarioId        ? Number(form.usuarioId) : null,
-        telefono:         form.telefono,
-        correo:           form.correo           || null,
-        direccion:        form.direccion         || null,
-        fechaNacimiento:  form.fechaNacimiento,
-        fechaIngreso:     form.fechaIngreso,
-        imagenUrl:        form.imagenUrl         || null,
-    });
+        return {
+            nombre:           record.nombre ?? '',
+            apellidoPaterno:  record.apellidoPaterno ?? '',
+            apellidoMaterno:  record.apellidoMaterno ?? '',
+            areaTrabajoId:    record.areaTrabajo?.id   ? String(record.areaTrabajo.id)   : String(record.areaTrabajoId    ?? ''),
+            puestoId:         record.puesto?.id         ? String(record.puesto.id)         : String(record.puestoId         ?? ''),
+            estadoEmpleadoId: record.estadoEmpleado?.id ? String(record.estadoEmpleado.id) : String(record.estadoEmpleadoId ?? ''),
+            usuarioId:        record.usuario?.id        ? String(record.usuario.id)        : String(record.usuarioId        ?? ''),
+            telefono:         record.telefono    ?? '',
+            correo:           record.correo      ?? '',
+            calle:            dir.calle          ?? '',
+            numeroExterior:   dir.numeroExterior ?? '',
+            numeroInterior:   dir.numeroInterior ?? '',
+            colonia:          dir.colonia        ?? '',
+            codigoPostal:     dir.codigoPostal   ?? '',
+            municipio:        dir.municipio      ?? '',
+            estado:           dir.estado         ?? '',
+            entreCalles:      dir.entreCalles    ?? '',
+            fechaNacimiento:  record.fechaNacimiento ? new Date(record.fechaNacimiento).toISOString().split('T')[0] : '',
+            fechaIngreso:     record.fechaIngreso    ? new Date(record.fechaIngreso).toISOString().split('T')[0]    : '',
+            imagenUrl:        record.imagenUrl   ?? '',
+        };
+    }, []);
+
+    const mapFormToPayload = (form) => {
+        const tieneDireccion =
+            form.calle ||
+            form.numeroExterior ||
+            form.numeroInterior ||
+            form.colonia ||
+            form.codigoPostal ||
+            form.municipio ||
+            form.estado ||
+            form.entreCalles;
+
+        const direccion = tieneDireccion
+            ? JSON.stringify({
+                  calle: form.calle?.trim() || '',
+                  numeroExterior: form.numeroExterior?.trim() || '',
+                  numeroInterior: form.numeroInterior?.trim() || '',
+                  colonia: form.colonia?.trim() || '',
+                  codigoPostal: form.codigoPostal?.trim() || '',
+                  municipio: form.municipio?.trim() || '',
+                  estado: form.estado?.trim() || '',
+                  entreCalles: form.entreCalles?.trim() || '',
+              })
+            : null;
+
+        return {
+            nombre:           form.nombre.trim(),
+            apellidoPaterno:  form.apellidoPaterno.trim(),
+            apellidoMaterno:  form.apellidoMaterno ? form.apellidoMaterno.trim() : null,
+            areaTrabajoId:    Number(form.areaTrabajoId),
+            puestoId:         Number(form.puestoId),
+            estadoEmpleadoId: Number(form.estadoEmpleadoId),
+            usuarioId:        form.usuarioId ? Number(form.usuarioId) : null,
+            telefono:         form.telefono.trim(),
+            correo:           form.correo ? form.correo.trim() : null,
+            direccion,
+            fechaNacimiento:  form.fechaNacimiento,
+            fechaIngreso:     form.fechaIngreso,
+            imagenUrl:        form.imagenUrl || null,
+        };
+    };
 
     const colorEstadoEmpleado = (estado) => {
         if (!estado || estado === '—') return 'gray';
@@ -390,8 +543,8 @@ export function Empleados() {
 
     const validateForm = (form) => {
         const errors = {};
-        if (form.telefono && !/^\d{10}$/.test(form.telefono)) {
-            errors.telefono = 'El teléfono debe contener exactamente 10 dígitos numéricos';
+        if (!form.telefono || !/^\d{10}$/.test(form.telefono.trim())) {
+            errors.telefono = 'El teléfono es obligatorio y debe contener exactamente 10 dígitos numéricos';
         }
         if (form.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) {
             errors.correo = 'Formato de correo electrónico no válido';
@@ -460,7 +613,7 @@ export function Empleados() {
             permitirEliminar={false}
             validateForm={validateForm}
             formMode="drawer"
-            drawerSize={620}
+            drawerSize={640}
             headerVariant="unified"
             tableHeaderVariant="neutral"
         />

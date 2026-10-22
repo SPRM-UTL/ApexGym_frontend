@@ -3,6 +3,8 @@ import {
     ActionIcon,
     Badge,
     Box,
+    ColorInput,
+    ColorSwatch,
     Divider,
     Group,
     SimpleGrid,
@@ -23,15 +25,17 @@ import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre del Estado', required: true },
+    { key: 'color', label: 'Color distintivo' },
     { key: 'descripcion', label: 'Descripción' }
 ];
 
 const COLUMNAS = [
     { key: 'nombre', label: 'Nombre', sortable: true, filterable: true },
+    { key: 'colorBadge', label: 'Color', sortable: false, filterable: false },
     { key: 'descripcion', label: 'Descripción', sortable: false, filterable: true },
 ];
 
-const INICIAL = { nombre: '', descripcion: '' };
+const INICIAL = { nombre: '', color: '', descripcion: '' };
 
 const SectionTitle = ({ children }) => (
     <Box mb="xs" mt="xs">
@@ -87,6 +91,26 @@ function EstadoClienteForm({ form, errors, onChange }) {
                         error={errors.nombre}
                         onChange={(v) => onChange('nombre', v)}
                     />
+                    <ColorInput
+                        label="Color distintivo"
+                        placeholder="Selecciona o escribe un color (ej. #10B981)"
+                        value={form.color ?? ''}
+                        error={errors.color}
+                        size="md"
+                        radius="md"
+                        format="hex"
+                        swatches={[
+                            '#10B981',
+                            '#3B82F6',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6',
+                            '#06B6D4',
+                            '#F97316',
+                            '#64748B',
+                        ]}
+                        onChange={(v) => onChange('color', v)}
+                    />
                     <FTextarea
                         label="Descripción"
                         placeholder="Breve descripción del estado"
@@ -105,11 +129,13 @@ export function EstadosCliente() {
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
+        color: record.color ?? '',
         descripcion: record.descripcion ?? '',
     }), []);
 
     const mapFormToPayload = (form) => ({
         nombre: form.nombre,
+        color: form.color || null,
         descripcion: form.descripcion,
     });
 
@@ -124,6 +150,7 @@ export function EstadosCliente() {
 
     const mapRecordToRow = (record) => {
         const nombreEstado = record.nombre ?? '—';
+        const color = record.color;
         return {
             id: record.id,
             nombreTexto: nombreEstado,
@@ -131,13 +158,24 @@ export function EstadosCliente() {
                 <Badge
                     size="sm"
                     variant="light"
-                    color={colorEstadoCliente(nombreEstado)}
+                    color={color || colorEstadoCliente(nombreEstado)}
                     radius="sm"
                     fw={700}
+                    style={color ? {
+                        backgroundColor: `${color}18`,
+                        color: color,
+                        border: `1px solid ${color}40`,
+                    } : undefined}
                 >
                     {nombreEstado.toUpperCase()}
                 </Badge>
             ),
+            colorBadge: color ? (
+                <Group gap={8} align="center">
+                    <ColorSwatch color={color} size={18} />
+                    <Text size="xs" c="dimmed" ff="monospace">{color}</Text>
+                </Group>
+            ) : '—',
             descripcion: record.descripcion ?? '—',
         };
     };

@@ -17,28 +17,39 @@ export function ModalConfirmacion({
             centered
             size={520}
             padding="xl"
-            radius={0}
+            radius="md"
             closeOnClickOutside={!loading}
             closeOnEscape={!loading}
             zIndex={1000000}
         >
-            <Stack gap="lg" align="center" className={classes.content}>
-                <Text size="sm" c="dimmed" ta="center" className={classes.message}>
+            <Stack gap="xl" align="center" className={classes.content}>
+                <Text ta="center" className={classes.message}>
                     {message}
                 </Text>
-                <Group justify="center" gap="sm" className={classes.actions}>
-                    <Button variant="default" onClick={onClose} disabled={loading} className={classes.actionButton}>
-                        Cancelar
-                    </Button>
-                    <Button
-                        color="red"
-                        onClick={onConfirm}
-                        loading={loading}
-                        className={`${classes.confirmButton} ${classes.actionButton}`}
-                    >
-                        Eliminar
-                    </Button>
-                </Group>
+                <div className={classes.actionsWrapper}>
+                    <Group grow gap="md" className={classes.actions}>
+                        <Button
+                            variant="default"
+                            onClick={onClose}
+                            disabled={loading}
+                            size="md"
+                            radius="md"
+                            className={classes.actionButton}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            color="red"
+                            onClick={onConfirm}
+                            loading={loading}
+                            size="md"
+                            radius="md"
+                            className={`${classes.confirmButton} ${classes.actionButton}`}
+                        >
+                            Eliminar
+                        </Button>
+                    </Group>
+                </div>
             </Stack>
         </Modal>
     );

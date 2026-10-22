@@ -207,6 +207,7 @@ export function Clientes() {
 
     const mapRecordToRow = (record) => {
         const estadoNombre = record.estadoCliente?.nombre ?? '—';
+        const estadoColor = record.estadoCliente?.color;
         return {
             id: record.id,
             nombre: record.nombre,
@@ -215,9 +216,14 @@ export function Clientes() {
                 <Badge
                     size="sm"
                     variant="light"
-                    color={colorEstadoCliente(estadoNombre)}
+                    color={estadoColor || colorEstadoCliente(estadoNombre)}
                     radius="sm"
                     fw={700}
+                    style={estadoColor ? {
+                        backgroundColor: `${estadoColor}18`,
+                        color: estadoColor,
+                        border: `1px solid ${estadoColor}40`,
+                    } : undefined}
                 >
                     {estadoNombre.toUpperCase()}
                 </Badge>

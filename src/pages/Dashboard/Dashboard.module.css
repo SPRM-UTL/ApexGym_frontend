@@ -1,14 +1,15 @@
 .shell {
-    /*Pra hacer que se vea todo en colmnas y acomoda el tamaño en dispositivos*/
+    /* Layout vertical ocupando exactamente el alto de la ventana */
     height: 100dvh;
     height: 100vh;
     display: flex;
     flex-direction: column;
     background-color: var(--ag-color-surface);
+    overflow: hidden;
 }
 
 .header {
-    /*Para que no se mueva la barra superior*/
+    /* Barra superior fija */
     flex: 0 0 auto;
     height: 64px;
     background-color: var(--ag-color-secondary);
@@ -44,13 +45,11 @@
 }
 
 .content {
-    /*Aqui ocupamos exactamente el expacio sobrante*/
+    /* Ocupa el espacio sobrante con scroll interno */
     flex: 1 1 auto;
-    /*Evitamos un desvordamiento*/
     min-height: 0;
-    /*Agregamos el scroll en el interior del contenido*/
     overflow-y: auto;
-    padding: var(--mantine-spacing-xl);
+    padding: var(--mantine-spacing-md) var(--mantine-spacing-xl);
     max-width: 1280px;
     margin: 0 auto;
     width: 100%;
@@ -72,7 +71,7 @@
 }
 
 .breadcrumb {
-    margin-bottom: var(--mantine-spacing-lg);
+    margin-bottom: var(--mantine-spacing-md);
 }
 
 .breadcrumbLink {
@@ -92,7 +91,7 @@
 }
 
 .pageTitle {
-    font-size: 1.75rem;
+    font-size: 1.6rem;
     font-weight: 800;
     margin-bottom: var(--mantine-spacing-xs);
     color: var(--ag-color-primary);
@@ -102,7 +101,7 @@
 .pageSubtitle {
     font-size: var(--mantine-font-size-sm);
     color: var(--ag-color-secondary);
-    margin-bottom: var(--mantine-spacing-xl);
+    margin-bottom: var(--mantine-spacing-md);
     max-width: 42rem;
 }
 

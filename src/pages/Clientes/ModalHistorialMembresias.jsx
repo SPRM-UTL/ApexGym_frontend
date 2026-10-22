@@ -284,15 +284,26 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    <Badge
-                                                        color={badgeColor(item.estadoMembresia?.nombre)}
-                                                        size="sm"
-                                                        radius="sm"
-                                                        variant="light"
-                                                        fw={700}
-                                                    >
-                                                        {item.estadoMembresia?.nombre?.toUpperCase() ?? 'DESCONOCIDO'}
-                                                    </Badge>
+                                                    {(() => {
+                                                        const estadoColor = item.estadoMembresia?.color;
+                                                        const estadoNombre = item.estadoMembresia?.nombre?.toUpperCase() ?? 'DESCONOCIDO';
+                                                        return (
+                                                            <Badge
+                                                                color={estadoColor || badgeColor(item.estadoMembresia?.nombre)}
+                                                                size="sm"
+                                                                radius="sm"
+                                                                variant="light"
+                                                                fw={700}
+                                                                style={estadoColor ? {
+                                                                    backgroundColor: `${estadoColor}18`,
+                                                                    color: estadoColor,
+                                                                    border: `1px solid ${estadoColor}40`,
+                                                                } : undefined}
+                                                            >
+                                                                {estadoNombre}
+                                                            </Badge>
+                                                        );
+                                                    })()}
                                                 </Table.Td>
 
                                                 <Table.Td>

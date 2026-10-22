@@ -172,7 +172,7 @@ export function TableSort({
         //en el caso de que no sea el tipo de filtro de selecionado no hace nada
         if(draftColumn?.filterType !== 'select') return null;
         //recorre los datos de la tabla y extrae el valor correspondiente de la columna actual al mismo tiempo elimiina duplicados
-        return [...new Set(data.map((r) => String(r[draftColumn.key] ?? '')).filtrer(Boolean))].sort();
+        return [...new Set(data.map((r) => String(r[draftColumn.key] ?? '')).filter(Boolean))].sort();
     }, [data, draftColumn]);
 
     /**con la funcion permite asegurar que los filtros esten en textos y que se almacenen los filtros en un 
@@ -296,7 +296,7 @@ const clearFilters = () => {
                 </Group>
 
                       <Popover
-                opend={filterOpen ? true : undefined}
+                opened={filterOpen}
                 onChange={setFilterOpen}
                 position="bottom-start"
                 offset={8}
@@ -308,22 +308,21 @@ const clearFilters = () => {
 
                         <Popover.Target>
                             <Button
-                            variant="default"
-                            size="sm"
-                            radius="md"
-                            className={classes.filterButton}
-                            leftSection={<IconFilter size={16} stroke={1.6}/>}
-                            rightSection={
-                                activeFilters.length > 0 ? (
-                                    <Badge size="xs" circle>
-                                        {activeFilters.length}
-                                    </Badge>
-                                ): undefined
-                            }
+                                variant="default"
+                                size="sm"
+                                radius="md"
+                                className={classes.filterButton}
+                                aria-label="Filtrar registros"
                             >
-
+                                <Center style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <IconFilter size={16} stroke={1.8} />
+                                    {activeFilters.length > 0 && (
+                                        <Badge size="xs" circle>
+                                            {activeFilters.length}
+                                        </Badge>
+                                    )}
+                                </Center>
                             </Button>
-
                         </Popover.Target>
                         <Popover.Dropdown className={classes.popoverDropdown}>
                             <Stack gap="sm">
@@ -393,13 +392,16 @@ const clearFilters = () => {
                 </Popover>
                 
                             <Button
-                            variant="default"
-                            size="sm"
-                            radius="md"
-                            className={classes.filterButton}
-                            onClick={onReload}
+                                variant="default"
+                                size="sm"
+                                radius="md"
+                                className={classes.filterButton}
+                                onClick={onReload}
+                                aria-label="Recargar registros"
                             >
-                                <IconReload size={18} stroke={1.8} />
+                                <Center>
+                                    <IconReload size={18} stroke={1.8} />
+                                </Center>
                             </Button>
             </div>
             {activeFilters.length > 0 && (
@@ -413,8 +415,21 @@ const clearFilters = () => {
                     size="lg"
                     radius="sm"
                     className={classes.filterChip}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                        setDraftField(key);
+                        setDraftValue(value);
+                        setFilterOpen(true);
+                    }}
                     rightSection={
-                        <CloseButton size="xs" aria-label="Quitar filtro" onClick={() => removeFilter(key)} />
+                        <CloseButton
+                            size="xs"
+                            aria-label="Quitar filtro"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                removeFilter(key);
+                            }}
+                        />
                     }
                 >
                     {col?.label ?? key}: {value}

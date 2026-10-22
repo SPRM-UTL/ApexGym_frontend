@@ -1,6 +1,6 @@
-import { ActionIcon, Badge, Button, Group, Loader, Title, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Loader, ThemeIcon, Title, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconTrash, IconUsers } from '@tabler/icons-react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
 import { ModalFormulario } from '../../components/ModalFormulario/ModalFormulario.jsx';
@@ -396,9 +396,14 @@ export function Usuarios() {
 
             <div className={classes.crudLayout}>
                 <div className={classes.unifiedHeader}>
-                    <Title order={2} className={classes.unifiedTitle}>
-                        Usuarios
-                    </Title>
+                    <Group gap="sm" align="center">
+                        <ThemeIcon size={38} radius="md" variant="light" color="apex">
+                            <IconUsers size={22} stroke={1.8} />
+                        </ThemeIcon>
+                        <Title order={2} className={classes.unifiedTitle}>
+                            Usuarios
+                        </Title>
+                    </Group>
                     <Button
                         className={classes.addButtonUnified}
                         onClick={abrirAgregar}

@@ -15,6 +15,7 @@ import {
     Text,
     Textarea,
     TextInput,
+    ThemeIcon,
     Title,
 } from '@mantine/core';
 import { IconPlus, IconUpload } from '@tabler/icons-react';
@@ -440,9 +441,16 @@ export function CrudCatalogo({
             <div className={classes.layout}>
                 {headerVariant === 'unified' ? (
                     <div className={classes.unifiedHeader}>
-                        <Title order={2} className={classes.unifiedTitle}>
-                            {titulo}
-                        </Title>
+                        <Group gap="sm" align="center">
+                            {IconoHeader && (
+                                <ThemeIcon size={38} radius="md" variant="light" color="apex">
+                                    <IconoHeader size={22} stroke={1.8} />
+                                </ThemeIcon>
+                            )}
+                            <Title order={2} className={classes.unifiedTitle}>
+                                {titulo}
+                            </Title>
+                        </Group>
                         <Button
                             className={classes.addButtonUnified}
                             onClick={openCreate}

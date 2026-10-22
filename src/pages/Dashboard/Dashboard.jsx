@@ -202,7 +202,7 @@ export function Dashboard({ children, onLogout }) {
                             </Text>
                         </div>
                     ) : (
-                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
+                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
                             {secciones.map((sec) => (
                                 <SeccionCard
                                     key={sec.id}
