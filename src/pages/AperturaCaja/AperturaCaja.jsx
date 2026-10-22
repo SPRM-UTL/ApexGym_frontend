@@ -201,7 +201,8 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
         let piezas = 0;
 
         for (const d of DENOMINACIONES) {
-            const c = conteoInicio[d.valor] === '' ? 0 : Number(conteoInicio[d.valor]);
+            const raw = conteoInicio[d.valor];
+            const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             const sub = d.valor * c;
             fondo += sub;
             piezas += c;
@@ -228,7 +229,8 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
 
         let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = nuevoConteo[d.valor] === '' ? 0 : Number(nuevoConteo[d.valor]);
+            const raw = nuevoConteo[d.valor];
+            const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;

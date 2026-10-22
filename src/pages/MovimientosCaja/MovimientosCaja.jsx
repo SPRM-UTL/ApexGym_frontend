@@ -163,30 +163,43 @@ const sectionHeader = {
     borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
 };
 
+
+/**
+ * Normaliza el objeto de desglose asegurando que todas las denominaciones
+ * existan con valores numéricos limpios o cadena vacía, evitando undefined y NaN.
+ */
+function normalizarDesglose(desglose) {
+    const init = {};
+    for (const d of DENOMINACIONES) {
+        if (desglose && typeof desglose === 'object' && desglose[d.valor] !== undefined && desglose[d.valor] !== null && desglose[d.valor] !== '') {
+            const num = Number(desglose[d.valor]);
+            init[d.valor] = isNaN(num) ? '' : num;
+        } else {
+            init[d.valor] = '';
+        }
+    }
+    return init;
+}
+
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const [resumen, setResumen] = useState(null);
 
-    // Conteo de billetes
-    const [conteoBilletes, setConteoBilletes] = useState(() => {
-        if (form.desglose && typeof form.desglose === 'object') {
-            return form.desglose;
-        }
-        const init = {};
-        for (const d of DENOMINACIONES) init[d.valor] = '';
-        return init;
-    });
+    // Conteo de billetes normalizado
+    const [conteoBilletes, setConteoBilletes] = useState(() => normalizarDesglose(form.desglose));
 
     // Mantener conteo en sincronía si cambia externamente form.desglose
     useEffect(() => {
-        if (form.desglose && typeof form.desglose === 'object') {
-            setConteoBilletes(form.desglose);
-        } else if (!form.desglose) {
-            const init = {};
-            for (const d of DENOMINACIONES) init[d.valor] = '';
-            setConteoBilletes(init);
-        }
+        setConteoBilletes(normalizarDesglose(form.desglose));
     }, [form.desglose]);
+
+    // Función segura para obtener la cantidad numérica de una denominación
+    const obtenerCantidad = (val) => {
+        const raw = conteoBilletes?.[val];
+        if (raw === '' || raw === null || raw === undefined) return 0;
+        const n = Number(raw);
+        return isNaN(n) ? 0 : n;
+    };
 
     useEffect(() => {
         if (!form.aperturaCajaId) {
@@ -220,8 +233,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const totalDesglose = useMemo(() => {
         let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = conteoBilletes[d.valor] === '' ? 0 : Number(conteoBilletes[d.valor]);
-            total += d.valor * c;
+            total += d.valor * obtenerCantidad(d.valor);
         }
         return Math.round(total * 100) / 100;
     }, [conteoBilletes]);
@@ -233,8 +245,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
         let sum = 0;
         for (const item of DENOMINACIONES) {
             if (item.valor !== valorActual) {
-                const cant = conteoBilletes[item.valor] === '' ? 0 : Number(conteoBilletes[item.valor]);
-                sum += item.valor * cant;
+                sum += item.valor * obtenerCantidad(item.valor);
             }
         }
         return Math.round(sum * 100) / 100;
@@ -242,7 +253,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
 
     // Calcula la cantidad máxima permitida para una denominación específica según el monto ingresado
     const maxCantidadPermitida = (valor) => {
-        if (montoUsuario <= 0) return 500;
+        if (!montoUsuario || montoUsuario <= 0 || isNaN(montoUsuario)) return 500;
         const totalOtras = calcularTotalOtras(valor);
         const restante = Math.max(0, Math.round((montoUsuario - totalOtras) * 100) / 100);
         return Math.floor(restante / valor);
@@ -251,7 +262,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     // Manejar cambio en conteo de denominaciones
     const actualizarDenominacion = (valor, cantidad) => {
         let cant = 0;
-        if (cantidad !== '' && !isNaN(Number(cantidad))) {
+        if (cantidad !== '' && cantidad !== null && cantidad !== undefined && !isNaN(Number(cantidad))) {
             cant = Math.max(0, Math.floor(Number(cantidad)));
         }
 
@@ -263,13 +274,14 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
             cant = Math.min(cant, 500);
         }
 
-        const valToStore = cantidad === '' ? '' : cant;
+        const valToStore = (cantidad === '' || cantidad === null || cantidad === undefined) ? '' : cant;
         const nuevoConteo = { ...conteoBilletes, [valor]: valToStore };
         setConteoBilletes(nuevoConteo);
 
         let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = nuevoConteo[d.valor] === '' ? 0 : Number(nuevoConteo[d.valor]);
+            const raw = nuevoConteo[d.valor];
+            const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;
@@ -284,8 +296,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     };
 
     const limpiarDesglose = () => {
-        const init = {};
-        for (const d of DENOMINACIONES) init[d.valor] = '';
+        const init = normalizarDesglose(null);
         setConteoBilletes(init);
         onChange('desglose', null);
     };
@@ -513,8 +524,8 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         </Table.Thead>
                         <Table.Tbody>
                             {DENOMINACIONES.map((d) => {
-                                const cantStr = conteoBilletes[d.valor] ?? '';
-                                const cantNum = cantStr === '' ? 0 : Number(cantStr);
+                                const cantNum = obtenerCantidad(d.valor);
+                                const cantStr = (conteoBilletes?.[d.valor] === '' || conteoBilletes?.[d.valor] === undefined) ? '' : cantNum;
                                 const subtotal = d.valor * cantNum;
                                 const maxPerm = maxCantidadPermitida(d.valor);
                                 const noPermiteMas = montoUsuario > 0 && maxPerm <= 0 && cantNum === 0;
@@ -609,15 +620,44 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
 export function MovimientosCaja() {
     const mapRecordToForm = useMemo(() => (record) => {
         let desglose = null;
-        try {
-            if (record.observaciones && record.observaciones.includes('Desglose: {')) {
-                const jsonPart = record.observaciones.split('Desglose: ')[1]?.split('|')[0]?.trim();
-                if (jsonPart) desglose = JSON.parse(jsonPart);
-            } else if (record.observaciones && record.observaciones.includes('{"desglose":')) {
-                const parsed = JSON.parse(record.observaciones);
-                desglose = parsed.desglose;
+        let obsLimpia = record.observaciones ? String(record.observaciones).trim() : '';
+
+        // 1. Obtener desglose de record.desglose si existe
+        if (record.desglose) {
+            try {
+                desglose = typeof record.desglose === 'string'
+                    ? JSON.parse(record.desglose)
+                    : record.desglose;
+            } catch (e) {}
+        }
+
+        // 2. Si no venía en record.desglose o venía concatenado en observaciones
+        if (obsLimpia && obsLimpia.includes('Desglose: {')) {
+            const parts = obsLimpia.split(/\|\s*Desglose:\s*|Desglose:\s*/i);
+            if (parts[1] && !desglose) {
+                const match = parts[1].match(/^\{.*?\}/);
+                if (match) {
+                    try {
+                        desglose = JSON.parse(match[0]);
+                    } catch (e) {}
+                }
             }
-        } catch (e) {}
+            obsLimpia = (parts[0]?.trim()) || '';
+        } else if (obsLimpia.startsWith('{') && obsLimpia.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(obsLimpia);
+                if (parsed.desglose) {
+                    if (!desglose) desglose = parsed.desglose;
+                    obsLimpia = parsed.observaciones ?? '';
+                }
+            } catch (e) {}
+        }
+
+        // Limpiar cualquier residuo de formato anterior o JSON entre llaves
+        obsLimpia = obsLimpia
+            .replace(/\s*\|\s*Desglose:\s*\{.*?\}\s*/gi, '')
+            .replace(/^Desglose:\s*\{.*?\}\s*/gi, '')
+            .trim();
 
         return {
             aperturaCajaId: record.aperturaCaja?.id
@@ -630,24 +670,27 @@ export function MovimientosCaja() {
             monto:         record.monto         ?? '',
             concepto:      record.concepto      ?? '',
             desglose:      desglose             ?? null,
-            observaciones: record.observaciones ?? '',
+            observaciones: obsLimpia,
         };
     }, []);
 
     const mapFormToPayload = (form) => {
-        let obsFinal = form.observaciones ? form.observaciones.trim() : '';
-        if (form.desglose && Object.values(form.desglose).some((v) => v !== '' && Number(v) > 0)) {
-            // Guardar desglose si existe
-            const desgloseClean = {};
+        let obsFinal = form.observaciones ? String(form.observaciones).trim() : '';
+        obsFinal = obsFinal
+            .replace(/\s*\|\s*Desglose:\s*\{.*?\}\s*/gi, '')
+            .replace(/^Desglose:\s*\{.*?\}\s*/gi, '')
+            .trim();
+
+        const desgloseClean = {};
+        if (form.desglose && typeof form.desglose === 'object') {
             for (const [k, v] of Object.entries(form.desglose)) {
-                if (v !== '' && Number(v) > 0) desgloseClean[k] = Number(v);
-            }
-            if (Object.keys(desgloseClean).length > 0) {
-                obsFinal = obsFinal
-                    ? `${obsFinal} | Desglose: ${JSON.stringify(desgloseClean)}`
-                    : `Desglose: ${JSON.stringify(desgloseClean)}`;
+                if (v !== '' && v !== null && v !== undefined && Number(v) > 0) {
+                    desgloseClean[k] = Number(v);
+                }
             }
         }
+
+        const tieneDesglose = Object.keys(desgloseClean).length > 0;
 
         return {
             aperturaCajaId: Number(form.aperturaCajaId),
@@ -655,6 +698,7 @@ export function MovimientosCaja() {
             tipo:           form.tipo,
             monto:          Number(form.monto),
             concepto:       form.concepto,
+            desglose:       tieneDesglose ? desgloseClean : null,
             observaciones:  obsFinal || null,
         };
     };

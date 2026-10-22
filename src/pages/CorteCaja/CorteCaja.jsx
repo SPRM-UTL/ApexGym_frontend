@@ -707,7 +707,8 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         // Sumar total
         let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = nuevoConteo[d.valor] === '' ? 0 : Number(nuevoConteo[d.valor]);
+            const raw = nuevoConteo[d.valor];
+            const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;
