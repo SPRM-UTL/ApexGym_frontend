@@ -136,7 +136,7 @@ const COLUMNAS = [
 const INICIAL = {
     cajaId: '',
     empleadoId: '',
-    montoInicial: '',
+    montoInicial: 0,
     fechaApertura: obtenerFechaHoyLocal(),
     desgloseInicio: null,
     observaciones: '',
@@ -154,8 +154,8 @@ const sectionHeader = {
 
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function AperturaForm({ form, errors, onChange, fieldOptions }) {
-    // Conteo de billetes y monedas para fondo inicial
-    const [conteoBilletes, setConteoBilletes] = useState(() => {
+    // Conteo de billetes y monedas (idéntico al patrón de Corte de Caja)
+    const [conteoInicio, setConteoInicio] = useState(() => {
         if (form.desgloseInicio && typeof form.desgloseInicio === 'object') {
             return form.desgloseInicio;
         }
@@ -166,66 +166,46 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
 
     useEffect(() => {
         if (form.desgloseInicio && typeof form.desgloseInicio === 'object') {
-            setConteoBilletes(form.desgloseInicio);
+            setConteoInicio(form.desgloseInicio);
         } else if (!form.desgloseInicio) {
             const init = {};
             for (const d of DENOMINACIONES) init[d.valor] = '';
-            setConteoBilletes(init);
+            setConteoInicio(init);
         }
     }, [form.desgloseInicio]);
 
-    const montoUsuario = Number(form.montoInicial || 0);
+    // Totales calculados en tiempo real
+    const { totalFondo, totalBilletes, totalMonedas, totalPiezas } = useMemo(() => {
+        let fondo = 0;
+        let billetes = 0;
+        let monedas = 0;
+        let piezas = 0;
 
-    // Total acumulado actual del desglose de efectivo inicial
-    const totalDesglose = useMemo(() => {
-        let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = conteoBilletes[d.valor] === '' ? 0 : Number(conteoBilletes[d.valor]);
-            total += d.valor * c;
+            const c = conteoInicio[d.valor] === '' ? 0 : Number(conteoInicio[d.valor]);
+            const sub = d.valor * c;
+            fondo += sub;
+            piezas += c;
+            if (d.tipo === 'billete') billetes += sub;
+            else monedas += sub;
         }
-        return Math.round(total * 100) / 100;
-    }, [conteoBilletes]);
 
-    const desgloseExcedeMonto = montoUsuario > 0 && totalDesglose > montoUsuario;
+        return {
+            totalFondo: Math.round(fondo * 100) / 100,
+            totalBilletes: Math.round(billetes * 100) / 100,
+            totalMonedas: Math.round(monedas * 100) / 100,
+            totalPiezas: piezas,
+        };
+    }, [conteoInicio]);
 
-    // Calcula el subtotal de todas las demás denominaciones excepto la indicada
-    const calcularTotalOtras = (valorActual) => {
-        let sum = 0;
-        for (const item of DENOMINACIONES) {
-            if (item.valor !== valorActual) {
-                const cant = conteoBilletes[item.valor] === '' ? 0 : Number(conteoBilletes[item.valor]);
-                sum += item.valor * cant;
-            }
-        }
-        return Math.round(sum * 100) / 100;
-    };
-
-    // Calcula la cantidad máxima permitida para una denominación según el monto inicial ingresado
-    const maxCantidadPermitida = (valor) => {
-        if (montoUsuario <= 0) return 500;
-        const totalOtras = calcularTotalOtras(valor);
-        const restante = Math.max(0, Math.round((montoUsuario - totalOtras) * 100) / 100);
-        return Math.floor(restante / valor);
-    };
-
-    // Manejar cambio en conteo de denominaciones
-    const actualizarDenominacion = (valor, cantidad) => {
+    const actualizarConteoInicio = (valor, cantidad) => {
         let cant = 0;
         if (cantidad !== '' && !isNaN(Number(cantidad))) {
-            cant = Math.max(0, Math.floor(Number(cantidad)));
+            cant = Math.max(0, Math.min(1000, Math.floor(Number(cantidad))));
         }
-
-        // Si el usuario ingresó un monto inicial, los billetes/monedas NO deben superar ese monto
-        if (montoUsuario > 0) {
-            const maxPermitido = maxCantidadPermitida(valor);
-            cant = Math.min(cant, maxPermitido);
-        } else {
-            cant = Math.min(cant, 500);
-        }
-
         const valToStore = cantidad === '' ? '' : cant;
-        const nuevoConteo = { ...conteoBilletes, [valor]: valToStore };
-        setConteoBilletes(nuevoConteo);
+        const nuevoConteo = { ...conteoInicio, [valor]: valToStore };
+        setConteoInicio(nuevoConteo);
 
         let total = 0;
         for (const d of DENOMINACIONES) {
@@ -233,34 +213,41 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;
+        total = Math.min(total, 200000);
 
+        onChange('montoInicial', total);
         onChange('desgloseInicio', nuevoConteo);
-
-        // Si el usuario NO había ingresado un monto inicial previamente, el desglose llena el monto inicial automáticamente.
-        // Si ya había ingresado un monto, NO se sobreescribe para respetar la cantidad que puso.
-        if (montoUsuario <= 0 && (total > 0 || Object.values(nuevoConteo).some((v) => v !== '' && Number(v) > 0))) {
-            onChange('montoInicial', total);
-        }
     };
 
-    const limpiarDesglose = () => {
+    const limpiarConteo = () => {
         const init = {};
         for (const d of DENOMINACIONES) init[d.valor] = '';
-        setConteoBilletes(init);
+        setConteoInicio(init);
+        onChange('montoInicial', 0);
         onChange('desgloseInicio', null);
     };
 
+    const nombreCajaSeleccionada = useMemo(() => {
+        const opciones = fieldOptions?.cajaId ?? [];
+        return opciones.find((o) => o.value === String(form.cajaId))?.label ?? '';
+    }, [fieldOptions?.cajaId, form.cajaId]);
+
+    const nombreEmpleadoSeleccionado = useMemo(() => {
+        const opciones = fieldOptions?.empleadoId ?? [];
+        return opciones.find((o) => o.value === String(form.empleadoId))?.label ?? '';
+    }, [fieldOptions?.empleadoId, form.empleadoId]);
+
     return (
         <Stack gap="md">
+            {/* ── Sección 1: Datos de la apertura ── */}
             <Box>
                 <div style={sectionHeader}>
                     <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
                         <IconCash size={16} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={5}>Información de apertura</Title>
+                    <Title order={5}>Datos de la apertura</Title>
                 </div>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                    {/* Col 1 */}
                     <NativeSelect
                         label="Caja"
                         withAsterisk
@@ -283,28 +270,6 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
                         onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
                     />
-                    {/* Col 2 */}
-                    <NumberInput
-                        label="Monto Inicial (Fondo de caja)"
-                        withAsterisk
-                        prefix="$"
-                        min={0}
-                        max={200000}
-                        clampBehavior="strict"
-                        placeholder="Ej. $1,000.00 (Máx. $200,000.00)"
-                        decimalScale={2}
-                        description="Límite máximo de fondo: $200,000.00"
-                        value={form.montoInicial ?? ''}
-                        error={
-                            desgloseExcedeMonto
-                                ? `El total de billetes/monedas ($${totalDesglose.toFixed(2)}) supera este monto`
-                                : errors.montoInicial
-                        }
-                        size="md"
-                        radius="md"
-                        leftSection={<IconCash size={16} stroke={1.5} />}
-                        onChange={(v) => onChange('montoInicial', v)}
-                    />
                     <TextInput
                         label="Fecha de Apertura"
                         withAsterisk
@@ -316,7 +281,6 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         leftSection={<IconCalendar size={16} stroke={1.5} />}
                         onChange={(e) => onChange('fechaApertura', e.currentTarget.value)}
                     />
-                    {/* Full width observaciones */}
                     <Textarea
                         label="Observaciones"
                         placeholder="Observaciones de la apertura"
@@ -327,134 +291,162 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         size="md"
                         radius="md"
                         minRows={2}
-                        style={{ gridColumn: '1 / -1' }}
                         onChange={(e) => onChange('observaciones', e.currentTarget.value)}
                     />
                 </SimpleGrid>
             </Box>
 
-            {/* ── Billetes y monedas de inicio (Fondo de caja) ── */}
+            {/* ── Sección 2: Conteo y Arqueo de Efectivo (Diseño exacto de Corte de Caja) ── */}
             <Box>
                 <div style={sectionHeader}>
                     <ThemeIcon size="md" radius="md" variant="light" color="apex">
                         <IconCoins size={16} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={5}>Billetes y monedas de inicio (Fondo de caja)</Title>
+                    <Title order={5}>Conteo y Arqueo de Efectivo</Title>
                 </div>
 
-                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fffdfa' }}>
-                    <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
-                        <Text size="xs" c="dimmed">
-                            {montoUsuario > 0
-                                ? `Captura con qué billetes y monedas cuentas para cubrir los $${montoUsuario.toFixed(2)} de fondo inicial.`
-                                : 'Ingresa la cantidad de billetes y monedas con que abres caja (el monto inicial se calculará automáticamente).'}
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                    {/* ── Columna 1: Captura de Billetes de Inicio del Día ── */}
+                    <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fffdfa', borderColor: '#ffd8a8' }}>
+                        <Group justify="space-between" mb="xs">
+                            <Group gap="xs">
+                                <ThemeIcon size="sm" radius="md" variant="light" color="apex">
+                                    <IconCash size={14} />
+                                </ThemeIcon>
+                                <Text fw={700} size="sm" c="#FF6A00">
+                                    Billetes de inicio (Fondo del día)
+                                </Text>
+                            </Group>
+                            <Badge color="apex" variant="filled">
+                                Fondo: ${totalFondo.toFixed(2)}
+                            </Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" mb="md">
+                            Ingresa la cantidad física contada de cada denominación.
                         </Text>
-                        <Group gap="xs">
-                            {totalDesglose > 0 && (
+
+                        <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Denominación</Table.Th>
+                                    <Table.Th style={{ width: 100, textAlign: 'center' }}>Cantidad</Table.Th>
+                                    <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {DENOMINACIONES.map((d) => {
+                                    const cantStr = conteoInicio[d.valor] ?? '';
+                                    const cantNum = cantStr === '' ? 0 : Number(cantStr);
+                                    const subtotal = d.valor * cantNum;
+
+                                    return (
+                                        <Table.Tr key={d.valor}>
+                                            <Table.Td fw={600}>{d.label}</Table.Td>
+                                            <Table.Td style={{ padding: 4 }}>
+                                                <NumberInput
+                                                    size="xs"
+                                                    min={0}
+                                                    max={1000}
+                                                    clampBehavior="strict"
+                                                    allowDecimal={false}
+                                                    placeholder="0"
+                                                    value={cantStr}
+                                                    onChange={(v) => actualizarConteoInicio(d.valor, v)}
+                                                    styles={{ input: { textAlign: 'center' } }}
+                                                />
+                                            </Table.Td>
+                                            <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                                ${subtotal.toFixed(2)}
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    );
+                                })}
+                            </Table.Tbody>
+                        </Table>
+
+                        {/* Barra Total Fondo Inicial (exacta a Corte de Caja) */}
+                        <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
+                            <Group justify="space-between">
+                                <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
+                                <Text fw={800} size="sm" c="blue">${totalFondo.toFixed(2)}</Text>
+                            </Group>
+                        </Paper>
+                    </Paper>
+
+                    {/* ── Columna 2: Resumen y Desglose de Apertura ── */}
+                    <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
+                        <Group justify="space-between" mb="xs">
+                            <Group gap="xs">
+                                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                    <IconCoins size={14} />
+                                </ThemeIcon>
+                                <Text fw={700} size="sm" c="dimmed">
+                                    Resumen del Fondo
+                                </Text>
+                            </Group>
+                            {totalFondo > 0 && (
                                 <Button
                                     variant="subtle"
                                     color="gray"
                                     size="compact-xs"
-                                    onClick={limpiarDesglose}
+                                    onClick={limpiarConteo}
                                 >
-                                    Limpiar desglose
+                                    Limpiar conteo
                                 </Button>
                             )}
-                            <Badge
-                                color={
-                                    desgloseExcedeMonto
-                                        ? 'red'
-                                        : montoUsuario > 0 && totalDesglose === montoUsuario
-                                        ? 'green'
-                                        : 'apex'
-                                }
-                                variant="light"
-                                size="md"
-                            >
-                                Total Desglose: ${totalDesglose.toFixed(2)}
-                                {montoUsuario > 0 && ` / $${montoUsuario.toFixed(2)}`}
-                            </Badge>
                         </Group>
-                    </Group>
+                        <Text size="xs" c="dimmed" mb="md">
+                            Composición y balance físico del fondo inicial.
+                        </Text>
 
-                    {desgloseExcedeMonto && (
-                        <Alert
-                            icon={<IconAlertCircle size={15} />}
-                            title="Desglose excede el monto inicial"
-                            color="red"
-                            variant="light"
-                            radius="sm"
-                            p="xs"
-                            mb="xs"
-                        >
-                            <Text size="xs">
-                                El total de billetes y monedas (${totalDesglose.toFixed(2)}) supera el monto inicial (${montoUsuario.toFixed(2)}). Ajusta las cantidades o haz clic en "Limpiar desglose".
-                            </Text>
-                        </Alert>
-                    )}
+                        <Stack gap="sm">
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                                <Group justify="space-between" mb="xs">
+                                    <Text size="xs" c="dimmed">Total en Billetes:</Text>
+                                    <Text size="sm" fw={700}>${totalBilletes.toFixed(2)}</Text>
+                                </Group>
+                                <Divider my="xs" />
+                                <Group justify="space-between" mb="xs">
+                                    <Text size="xs" c="dimmed">Total en Monedas:</Text>
+                                    <Text size="sm" fw={700}>${totalMonedas.toFixed(2)}</Text>
+                                </Group>
+                                <Divider my="xs" />
+                                <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">Piezas físicas totales:</Text>
+                                    <Text size="sm" fw={700}>{totalPiezas} piezas</Text>
+                                </Group>
+                            </Paper>
 
-                    <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ width: 130, textAlign: 'center' }}>Cantidad</Table.Th>
-                                <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {DENOMINACIONES.map((d) => {
-                                const cantStr = conteoBilletes[d.valor] ?? '';
-                                const cantNum = cantStr === '' ? 0 : Number(cantStr);
-                                const subtotal = d.valor * cantNum;
-                                const maxPerm = maxCantidadPermitida(d.valor);
-                                const noPermiteMas = montoUsuario > 0 && maxPerm <= 0 && cantNum === 0;
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                                <Text size="xs" fw={700} c="dimmed" mb="xs" tt="uppercase">
+                                    Datos de la Sesión
+                                </Text>
+                                <Group justify="space-between" mb={4}>
+                                    <Text size="xs" c="dimmed">Caja asignada:</Text>
+                                    <Text size="xs" fw={600}>{nombreCajaSeleccionada || '—'}</Text>
+                                </Group>
+                                <Group justify="space-between" mb={4}>
+                                    <Text size="xs" c="dimmed">Cajero responsable:</Text>
+                                    <Text size="xs" fw={600}>{nombreEmpleadoSeleccionado || '—'}</Text>
+                                </Group>
+                                <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">Fecha programada:</Text>
+                                    <Text size="xs" fw={600}>{form.fechaApertura || obtenerFechaHoyLocal()}</Text>
+                                </Group>
+                            </Paper>
 
-                                return (
-                                    <Table.Tr
-                                        key={d.valor}
-                                        style={{
-                                            backgroundColor: subtotal > 0 ? '#fff9f4' : undefined,
-                                            opacity: noPermiteMas ? 0.6 : 1,
-                                        }}
-                                    >
-                                        <Table.Td fw={600}>
-                                            <Group gap={6} wrap="nowrap">
-                                                <span>{d.label}</span>
-                                                {montoUsuario > 0 && (
-                                                    <Badge
-                                                        size="xs"
-                                                        variant="subtle"
-                                                        color={maxPerm > 0 || cantNum > 0 ? 'gray' : 'red'}
-                                                        style={{ fontSize: 10 }}
-                                                    >
-                                                        Máx: {maxPerm}
-                                                    </Badge>
-                                                )}
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td style={{ padding: 4 }}>
-                                            <NumberInput
-                                                size="xs"
-                                                min={0}
-                                                max={montoUsuario > 0 ? maxPerm : 500}
-                                                clampBehavior="strict"
-                                                allowDecimal={false}
-                                                placeholder="0"
-                                                value={cantStr}
-                                                disabled={noPermiteMas}
-                                                onChange={(v) => actualizarDenominacion(d.valor, v)}
-                                                styles={{ input: { textAlign: 'center' } }}
-                                            />
-                                        </Table.Td>
-                                        <Table.Td style={{ textAlign: 'right', fontWeight: subtotal > 0 ? 700 : 400 }}>
-                                            ${subtotal.toFixed(2)}
-                                        </Table.Td>
-                                    </Table.Tr>
-                                );
-                            })}
-                        </Table.Tbody>
-                    </Table>
-                </Paper>
+                            <Paper p="sm" radius="md" mt="auto" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
+                                <Group justify="space-between" align="center">
+                                    <div>
+                                        <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
+                                        <Text size="10px" c="dimmed">Monto con el que abrirá la caja</Text>
+                                    </div>
+                                    <Text fw={800} size="lg" c="blue">${totalFondo.toFixed(2)}</Text>
+                                </Group>
+                            </Paper>
+                        </Stack>
+                    </Paper>
+                </SimpleGrid>
             </Box>
 
             {/* Banner de errores visibles */}
@@ -481,7 +473,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
     );
 }
 
-/* ─── Modal para ver el desglose inicial de la caja ────────────────────────── */
+/* ─── Modal para ver el desglose inicial de la caja (Idéntico a Corte de Caja) ─── */
 function ModalDetalleApertura({ apertura, opened, onClose }) {
     if (!apertura) return null;
 
@@ -496,96 +488,113 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
         desglose = null;
     }
 
-    const tieneDesglose = desglose && typeof desglose === 'object' && Object.values(desglose).some((v) => Number(v) > 0);
+    const fondoInicial = Number(apertura.montoInicial ?? 0);
 
     return (
         <Modal
             opened={opened}
             onClose={onClose}
+            size="lg"
+            radius="md"
             title={
                 <Group gap="xs">
-                    <ThemeIcon color="apex" variant="light" size="md">
-                        <IconCoins size={18} />
+                    <ThemeIcon size="md" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                        <IconCoins size={18} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={5}>
-                        Fondo Inicial y Desglose — #{apertura.id} ({apertura.caja?.nombre ?? 'Caja'})
-                    </Title>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>
+                            Fondo Inicial y Desglose — #{apertura.id} ({apertura.caja?.nombre ?? 'Caja'})
+                        </Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            Detalle físico de billetes y monedas con el que aperturó la caja
+                        </Text>
+                    </div>
                 </Group>
             }
-            size="md"
-            radius="md"
         >
-            <Stack gap="md">
+            <Stack gap="md" mt="xs">
+                {/* Info adicional idéntica a Corte de Caja */}
                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
-                    <SimpleGrid cols={2} spacing="xs">
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
                         <div>
-                            <Text size="xs" c="dimmed">Caja:</Text>
-                            <Text size="sm" fw={600}>{apertura.caja?.nombre ?? '—'}</Text>
+                            <Text size="xs" c="dimmed" fw={600}>Caja Asignada</Text>
+                            <Text fw={600} size="sm">{apertura.caja?.nombre ?? '—'}</Text>
                         </div>
                         <div>
-                            <Text size="xs" c="dimmed">Empleado responsable:</Text>
-                            <Text size="sm" fw={600}>
+                            <Text size="xs" c="dimmed" fw={600}>Cajero Responsable</Text>
+                            <Text fw={600} size="sm">
                                 {apertura.empleado ? `${apertura.empleado.nombre} ${apertura.empleado.apellidoPaterno}` : '—'}
                             </Text>
                         </div>
                         <div>
-                            <Text size="xs" c="dimmed">Fecha de apertura:</Text>
-                            <Text size="sm" fw={600}>{formatearFechaHora(apertura.fechaApertura)}</Text>
-                        </div>
-                        <div>
-                            <Text size="xs" c="dimmed">Monto Inicial:</Text>
-                            <Text size="md" fw={700} c="apex">
-                                ${Number(apertura.montoInicial ?? 0).toFixed(2)}
+                            <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Apertura</Text>
+                            <Text fw={600} size="sm">
+                                {formatearFechaHora(apertura.fechaApertura)}
                             </Text>
                         </div>
                     </SimpleGrid>
                 </Paper>
 
-                {tieneDesglose ? (
-                    <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                {/* Card de Billetes de Inicio del Día (Exactamente idéntica a Corte de Caja) */}
+                <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
+                    <Group justify="space-between" mb="xs">
+                        <Group gap="xs">
+                            <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                                <IconCash size={14} />
+                            </ThemeIcon>
+                            <Text fw={700} size="sm" c="dimmed">
+                                Billetes de inicio (Fondo del día)
+                            </Text>
+                        </Group>
+                        <Badge color="blue" variant="light">
+                            Fondo: ${fondoInicial.toFixed(2)}
+                        </Badge>
+                    </Group>
+                    <Text size="xs" c="dimmed" mb="md">
+                        Desglose con el que se aperturó la caja física.
+                    </Text>
+
+                    <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
                         <Table.Thead>
                             <Table.Tr>
                                 <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ textAlign: 'center', width: 90 }}>Cantidad</Table.Th>
+                                <Table.Th style={{ textAlign: 'center' }}>Cantidad</Table.Th>
                                 <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
                             {DENOMINACIONES.map((d) => {
-                                const cant = Number(desglose[d.valor] ?? 0);
-                                if (cant <= 0) return null;
-                                const sub = d.valor * cant;
+                                const cant = desglose ? Number(desglose[d.valor] ?? 0) : 0;
                                 return (
                                     <Table.Tr key={d.valor}>
                                         <Table.Td fw={600}>{d.label}</Table.Td>
-                                        <Table.Td style={{ textAlign: 'center' }}>
-                                            <Badge variant="light" color="gray" size="sm">
-                                                {cant}
-                                            </Badge>
-                                        </Table.Td>
-                                        <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
-                                            ${sub.toFixed(2)}
+                                        <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                        <Table.Td style={{ textAlign: 'right' }}>
+                                            ${(d.valor * cant).toFixed(2)}
                                         </Table.Td>
                                     </Table.Tr>
                                 );
                             })}
                         </Table.Tbody>
                     </Table>
-                ) : (
-                    <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light" radius="md">
-                        Esta sesión de caja se abrió con un monto inicial registrado de <b>${Number(apertura.montoInicial ?? 0).toFixed(2)}</b> sin desglose detallado de billetes.
-                    </Alert>
-                )}
+
+                    <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd' }}>
+                        <Group justify="space-between">
+                            <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
+                            <Text fw={800} size="sm" c="blue">${fondoInicial.toFixed(2)}</Text>
+                        </Group>
+                    </Paper>
+                </Paper>
 
                 {apertura.observaciones && (
-                    <div>
-                        <Text size="xs" c="dimmed">Observaciones:</Text>
+                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
+                        <Text size="xs" c="dimmed" fw={600}>Observaciones:</Text>
                         <Text size="sm">{apertura.observaciones}</Text>
-                    </div>
+                    </Paper>
                 )}
 
                 <Group justify="flex-end" mt="xs">
-                    <Button variant="default" onClick={onClose} size="sm">
+                    <Button variant="default" onClick={onClose} size="sm" radius="md">
                         Cerrar
                     </Button>
                 </Group>
@@ -630,7 +639,7 @@ export function AperturaCaja() {
         return {
             cajaId:         record.caja?.id     ? String(record.caja.id)     : String(record.cajaId     ?? ''),
             empleadoId:     record.empleado?.id ? String(record.empleado.id) : String(record.empleadoId ?? ''),
-            montoInicial:   record.montoInicial ?? '',
+            montoInicial:   record.montoInicial ?? 0,
             fechaApertura:  fechaForm,
             desgloseInicio: desglose,
             observaciones:  record.observaciones ?? '',
@@ -652,7 +661,7 @@ export function AperturaCaja() {
         return {
             cajaId:         Number(form.cajaId),
             empleadoId:     Number(form.empleadoId),
-            montoInicial:   Number(form.montoInicial),
+            montoInicial:   Number(form.montoInicial || 0),
             fechaApertura:  form.fechaApertura || obtenerFechaHoyLocal(),
             desgloseInicio: desgloseClean,
             observaciones:  form.observaciones || null,
@@ -684,8 +693,8 @@ export function AperturaCaja() {
         const errors = {};
         if (!form.cajaId) errors.cajaId = 'Selecciona una caja';
         if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
-        if (form.montoInicial === '' || Number(form.montoInicial) < 0) {
-            errors.montoInicial = 'El monto inicial no puede ser negativo';
+        if (form.montoInicial === undefined || form.montoInicial === null || Number(form.montoInicial) < 0) {
+            errors.montoInicial = 'El monto inicial debe ser mayor o igual a 0';
         }
         if (Number(form.montoInicial) > 200000) {
             errors.montoInicial = 'El monto inicial no puede exceder $200,000.00';
@@ -693,19 +702,6 @@ export function AperturaCaja() {
         if (!form.fechaApertura) errors.fechaApertura = 'La fecha de apertura es requerida';
         if (form.observaciones?.trim().length > 500) {
             errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
-        }
-
-        // Validar que el desglose no supere el monto inicial si ambos están presentes
-        if (form.desgloseInicio && typeof form.desgloseInicio === 'object' && Number(form.montoInicial) > 0) {
-            let totalDesglose = 0;
-            for (const d of DENOMINACIONES) {
-                const c = form.desgloseInicio[d.valor] === '' || form.desgloseInicio[d.valor] == null ? 0 : Number(form.desgloseInicio[d.valor]);
-                totalDesglose += d.valor * c;
-            }
-            totalDesglose = Math.round(totalDesglose * 100) / 100;
-            if (totalDesglose > Number(form.montoInicial)) {
-                errors.montoInicial = `El total de billetes y monedas ($${totalDesglose.toFixed(2)}) no puede superar el monto inicial ($${Number(form.montoInicial).toFixed(2)})`;
-            }
         }
 
         return errors;
@@ -790,8 +786,8 @@ export function AperturaCaja() {
                             : 'Editar apertura de caja');
 
                     // Reglas de Eliminación / Cancelación:
-                    // - Si está cerrada: no puede eliminarse ("una vez cerrada es imposible eliminarse").
-                    // - Si está abierta: solo puede cancelarse ("solo puede cancelarse, no eliminarse").
+                    // - Si está cerrada: no puede eliminarse.
+                    // - Si está abierta: solo puede cancelarse.
                     const puedeCancelar = esAbierta;
                     const tooltipEliminacion = esCerrada
                         ? 'No pueden eliminarse, una vez cerrada la caja es imposible eliminarla'
@@ -803,11 +799,11 @@ export function AperturaCaja() {
                                 <ActionIcon
                                     variant="light"
                                     size="lg"
-                                    color="apex"
+                                    color="blue"
                                     aria-label="Ver desglose inicial"
                                     onClick={() => setAperturaDetalle(apertura)}
                                 >
-                                    <IconCoins size={18} stroke={1.8} />
+                                    <IconEye size={18} stroke={1.8} />
                                 </ActionIcon>
                             </Tooltip>
 
