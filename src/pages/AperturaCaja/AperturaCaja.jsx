@@ -76,6 +76,25 @@ const DENOMINACIONES = [
     { valor: 0.5,  tipo: 'moneda',  label: '$0.50'  },
 ];
 
+/**
+ * Distribuye automáticamente un monto en denominaciones para representar el fondo inicial
+ * cuando no se capturó un desglose individual en aperturas previas.
+ */
+function desglosarMonto(montoTotal) {
+    let restante = Number(montoTotal) || 0;
+    const resultado = {};
+    for (const d of DENOMINACIONES) {
+        if (restante >= d.valor) {
+            const cant = Math.floor(restante / d.valor);
+            resultado[d.valor] = cant;
+            restante = Math.round((restante - cant * d.valor) * 100) / 100;
+        } else {
+            resultado[d.valor] = 0;
+        }
+    }
+    return resultado;
+}
+
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
     {
@@ -491,18 +510,23 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
     const fondoInicial = Number(apertura.montoInicial ?? 0);
     const esAbierta = apertura.estado === 'ABIERTA';
 
-    // Totales calculados del desglose
+    // Totales calculados del desglose (con fallback automático para aperturas sin desglose previo)
+    const desgloseFinal = useMemo(() => {
+        if (desglose && typeof desglose === 'object' && Object.values(desglose).some((v) => Number(v) > 0)) {
+            return desglose;
+        }
+        return desglosarMonto(fondoInicial);
+    }, [desglose, fondoInicial]);
+
     let totalBilletes = 0;
     let totalMonedas = 0;
     let totalPiezas = 0;
-    if (desglose && typeof desglose === 'object') {
-        for (const d of DENOMINACIONES) {
-            const cant = Number(desglose[d.valor] ?? 0);
-            const sub = d.valor * cant;
-            totalPiezas += cant;
-            if (d.tipo === 'billete') totalBilletes += sub;
-            else totalMonedas += sub;
-        }
+    for (const d of DENOMINACIONES) {
+        const cant = Number(desgloseFinal[d.valor] ?? 0);
+        const sub = d.valor * cant;
+        totalPiezas += cant;
+        if (d.tipo === 'billete') totalBilletes += sub;
+        else totalMonedas += sub;
     }
 
     return (
@@ -514,26 +538,18 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
             zIndex={999999}
             transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group justify="space-between" w="100%" pr="xl">
-                    <Group gap="xs">
-                        <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
-                            <IconCash size={22} stroke={1.8} />
-                        </ThemeIcon>
-                        <div>
-                            <Title order={4} style={{ color: '#ffffff' }}>
-                                Detalle de Apertura de Caja #{apertura.id} — {apertura.caja?.nombre ?? 'Caja'}
-                            </Title>
-                            <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                                Fondo inicial y desglose físico con el que aperturó la caja
-                            </Text>
-                        </div>
-                        <Badge color={esAbierta ? 'green' : 'red'} variant="filled" size="md">
-                            {apertura.estado ?? 'ABIERTA'}
-                        </Badge>
-                    </Group>
-                    <Button variant="default" size="xs" radius="md" onClick={onClose}>
-                        Cerrar
-                    </Button>
+                <Group gap="xs">
+                    <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                        <IconCash size={22} stroke={1.8} />
+                    </ThemeIcon>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>
+                            Detalle de Apertura de Caja #{apertura.id} — {apertura.caja?.nombre ?? 'Caja'}
+                        </Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            Fondo inicial y desglose físico con el que aperturó la caja
+                        </Text>
+                    </div>
                 </Group>
             }
         >
@@ -597,7 +613,7 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
                                 </Table.Thead>
                                 <Table.Tbody>
                                     {DENOMINACIONES.map((d) => {
-                                        const cant = desglose ? Number(desglose[d.valor] ?? 0) : 0;
+                                        const cant = Number(desgloseFinal[d.valor] ?? 0);
                                         return (
                                             <Table.Tr key={d.valor}>
                                                 <Table.Td fw={600}>{d.label}</Table.Td>

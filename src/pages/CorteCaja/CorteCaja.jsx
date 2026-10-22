@@ -439,32 +439,14 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
             zIndex={999999}
             transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group justify="space-between" w="100%" pr="xl">
-                    <Group gap="xs">
-                        <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
-                            <IconReportAnalytics size={22} stroke={1.8} />
-                        </ThemeIcon>
-                        <div>
-                            <Title order={4} style={{ color: '#ffffff' }}>Auditoría de Corte de Caja #{corte.id}</Title>
-                            <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Detalle completo de arqueo y movimientos</Text>
-                        </div>
-                        <Badge color={esValidado ? 'green' : 'yellow'} variant="filled" size="md">
-                            {corte.estado ?? 'PENDIENTE'}
-                        </Badge>
-                    </Group>
-                    {!esValidado && (
-                        <Button
-                            color="green"
-                            size="xs"
-                            leftSection={<IconShieldCheck size={16} />}
-                            onClick={() => {
-                                onValidar(corte);
-                                onClose();
-                            }}
-                        >
-                            Validar Corte
-                        </Button>
-                    )}
+                <Group gap="xs">
+                    <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                        <IconReportAnalytics size={22} stroke={1.8} />
+                    </ThemeIcon>
+                    <div>
+                        <Title order={4} style={{ color: '#ffffff' }}>Auditoría de Corte de Caja #{corte.id}</Title>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Detalle completo de arqueo y movimientos</Text>
+                    </div>
                 </Group>
             }
         >
