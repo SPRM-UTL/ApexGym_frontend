@@ -313,7 +313,7 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
                                                         {m.empleado ? `${m.empleado.nombre} ${m.empleado.apellidoPaterno}` : '—'}
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                        {(m.createdAt || m.created_at) ? new Date(m.createdAt || m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                     </Table.Td>
                                                     <Table.Td style={{ textAlign: 'right' }}>
                                                         <Text fw={700} c="green">+${Number(m.monto).toFixed(2)}</Text>
@@ -364,7 +364,7 @@ function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
                                                         {m.empleado ? `${m.empleado.nombre} ${m.empleado.apellidoPaterno}` : '—'}
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                        {(m.createdAt || m.created_at) ? new Date(m.createdAt || m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                     </Table.Td>
                                                     <Table.Td style={{ textAlign: 'right' }}>
                                                         <Text fw={700} c="red">-${Number(m.monto).toFixed(2)}</Text>
@@ -576,7 +576,7 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
                                             <Table.Td>{m.concepto}</Table.Td>
                                             <Table.Td fw={700}>${Number(m.monto).toFixed(2)}</Table.Td>
                                             <Table.Td>
-                                                {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                {(m.createdAt || m.created_at) ? new Date(m.createdAt || m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
                                             </Table.Td>
                                         </Table.Tr>
                                     ))
