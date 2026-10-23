@@ -68,6 +68,36 @@
   color: var(--ag-color-floating);
 }
 
+.thNeutral {
+  padding: 0;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.thLabelNeutral {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.controlNeutral {
+  width: 100%;
+  padding: 12px var(--mantine-spacing-md);
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background-color: #F1F5F9;
+  }
+}
+
+.iconNeutral {
+  width: 18px;
+  height: 18px;
+  color: #64748B;
+}
+
 /* Fila de filtros por columna */
 .filterRow {
   background: var(--ag-color-surface);

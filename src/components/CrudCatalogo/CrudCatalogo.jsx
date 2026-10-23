@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications';
 import {
     Avatar,
     Button,
+    Drawer,
     FileInput,
     Group,
     Modal,
@@ -11,11 +12,12 @@ import {
     SimpleGrid,
     Stack,
     Switch,
+    Text,
     Textarea,
     TextInput,
     Title,
 } from '@mantine/core';
-import { IconUpload } from '@tabler/icons-react';
+import { IconPlus, IconUpload } from '@tabler/icons-react';
 import { DropzoneImagen } from '../DropzoneImagen/DropzoneImagen.jsx';
 import { ModalConfirmacion } from '../ModalConfirmacion/ModalConfirmacion.jsx';
 import { TablaRegistros } from '../TablaRegistros/TablaRegistros.jsx';
@@ -134,6 +136,12 @@ export function CrudCatalogo({
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
+    modalFullScreen = true,
+    modalSize = 'lg',
+    formMode = 'modal',
+    drawerSize = 640,
+    headerVariant = 'classic',
+    tableHeaderVariant = 'classic',
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -278,61 +286,197 @@ export function CrudCatalogo({
                 onConfirm={confirmDelete}
                 loading={deleting}
                 title="Confirmar eliminación"
-                message={`¿Deseas eliminar el registro de ${pendingDelete?.nombre ?? pendingDelete?.clave ?? singular.toLowerCase()}? Esta acción no se puede deshacer.`}
+                message={`¿Deseas eliminar el registro de ${pendingDelete?.nombreTexto ?? (typeof pendingDelete?.nombre === 'string' ? pendingDelete.nombre : null) ?? pendingDelete?.clave ?? singular.toLowerCase()}? Esta acción no se puede deshacer.`}
             />
 
-            <Modal
-                opened={modalOpen}
-                onClose={() => !loading && setModalOpen(false)}
-                title={
-                    <Group gap="sm">
-                        {IconoHeader && <IconoHeader size={22} stroke={1.8} />}
-                        <Title order={4} className={classes.modalTitle}>
-                            {editingId ? `Editar ${singular.toLowerCase()}` : `Agregar ${singular.toLowerCase()}`}
-                        </Title>
-                    </Group>
-                }
-                fullScreen
-                radius={0}
-                zIndex={999999}
-                transitionProps={{ transition: 'slide-up', duration: 200 }}
-            >
-                <Stack maw={renderForm ? 1200 : formLayout === 'columns' ? 980 : 780} mx="auto" mt="md" gap="md" className={classes.form}>
-                    {renderForm ? (
-                        renderForm({ form, errors, onChange: updateField, fieldOptions })
-                    ) : formLayout === 'columns' ? (
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
-                            <Stack gap="xs">
-                                {leftFields.map((campo) => (
-                                    <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
-                                ))}
-                            </Stack>
-                            <Stack gap="xs">
-                                {rightFields.map((campo) => (
+            {formMode === 'drawer' ? (
+                <Drawer
+                    opened={modalOpen}
+                    onClose={() => !loading && setModalOpen(false)}
+                    position="right"
+                    size={drawerSize}
+                    title={
+                        <Group gap="sm">
+                            {IconoHeader && <IconoHeader size={22} stroke={1.8} color="var(--ag-color-primary)" />}
+                            <div>
+                                <Title order={4} fw={700} c="#1E293B">
+                                    {editingId ? `Editar ${singular.toLowerCase()}` : `Nuevo ${singular.toLowerCase()}`}
+                                </Title>
+                                <Text size="xs" c="dimmed">
+                                    {editingId
+                                        ? `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
+                                        : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
+                                </Text>
+                            </div>
+                        </Group>
+                    }
+                    overlayProps={{ backgroundOpacity: 0.35, blur: 2 }}
+                    zIndex={999999}
+                    styles={{
+                        content: {
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflowY: 'auto',
+                        },
+                        header: {
+                            borderBottom: '1px solid #E2E8F0',
+                            paddingBottom: 16,
+                            marginBottom: 0,
+                        },
+                        body: {
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            padding: '20px 24px 0 24px',
+                        },
+                    }}
+                >
+                    <div style={{ flex: 1, paddingBottom: 20 }}>
+                        {renderForm ? (
+                            renderForm({ form, errors, onChange: updateField, fieldOptions })
+                        ) : formLayout === 'columns' ? (
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
+                                <Stack gap="xs">
+                                    {leftFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                </Stack>
+                                <Stack gap="xs">
+                                    {rightFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                    {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                                </Stack>
+                            </SimpleGrid>
+                        ) : (
+                            <Stack gap="md">
+                                {campos.map((campo) => (
                                     <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
                                 ))}
                                 {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
                             </Stack>
-                        </SimpleGrid>
-                    ) : (
-                        <Stack gap="md">
-                            {campos.map((campo) => (
-                                <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
-                            ))}
-                            {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
-                        </Stack>
-                    )}
-                    <Group grow mt="sm">
-                        <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading}>Cancelar</Button>
-                        <Button onClick={save} loading={loading}>{editingId ? 'Actualizar' : 'Guardar'}</Button>
+                        )}
+                    </div>
+                    <Group
+                        justify="flex-end"
+                        gap="sm"
+                        py="md"
+                        style={{
+                            borderTop: '1px solid #E2E8F0',
+                            backgroundColor: 'var(--ag-color-surface-elevated, #ffffff)',
+                            position: 'sticky',
+                            bottom: 0,
+                            zIndex: 10,
+                            marginTop: 'auto',
+                        }}
+                    >
+                        <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading} radius="md">
+                            Cancelar
+                        </Button>
+                        <Button
+                            color="apex"
+                            onClick={save}
+                            loading={loading}
+                            radius="md"
+                            className={classes.addButtonUnified}
+                            styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
+                        >
+                            {editingId ? 'Actualizar' : 'Guardar'}
+                        </Button>
                     </Group>
-                </Stack>
-            </Modal>
+                </Drawer>
+            ) : (
+                <Modal
+                    opened={modalOpen}
+                    onClose={() => !loading && setModalOpen(false)}
+                    title={
+                        <Group gap="sm">
+                            {IconoHeader && <IconoHeader size={22} stroke={1.8} />}
+                            <Title order={4} className={classes.modalTitle}>
+                                {editingId ? `Editar ${singular.toLowerCase()}` : `Agregar ${singular.toLowerCase()}`}
+                            </Title>
+                        </Group>
+                    }
+                    fullScreen={modalFullScreen}
+                    size={modalFullScreen ? undefined : modalSize}
+                    centered={!modalFullScreen}
+                    radius={modalFullScreen ? 0 : 'md'}
+                    zIndex={999999}
+                    transitionProps={{ transition: 'slide-up', duration: 200 }}
+                >
+                    <Stack maw={modalFullScreen ? (renderForm ? 1200 : formLayout === 'columns' ? 980 : 780) : '100%'} mx="auto" mt={modalFullScreen ? 'md' : 'xs'} gap="md" className={classes.form}>
+                        {renderForm ? (
+                            renderForm({ form, errors, onChange: updateField, fieldOptions })
+                        ) : formLayout === 'columns' ? (
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
+                                <Stack gap="xs">
+                                    {leftFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                </Stack>
+                                <Stack gap="xs">
+                                    {rightFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                    {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                                </Stack>
+                            </SimpleGrid>
+                        ) : (
+                            <Stack gap="md">
+                                {campos.map((campo) => (
+                                    <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                ))}
+                                {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                            </Stack>
+                        )}
+                        <Group grow mt="sm">
+                            <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading}>Cancelar</Button>
+                            <Button onClick={save} loading={loading}>{editingId ? 'Actualizar' : 'Guardar'}</Button>
+                        </Group>
+                    </Stack>
+                </Modal>
+            )}
 
             <div className={classes.layout}>
-                <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
+                {headerVariant === 'unified' ? (
+                    <div className={classes.unifiedHeader}>
+                        <Title order={2} className={classes.unifiedTitle}>
+                            {titulo}
+                        </Title>
+                        <Button
+                            className={classes.addButtonUnified}
+                            onClick={openCreate}
+                            aria-label={`Agregar ${singular.toLowerCase()}`}
+                            leftSection={<IconPlus size={18} stroke={2.2} />}
+                            size="md"
+                            radius="md"
+                        >
+                            Agregar
+                        </Button>
+                    </div>
+                ) : (
+                    <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
+                )}
                 {error && <div className={classes.error}>{error}</div>}
-                {loading && records.length === 0 ? <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div> : <TablaRegistros data={tableData} columns={columnas} onEditar={openEdit} onEliminar={setPendingDelete} renderAcciones={renderAccionesFila} entityLabel={singular.toLowerCase()} loading={loading} onReload={() => { fetchData(); fetchOptions(); }} />}</div>
+                {loading && records.length === 0 ? (
+                    <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
+                ) : (
+                    <TablaRegistros
+                        data={tableData}
+                        columns={columnas}
+                        onEditar={permitirEditar ? openEdit : undefined}
+                        onEliminar={permitirEliminar ? setPendingDelete : undefined}
+                        renderAcciones={renderAccionesFila ? (fila) => renderAccionesFila(fila, { openEdit, setPendingDelete }) : undefined}
+                        entityLabel={singular.toLowerCase()}
+                        loading={loading}
+                        onReload={() => {
+                            fetchData();
+                            fetchOptions();
+                        }}
+                        headerVariant={tableHeaderVariant}
+                    />
+                )}
+            </div>
         </>
     );
 }

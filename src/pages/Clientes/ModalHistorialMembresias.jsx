@@ -143,7 +143,7 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
         if (e.includes('vigente')) return 'green';
         if (e.includes('vencida')) return 'orange';
         if (e.includes('cancelada')) return 'red';
-        return 'blue';
+        return 'gray';
     };
 
     const membresiaActiva = historial.find((m) => m.estadoMembresia?.nombre === 'Vigente');
@@ -154,26 +154,43 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                 opened={opened}
                 onClose={onClose}
                 title={
-                    <Group gap="sm" c="white">
-                        <IconHistory size={22} stroke={1.8} />
-                        <Title order={4} c="white">
-                            Historial de Membresías de {cliente?.nombre} {cliente?.apellidoPaterno ?? ''}
+                    <Group gap="sm">
+                        <div
+                            style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 8,
+                                backgroundColor: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--ag-color-primary)',
+                            }}
+                        >
+                            <IconHistory size={20} stroke={1.8} />
+                        </div>
+                        <Title order={4} fw={700} style={{ color: '#ffffff' }}>
+                            Historial de Membresías
                         </Title>
                     </Group>
                 }
                 fullScreen
                 radius={0}
+                padding="xl"
                 zIndex={999999}
                 transitionProps={{ transition: 'slide-up', duration: 200 }}
-                styles={{
-                    header: { backgroundColor: '#1B1F3A' },
-                    close: {
-                        color: 'white',
-                        '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-                    }
-                }}
             >
-                <Stack maw={1360} mx="auto" my="lg" gap="lg" px={{ base: 'xs', sm: 'md' }}>
+                <Stack maw={1440} mx="auto" gap="md" mt="sm">
+                    <Group gap={8} align="center" px={4}>
+                        <IconUser size={18} stroke={1.8} color="var(--ag-color-primary)" />
+                        <Text size="sm" c="dimmed" fw={500}>
+                            Cliente:
+                        </Text>
+                        <Text size="sm" fw={700} c="#1E293B">
+                            {cliente?.nombreCompleto ?? `${cliente?.nombre ?? ''} ${cliente?.apellidoPaterno ?? ''}`.trim()}
+                        </Text>
+                    </Group>
+
                     <Paper
                         withBorder
                         radius="md"
@@ -184,28 +201,28 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                         }}
                     >
                         <div style={{ overflowX: 'auto' }}>
-                            <Table verticalSpacing="md" horizontalSpacing="lg" highlightOnHover>
-                                <Table.Thead style={{ backgroundColor: '#1B1F3A' }}>
+                            <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover>
+                                <Table.Thead style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                                     <Table.Tr>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                                             PLAN / MEMBRESÍA
                                         </Table.Th>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                                             FECHA DE INICIO
                                         </Table.Th>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                                             FECHA DE FIN
                                         </Table.Th>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                                             PRECIO
                                         </Table.Th>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                                             RENOVACIÓN
                                         </Table.Th>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                                             ESTADO
                                         </Table.Th>
-                                        <Table.Th style={{ color: '#ffffff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textAlign: 'center' }}>
+                                        <Table.Th style={{ color: '#475569', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase', textAlign: 'center' }}>
                                             ACCIONES
                                         </Table.Th>
                                     </Table.Tr>
@@ -224,39 +241,28 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                                         historial.map((item) => (
                                             <Table.Tr key={item.id}>
                                                 <Table.Td>
-                                                    <Group gap="sm" wrap="nowrap">
-                                                        <ThemeIcon size="md" radius="md" variant="light" color="indigo">
-                                                            <IconCertificate size={16} stroke={1.8} />
-                                                        </ThemeIcon>
-                                                        <div>
-                                                            <Text fw={600} size="sm">
-                                                                {item.tipoMembresia?.nombre ?? '—'}
+                                                    <div>
+                                                        <Text fw={600} size="sm" c="dark.7">
+                                                            {item.tipoMembresia?.nombre ?? '—'}
+                                                        </Text>
+                                                        {item.tipoMembresia?.duracionDias && (
+                                                            <Text size="xs" c="dimmed">
+                                                                Duración: {item.tipoMembresia.duracionDias} días
                                                             </Text>
-                                                            {item.tipoMembresia?.duracionDias && (
-                                                                <Text size="xs" c="dimmed">
-                                                                    Duración: {item.tipoMembresia.duracionDias} días
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                    </Group>
+                                                        )}
+                                                    </div>
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    <Group gap={6} wrap="nowrap">
-                                                        <IconCalendar size={14} color="var(--mantine-color-dimmed)" />
-                                                        <Text size="sm" fw={500}>
-                                                            {formatearFecha(item.fechaInicio)}
-                                                        </Text>
-                                                    </Group>
+                                                    <Text size="sm" fw={500}>
+                                                        {formatearFecha(item.fechaInicio)}
+                                                    </Text>
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    <Group gap={6} wrap="nowrap">
-                                                        <IconCalendar size={14} color="var(--mantine-color-dimmed)" />
-                                                        <Text size="sm" fw={500}>
-                                                            {formatearFecha(item.fechaFin)}
-                                                        </Text>
-                                                    </Group>
+                                                    <Text size="sm" fw={500}>
+                                                        {formatearFecha(item.fechaFin)}
+                                                    </Text>
                                                 </Table.Td>
 
                                                 <Table.Td>
@@ -267,50 +273,64 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
 
                                                 <Table.Td>
                                                     <Badge
-                                                        variant="dot"
-                                                        size="md"
-                                                        color={item.renovacionAutomatica ? 'teal' : 'gray'}
+                                                        variant="light"
+                                                        size="sm"
+                                                        radius="sm"
+                                                        fw={700}
+                                                        color={item.renovacionAutomatica ? 'green' : 'gray'}
                                                     >
-                                                        {item.renovacionAutomatica ? 'Automática' : 'Manual'}
+                                                        {item.renovacionAutomatica ? 'AUTOMÁTICA' : 'MANUAL'}
                                                     </Badge>
                                                 </Table.Td>
 
                                                 <Table.Td>
                                                     <Badge
                                                         color={badgeColor(item.estadoMembresia?.nombre)}
-                                                        size="md"
+                                                        size="sm"
                                                         radius="sm"
                                                         variant="light"
                                                         fw={700}
                                                     >
-                                                        {item.estadoMembresia?.nombre ?? 'Desconocido'}
+                                                        {item.estadoMembresia?.nombre?.toUpperCase() ?? 'DESCONOCIDO'}
                                                     </Badge>
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    <Group gap={8} justify="center" wrap="nowrap">
+                                                    <Group gap={6} justify="center" wrap="nowrap">
                                                         {item.estadoMembresia?.nombre === 'Vigente' && (
-                                                            <Tooltip label="Cancelar Membresía" withArrow openDelay={200}>
+                                                            <Tooltip
+                                                                label="Cancelar membresía"
+                                                                withArrow
+                                                                openDelay={150}
+                                                                zIndex={1000010}
+                                                            >
                                                                 <ActionIcon
                                                                     variant="light"
                                                                     color="red"
-                                                                    size="lg"
+                                                                    size="md"
                                                                     radius="md"
+                                                                    aria-label="Cancelar membresía"
                                                                     onClick={() => abrirConfirmacion('cancelar', item)}
                                                                 >
-                                                                    <IconCircleX size={20} stroke={1.8} />
+                                                                    <IconCircleX size={18} stroke={1.8} />
                                                                 </ActionIcon>
                                                             </Tooltip>
                                                         )}
-                                                        <Tooltip label="Renovar Plan" withArrow openDelay={200}>
+                                                        <Tooltip
+                                                            label="Renovar membresía"
+                                                            withArrow
+                                                            openDelay={150}
+                                                            zIndex={1000010}
+                                                        >
                                                             <ActionIcon
                                                                 variant="light"
                                                                 color="blue"
-                                                                size="lg"
+                                                                size="md"
                                                                 radius="md"
+                                                                aria-label="Renovar membresía"
                                                                 onClick={() => abrirConfirmacion('renovar', item)}
                                                             >
-                                                                <IconRotateClockwise size={20} stroke={1.8} />
+                                                                <IconRotateClockwise size={18} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     </Group>
@@ -351,21 +371,35 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                 opened={confirmacion.opened}
                 onClose={cerrarConfirmacion}
                 title={
-                    <Title order={5} c="white">
-                        {confirmacion.tipo === 'cancelar'
-                            ? 'Confirmar Cancelación de Membresía'
-                            : 'Confirmar Renovación de Membresía'}
-                    </Title>
+                    <Group gap="sm">
+                        <div
+                            style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 8,
+                                backgroundColor: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--ag-color-primary)',
+                            }}
+                        >
+                            {confirmacion.tipo === 'cancelar' ? (
+                                <IconCircleX size={19} stroke={1.8} />
+                            ) : (
+                                <IconRotateClockwise size={19} stroke={1.8} />
+                            )}
+                        </div>
+                        <Title order={5} fw={700} style={{ color: '#ffffff' }}>
+                            {confirmacion.tipo === 'cancelar'
+                                ? 'Confirmar Cancelación de Membresía'
+                                : 'Confirmar Renovación de Membresía'}
+                        </Title>
+                    </Group>
                 }
-                styles={{
-                    header: { backgroundColor: '#1B1F3A' },
-                    close: {
-                        color: 'white',
-                        '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-                    }
-                }}
+                overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
                 centered
-                size={520}
+                size={500}
                 padding="lg"
                 radius="md"
                 zIndex={1000005}
@@ -373,44 +407,35 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                 closeOnEscape={!procesando}
             >
                 <Stack gap="md" mt="xs">
-                    <Text size="sm" c="dimmed">
-                        {confirmacion.tipo === 'cancelar' ? (
-                            <>
-                                ¿Estás seguro de que deseas cancelar la membresía{' '}
-                                <Text span fw={700} c="dark.7">
-                                    {confirmacion.item?.tipoMembresia?.nombre}
-                                </Text>{' '}
-                                del cliente{' '}
-                                <Text span fw={700} c="dark.7">
-                                    {cliente?.nombre}
-                                </Text>
-                                ? Esta acción no se puede deshacer y el cliente perderá su vigencia activa.
-                            </>
-                        ) : (
-                            <>
-                                ¿Deseas renovar el plan{' '}
-                                <Text span fw={700} c="dark.7">
-                                    {confirmacion.item?.tipoMembresia?.nombre}
-                                </Text>{' '}
-                                para{' '}
-                                <Text span fw={700} c="dark.7">
-                                    {cliente?.nombre}
-                                </Text>
-                                ? Se creará un nuevo periodo consecutivo de vigencia.
-                            </>
-                        )}
-                    </Text>
-
                     {confirmacion.item && (
-                        <Paper withBorder p="sm" radius="md" style={{ backgroundColor: '#f8f9fa' }}>
-                            <Group justify="space-between">
+                        <Paper
+                            withBorder
+                            p="md"
+                            radius="md"
+                            style={{
+                                backgroundColor: '#F8FAFC',
+                                borderColor: '#E2E8F0',
+                            }}
+                        >
+                            <Group justify="space-between" align="center">
                                 <div>
-                                    <Text size="xs" c="dimmed">Plan a {confirmacion.tipo === 'cancelar' ? 'cancelar' : 'renovar'}:</Text>
-                                    <Text size="sm" fw={600}>{confirmacion.item?.tipoMembresia?.nombre}</Text>
+                                    <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.04em">
+                                        Plan seleccionado
+                                    </Text>
+                                    <Text size="md" fw={700} c="#1E293B">
+                                        {confirmacion.item?.tipoMembresia?.nombre ?? '—'}
+                                    </Text>
+                                    {confirmacion.item?.tipoMembresia?.duracionDias && (
+                                        <Text size="xs" c="dimmed" fw={500} mt={2}>
+                                            Duración: {confirmacion.item.tipoMembresia.duracionDias} días
+                                        </Text>
+                                    )}
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <Text size="xs" c="dimmed">Precio:</Text>
-                                    <Text size="sm" fw={700} c="teal.7">
+                                    <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.04em">
+                                        Monto del plan
+                                    </Text>
+                                    <Text size="md" fw={700} c="green.7">
                                         ${Number(confirmacion.item?.tipoMembresia?.precio ?? 0).toFixed(2)} MXN
                                     </Text>
                                 </div>
@@ -418,11 +443,25 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                         </Paper>
                     )}
 
-                    <Divider mt="xs" />
+                    <Box
+                        p="sm"
+                        style={{
+                            borderRadius: 8,
+                            backgroundColor: confirmacion.tipo === 'cancelar' ? '#FFF5F5' : '#F0FDF4',
+                            border: `1px solid ${confirmacion.tipo === 'cancelar' ? '#FECACA' : '#BBF7D0'}`,
+                        }}
+                    >
+                        <Text size="sm" c={confirmacion.tipo === 'cancelar' ? '#991B1B' : '#166534'} fw={500}>
+                            {confirmacion.tipo === 'cancelar'
+                                ? 'Al cancelar esta membresía, el cliente perderá su vigencia activa de forma inmediata. Esta acción no se puede deshacer.'
+                                : 'Se generará un nuevo periodo consecutivo de vigencia para este cliente con las condiciones del plan seleccionado.'}
+                        </Text>
+                    </Box>
 
-                    <Group justify="flex-end" gap="sm">
+                    <Group justify="flex-end" gap="sm" mt="xs">
                         <Button
                             variant="default"
+                            radius="md"
                             onClick={cerrarConfirmacion}
                             disabled={procesando}
                         >
@@ -430,8 +469,14 @@ export function ModalHistorialMembresias({ opened, onClose, cliente }) {
                         </Button>
                         <Button
                             color={confirmacion.tipo === 'cancelar' ? 'red' : 'apex'}
+                            radius="md"
                             onClick={ejecutarAccionConfirmada}
                             loading={procesando}
+                            style={{
+                                backgroundColor: confirmacion.tipo === 'cancelar' ? undefined : 'var(--ag-color-primary)',
+                                color: '#ffffff',
+                            }}
+                            styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
                         >
                             {confirmacion.tipo === 'cancelar'
                                 ? 'Sí, Cancelar Membresía'
