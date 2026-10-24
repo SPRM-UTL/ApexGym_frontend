@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 import {
+    ActionIcon,
+    Badge,
     Box,
     Button,
+    Divider,
     Group,
     NativeSelect,
     SimpleGrid,
@@ -9,27 +12,20 @@ import {
     Text,
     Textarea,
     TextInput,
-    ThemeIcon,
-    Title,
+    Tooltip,
 } from '@mantine/core';
 import {
-    IconBriefcase,
     IconCalendar,
-    IconCamera,
-    IconId,
-    IconMail,
-    IconMapPin,
-    IconPhone,
+    IconEdit,
     IconTrash,
-    IconUser,
     IconUsers,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 
-/* ─── Constantes de campos (solo para validación / payload, no para render) ─── */
 const CAMPOS = [
     { key: 'nombre',           label: 'Nombre(s)',                    required: true, maxLength: 100 },
     { key: 'apellidoPaterno',  label: 'Apellido Paterno',             required: true, maxLength: 100 },
@@ -63,10 +59,9 @@ const CAMPOS = [
           return (r.data ?? []).map((u) => ({ value: String(u.id), label: `${u.nombre} (${u.email})` }));
       },
     },
-    { key: 'imagenUrl',        label: 'Foto de usuario',              type: 'dropzone' },
+    { key: 'imagenUrl',        label: 'Fotografía de perfil',         type: 'dropzone' },
 ];
 
-/* ─── Columnas de la tabla ─────────────────────────────────────────────────── */
 const COLUMNAS = [
     { key: 'nombreCompleto', label: 'Nombre completo',  sortable: true, filterable: true },
     { key: 'areaTrabajo',    label: 'Área',             sortable: true, filterable: true },
@@ -76,7 +71,6 @@ const COLUMNAS = [
     { key: 'correo',         label: 'Correo',           sortable: true, filterable: true },
 ];
 
-/* ─── Valores iniciales del formulario ─────────────────────────────────────── */
 const INICIAL = {
     nombre: '', apellidoPaterno: '', apellidoMaterno: '',
     telefono: '', correo: '', direccion: '',
@@ -84,17 +78,18 @@ const INICIAL = {
     fechaIngreso: '', fechaNacimiento: '', usuarioId: '', imagenUrl: '',
 };
 
-/* ─── Estilos de sección ────────────────────────────────────────────────────── */
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
+const SectionTitle = ({ children, rightSection }) => (
+    <Box mb="xs" mt="xs">
+        <Group justify="space-between" align="center" mb={4}>
+            <Text fw={600} size="sm" c="#1E293B">
+                {children}
+            </Text>
+            {rightSection}
+        </Group>
+        <Divider color="#E2E8F0" />
+    </Box>
+);
 
-/* ─── Helpers de campo ──────────────────────────────────────────────────────── */
 function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, maxLength, max, min, description, onChange }) {
     return (
         <TextInput
@@ -116,7 +111,7 @@ function FInput({ label, icon: Icon, required, placeholder, type = 'text', value
     );
 }
 
-function FTextarea({ label, icon: Icon, placeholder, value, error, maxLength, description, onChange }) {
+function FTextarea({ label, placeholder, value, error, maxLength, onChange }) {
     return (
         <Textarea
             label={label}
@@ -124,17 +119,15 @@ function FTextarea({ label, icon: Icon, placeholder, value, error, maxLength, de
             value={value ?? ''}
             error={error}
             maxLength={maxLength}
-            description={description}
             size="md"
             radius="md"
             minRows={2}
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
             onChange={(e) => onChange(e.currentTarget.value)}
         />
     );
 }
 
-function FSelect({ label, icon: Icon, required, placeholder, options = [], value, error, onChange }) {
+function FSelect({ label, required, placeholder, options = [], value, error, onChange }) {
     return (
         <NativeSelect
             label={label}
@@ -143,14 +136,12 @@ function FSelect({ label, icon: Icon, required, placeholder, options = [], value
             error={error}
             size="md"
             radius="md"
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
             data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]}
             onChange={(e) => onChange(e.currentTarget.value)}
         />
     );
 }
 
-/* ─── Render del formulario personalizado ───────────────────────────────────── */
 function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
     const fechaMaximaNacimiento = useMemo(() => {
         const d = new Date();
@@ -165,171 +156,172 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
         reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
         reader.readAsDataURL(archivo);
     };
+
     const handleReject = () => {
-        notifications.show({ title: 'Imagen no válida', message: 'Selecciona una imagen válida de máximo 5 MB.', color: 'red' });
+        notifications.show({
+            title: 'Imagen no válida',
+            message: 'Selecciona una imagen válida de máximo 5 MB.',
+            color: 'red',
+        });
     };
 
     return (
-        <Group align="stretch" gap="xl" wrap="nowrap">
-            {/* ── Panel izquierdo ─────────────────────────────────── */}
-            <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle
+                    rightSection={
+                        form.imagenUrl ? (
+                            <Button
+                                variant="subtle"
+                                color="red"
+                                size="compact-xs"
+                                leftSection={<IconTrash size={14} stroke={1.8} />}
+                                onClick={() => onChange('imagenUrl', '')}
+                            >
+                                Quitar imagen
+                            </Button>
+                        ) : null
+                    }
+                >
+                    Fotografía de perfil
+                </SectionTitle>
+                <DropzoneImagen
+                    variant="compact"
+                    archivo={null}
+                    preview={form.imagenUrl || null}
+                    onDrop={handleDrop}
+                    onReject={handleReject}
+                />
+            </Box>
 
-                {/* Datos personales */}
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconUsers size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Datos personales</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                        <FInput
-                            label="Nombre(s)" required icon={IconUser}
-                            placeholder="Ej. Juan"
-                            maxLength={100}
-                            description="Máximo 100 caracteres"
-                            value={form.nombre} error={errors.nombre}
-                            onChange={(v) => onChange('nombre', v)}
-                        />
-                        <FInput
-                            label="Apellido Paterno" required icon={IconUser}
-                            placeholder="Ej. Pérez"
-                            maxLength={100}
-                            description="Máximo 100 caracteres"
-                            value={form.apellidoPaterno} error={errors.apellidoPaterno}
-                            onChange={(v) => onChange('apellidoPaterno', v)}
-                        />
-                        <FInput
-                            label="Apellido Materno" icon={IconUser}
-                            placeholder="Ej. López"
-                            maxLength={100}
-                            description="Máximo 100 caracteres"
-                            value={form.apellidoMaterno} error={errors.apellidoMaterno}
-                            onChange={(v) => onChange('apellidoMaterno', v)}
-                        />
-                        <FInput
-                            label="Teléfono" required icon={IconPhone}
-                            placeholder="Ej. 4771234567"
-                            maxLength={10}
-                            description="10 dígitos numéricos"
-                            value={form.telefono} error={errors.telefono}
-                            onChange={(v) => onChange('telefono', v.replace(/\D/g, '').slice(0, 10))}
-                        />
-                        <FInput
-                            label="Correo electrónico" icon={IconMail}
-                            placeholder="Ej. empleado@apexgym.com"
-                            maxLength={191}
-                            description="Máximo 191 caracteres"
-                            value={form.correo} error={errors.correo}
-                            onChange={(v) => onChange('correo', v)}
-                        />
-                        <FTextarea
-                            label="Dirección" icon={IconMapPin}
-                            placeholder="Ej. Av. Principal 123, Col. Centro"
-                            maxLength={500}
-                            description="Máximo 500 caracteres"
-                            value={form.direccion} error={errors.direccion}
-                            onChange={(v) => onChange('direccion', v)}
-                        />
-                    </SimpleGrid>
-                </Box>
-
-                {/* Datos laborales */}
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconBriefcase size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Datos laborales</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                        <FSelect
-                            label="Área de trabajo" required icon={IconBriefcase}
-                            placeholder="Selecciona área de trabajo"
-                            options={fieldOptions.areaTrabajoId ?? []}
-                            value={form.areaTrabajoId} error={errors.areaTrabajoId}
-                            onChange={(v) => onChange('areaTrabajoId', v)}
-                        />
-                        <FSelect
-                            label="Puesto" required icon={IconId}
-                            placeholder="Selecciona puesto"
-                            options={fieldOptions.puestoId ?? []}
-                            value={form.puestoId} error={errors.puestoId}
-                            onChange={(v) => onChange('puestoId', v)}
-                        />
-                        <FSelect
-                            label="Estado de empleado" required icon={IconUsers}
-                            placeholder="Selecciona estado"
-                            options={fieldOptions.estadoEmpleadoId ?? []}
-                            value={form.estadoEmpleadoId} error={errors.estadoEmpleadoId}
-                            onChange={(v) => onChange('estadoEmpleadoId', v)}
-                        />
-                        <FInput
-                            label="Fecha de Ingreso" required icon={IconCalendar}
-                            type="date"
-                            value={form.fechaIngreso} error={errors.fechaIngreso}
-                            onChange={(v) => onChange('fechaIngreso', v)}
-                        />
-                        <FInput
-                            label="Fecha de Nacimiento" required icon={IconCalendar}
-                            type="date"
-                            max={fechaMaximaNacimiento}
-                            description="Mínimo 18 años cumplidos"
-                            value={form.fechaNacimiento} error={errors.fechaNacimiento}
-                            onChange={(v) => onChange('fechaNacimiento', v)}
-                        />
-                        <FSelect
-                            label="Usuario del sistema (opcional)" icon={IconUser}
-                            placeholder="Sin usuario vinculado"
-                            options={fieldOptions.usuarioId ?? []}
-                            value={form.usuarioId} error={errors.usuarioId}
-                            onChange={(v) => onChange('usuarioId', v)}
-                        />
-                    </SimpleGrid>
-                </Box>
-            </Stack>
-
-            {/* ── Panel derecho — Foto ─────────────────────────────── */}
-            <Box style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                        <IconCamera size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>Foto de usuario</Title>
-                </div>
-
-                {form.imagenUrl && (
-                    <Button
-                        variant="light"
-                        color="red"
-                        size="xs"
-                        fullWidth
-                        radius="md"
-                        mb="xs"
-                        leftSection={<IconTrash size={15} stroke={1.8} />}
-                        onClick={() => onChange('imagenUrl', '')}
-                        style={{ fontWeight: 600 }}
-                    >
-                        Quitar imagen
-                    </Button>
-                )}
-
-                <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <DropzoneImagen
-                        archivo={null}
-                        preview={form.imagenUrl || null}
-                        onDrop={handleDrop}
-                        onReject={handleReject}
-                        h="100%"
+            <Box>
+                <SectionTitle>Datos personales</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput
+                        label="Nombre(s)"
+                        required
+                        placeholder="Ej. Juan"
+                        maxLength={100}
+                        value={form.nombre}
+                        error={errors.nombre}
+                        onChange={(v) => onChange('nombre', v)}
+                    />
+                    <FInput
+                        label="Apellido Paterno"
+                        required
+                        placeholder="Ej. Pérez"
+                        maxLength={100}
+                        value={form.apellidoPaterno}
+                        error={errors.apellidoPaterno}
+                        onChange={(v) => onChange('apellidoPaterno', v)}
+                    />
+                    <FInput
+                        label="Apellido Materno"
+                        placeholder="Ej. López"
+                        maxLength={100}
+                        value={form.apellidoMaterno}
+                        error={errors.apellidoMaterno}
+                        onChange={(v) => onChange('apellidoMaterno', v)}
+                    />
+                    <FInput
+                        label="Fecha de Nacimiento"
+                        required
+                        icon={IconCalendar}
+                        type="date"
+                        max={fechaMaximaNacimiento}
+                        value={form.fechaNacimiento}
+                        error={errors.fechaNacimiento}
+                        onChange={(v) => onChange('fechaNacimiento', v)}
+                    />
+                    <FInput
+                        label="Teléfono"
+                        required
+                        placeholder="Ej. 4771234567"
+                        maxLength={10}
+                        value={form.telefono}
+                        error={errors.telefono}
+                        onChange={(v) => onChange('telefono', v.replace(/\D/g, '').slice(0, 10))}
+                    />
+                    <FInput
+                        label="Correo electrónico"
+                        type="email"
+                        placeholder="Ej. empleado@apexgym.com"
+                        maxLength={191}
+                        value={form.correo}
+                        error={errors.correo}
+                        onChange={(v) => onChange('correo', v)}
+                    />
+                </SimpleGrid>
+                <Box mt="md">
+                    <FTextarea
+                        label="Dirección"
+                        placeholder="Ej. Av. Principal 123, Col. Centro"
+                        maxLength={500}
+                        value={form.direccion}
+                        error={errors.direccion}
+                        onChange={(v) => onChange('direccion', v)}
                     />
                 </Box>
             </Box>
-        </Group>
+
+            <Box>
+                <SectionTitle>Datos laborales</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FSelect
+                        label="Área de trabajo"
+                        required
+                        placeholder="Selecciona área de trabajo"
+                        options={fieldOptions.areaTrabajoId ?? []}
+                        value={form.areaTrabajoId}
+                        error={errors.areaTrabajoId}
+                        onChange={(v) => onChange('areaTrabajoId', v)}
+                    />
+                    <FSelect
+                        label="Puesto"
+                        required
+                        placeholder="Selecciona puesto"
+                        options={fieldOptions.puestoId ?? []}
+                        value={form.puestoId}
+                        error={errors.puestoId}
+                        onChange={(v) => onChange('puestoId', v)}
+                    />
+                    <FSelect
+                        label="Estado de empleado"
+                        required
+                        placeholder="Selecciona estado"
+                        options={fieldOptions.estadoEmpleadoId ?? []}
+                        value={form.estadoEmpleadoId}
+                        error={errors.estadoEmpleadoId}
+                        onChange={(v) => onChange('estadoEmpleadoId', v)}
+                    />
+                    <FInput
+                        label="Fecha de Ingreso"
+                        required
+                        icon={IconCalendar}
+                        type="date"
+                        value={form.fechaIngreso}
+                        error={errors.fechaIngreso}
+                        onChange={(v) => onChange('fechaIngreso', v)}
+                    />
+                </SimpleGrid>
+                <Box mt="md">
+                    <FSelect
+                        label="Usuario del sistema (opcional)"
+                        placeholder="Sin usuario vinculado"
+                        options={fieldOptions.usuarioId ?? []}
+                        value={form.usuarioId}
+                        error={errors.usuarioId}
+                        onChange={(v) => onChange('usuarioId', v)}
+                    />
+                </Box>
+            </Box>
+        </Stack>
     );
 }
 
-/* ─── Componente principal ──────────────────────────────────────────────────── */
 export function Empleados() {
+    cambioNombreWeb('Empleados');
+
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre:           record.nombre ?? '',
         apellidoPaterno:  record.apellidoPaterno ?? '',
@@ -362,15 +354,39 @@ export function Empleados() {
         imagenUrl:        form.imagenUrl         || null,
     });
 
-    const mapRecordToRow = (record) => ({
-        id:             record.id,
-        nombreCompleto: [record.nombre, record.apellidoPaterno, record.apellidoMaterno].filter(Boolean).join(' '),
-        areaTrabajo:    record.areaTrabajo?.nombre    ?? '—',
-        puesto:         record.puesto?.nombre         ?? '—',
-        estadoEmpleado: record.estadoEmpleado?.nombre ?? '—',
-        telefono:       record.telefono               ?? '—',
-        correo:         record.correo                 ?? '—',
-    });
+    const colorEstadoEmpleado = (estado) => {
+        if (!estado || estado === '—') return 'gray';
+        const e = estado.toLowerCase().trim();
+        if (e === 'inactivo' || e.includes('inactiv') || e.includes('baja') || e.includes('cancelad') || e.includes('despedid')) return 'red';
+        if (e.includes('suspendid') || e.includes('licencia') || e.includes('vacacion') || e.includes('permiso') || e.includes('incapacidad') || e.includes('pendiente')) return 'orange';
+        if (e === 'activo' || e.includes('activ') || e.includes('vigente')) return 'green';
+        return 'gray';
+    };
+
+    const mapRecordToRow = (record) => {
+        const estadoNombre = record.estadoEmpleado?.nombre ?? '—';
+        const nombreCompleto = [record.nombre, record.apellidoPaterno, record.apellidoMaterno].filter(Boolean).join(' ');
+        return {
+            id:             record.id,
+            nombre:         nombreCompleto || record.nombre,
+            nombreCompleto,
+            areaTrabajo:    record.areaTrabajo?.nombre    ?? '—',
+            puesto:         record.puesto?.nombre         ?? '—',
+            estadoEmpleado: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={colorEstadoEmpleado(estadoNombre)}
+                    radius="sm"
+                    fw={700}
+                >
+                    {estadoNombre.toUpperCase()}
+                </Badge>
+            ),
+            telefono:       record.telefono               ?? '—',
+            correo:         record.correo                 ?? '—',
+        };
+    };
 
     const validateForm = (form) => {
         const errors = {};
@@ -395,11 +411,42 @@ export function Empleados() {
         return errors;
     };
 
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Empleado" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+            {setPendingDelete && (
+                <Tooltip label="Eliminar Empleado" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => setPendingDelete(fila)}
+                    >
+                        <IconTrash size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
+
     return (
         <CrudCatalogo
             titulo="Empleados"
             singular="Empleado"
-            icon={IconUser}
+            icon={IconUsers}
             servicio={api.empleado}
             columnas={COLUMNAS}
             campos={CAMPOS}
@@ -407,8 +454,15 @@ export function Empleados() {
             mapRecordToForm={mapRecordToForm}
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
-            validateForm={validateForm}
             renderForm={(props) => <EmpleadoForm {...props} />}
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            validateForm={validateForm}
+            formMode="drawer"
+            drawerSize={620}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
         />
     );
 }

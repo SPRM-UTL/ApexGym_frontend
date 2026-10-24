@@ -30,6 +30,7 @@ import { api } from './scripts/services/api.js';
 import PantallaCarga from './components/PantallaCarga.jsx';
 import { Productos } from './pages/Productos/Productos.jsx';
 import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
+import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
 
@@ -89,13 +90,10 @@ function App() {
   const accionLogout = async () => {
     /**eliminarToken();*/ //Evitamos que llame el token que no esta almacenado en LocalStore
     try {
-      if (usuarioActual && usuarioActual.id) {
-
-        const res = await api.user.logout(usuario.id);
-      }
+        await api.user.logout();
 
     } catch (error) {
-      console.error("error al serrar sesion", error)
+      console.error("error al cerrar sesion", error)
     }
 
 
@@ -205,6 +203,18 @@ function App() {
                 estaLogeadoEn ? (
                   <Dashboard onLogout={accionLogout}>
                     <MetodosPago />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
+              path="/servicios"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <Servicios />
                   </Dashboard>
                 ) : (
                   <Login onLoginAceptado={accionLogin} />

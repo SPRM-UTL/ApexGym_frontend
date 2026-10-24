@@ -30,12 +30,12 @@ import {
 } from '@tabler/icons-react';
 import classes from './TableSort.module.css';
 
-function Th({ children, reversed, sorted, onSort, sortable }) {
+function Th({ children, reversed, sorted, onSort, sortable, isNeutral }) {
     if (!sortable) {
         return (
-            <Table.Th className={classes.th}>
-                <div className={classes.control}>
-                    <Text className={classes.thLabel}>{children}</Text>
+            <Table.Th className={isNeutral ? classes.thNeutral : classes.th}>
+                <div className={isNeutral ? classes.controlNeutral : classes.control}>
+                    <Text className={isNeutral ? classes.thLabelNeutral : classes.thLabel}>{children}</Text>
                 </div>
             </Table.Th>
         );
@@ -44,17 +44,27 @@ function Th({ children, reversed, sorted, onSort, sortable }) {
     const Icon = sorted ? (reversed ? IconChevronUp : IconChevronDown) : IconSelector;
 
     return (
-        <Table.Th className={classes.th}>
-            <UnstyledButton onClick={onSort} className={classes.control}>
+        <Table.Th className={isNeutral ? classes.thNeutral : classes.th}>
+            <UnstyledButton onClick={onSort} className={isNeutral ? classes.controlNeutral : classes.control}>
                 <Group justify="space-between" wrap="nowrap">
-                    <Text className={classes.thLabel}>{children}</Text>
-                    <Center className={classes.icon}>
+                    <Text className={isNeutral ? classes.thLabelNeutral : classes.thLabel}>{children}</Text>
+                    <Center className={isNeutral ? classes.iconNeutral : classes.icon}>
                         <Icon size={14} stroke={1.5} />
                     </Center>
                 </Group>
             </UnstyledButton>
         </Table.Th>
     );
+}
+
+function getCellString(val) {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object' && val.props?.children) {
+        if (typeof val.props.children === 'string' || typeof val.props.children === 'number') {
+            return String(val.props.children);
+        }
+    }
+    return String(val);
 }
 
 function filterRows(data, columns, globalSearch, columnFilters) {
@@ -64,7 +74,7 @@ function filterRows(data, columns, globalSearch, columnFilters) {
         const matchGlobal =
             !query ||
             columns.some((col) =>
-                String(row[col.key] ?? '')
+                getCellString(row[col.key])
                     .toLowerCase()
                     .includes(query)
             );
@@ -74,7 +84,7 @@ function filterRows(data, columns, globalSearch, columnFilters) {
         return columns.every((col) => {
             const filterValue = (columnFilters[col.key] ?? '').toLowerCase().trim();
             if (!filterValue) return true;
-            return String(row[col.key] ?? '')
+            return getCellString(row[col.key])
                 .toLowerCase()
                 .includes(filterValue);
         });
@@ -99,8 +109,8 @@ function sortRows(data, sortBy, reversed, columns) {
             return reversed ? -diff : diff;
         }
 
-        const valorA = String(a[sortBy] ?? '');
-        const valorB = String(b[sortBy] ?? '');
+        const valorA = getCellString(a[sortBy]);
+        const valorB = getCellString(b[sortBy]);
         const comparacion = valorA.localeCompare(valorB, undefined, { numeric: true });
         return reversed ? -comparacion : comparacion;
     });
@@ -131,7 +141,9 @@ export function TableSort({
     onReload,
     initialSortBy,
     initialSortDirection = 'asc',
+    headerVariant = 'classic',
 }) {
+    const isNeutral = headerVariant === 'neutral';
     const columns = useMemo(() => {
         if (columnsProp?.length) return columnsProp;
         if (data.length === 0) return [];
@@ -432,8 +444,8 @@ const clearFilters = () => {
                     <Table.Thead>
                         <Table.Tr>
                             {enableSelection && (
-                                <Table.Th className={classes.th} style={{ width: 44 }}>
-                                    <div className={classes.control}>
+                                <Table.Th className={isNeutral ? classes.thNeutral : classes.th} style={{ width: 44 }}>
+                                    <div className={isNeutral ? classes.controlNeutral : classes.control}>
                                         <Checkbox
                                             checked={allPageSelected}
                                             indeterminate={somePageSelected && !allPageSelected}
@@ -450,14 +462,15 @@ const clearFilters = () => {
                                     reversed={reverseSortDirection}
                                     onSort={() => setSorting(col.key)}
                                     sortable={col.sortable !== false}
+                                    isNeutral={isNeutral}
                                 >
                                     {col.label}
                                 </Th>
                             ))}
                             {(onEditar || onEliminar || renderAcciones) && (
-                                <Table.Th className={classes.th}>
-                                    <div className={classes.control}>
-                                        <Text className={classes.thLabel}>Acciones</Text>
+                                <Table.Th className={isNeutral ? classes.thNeutral : classes.th}>
+                                    <div className={isNeutral ? classes.controlNeutral : classes.control}>
+                                        <Text className={isNeutral ? classes.thLabelNeutral : classes.thLabel}>Acciones</Text>
                                     </div>
                                 </Table.Th>
                             )}

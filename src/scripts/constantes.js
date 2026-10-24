@@ -1,6 +1,6 @@
 import { obtenerValor, guardarValor, eliminarValor, limpiarAlmacenamiento } from './globales.js';
 
-export const appUrl = 'http://localhost:3000';
+export const appUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3000`;
 
 /**Solo me encargue de comentar todo tipo de cosas que almacenen el token */
 export const VariablesLocales = {

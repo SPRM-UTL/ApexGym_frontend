@@ -1,12 +1,61 @@
-import { Group, Loader } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
-import { ModalProducto } from '../../components/ModalFormulario/ModalProducto.jsx';
-import { TablaRegistros } from '../../components/TablaRegistros/TablaRegistros.jsx';
-import { BarraAcciones } from '../../components/BarraAcciones/BarraAcciones.jsx';
+import { useMemo } from 'react';
+import {
+    ActionIcon,
+    Badge,
+    Box,
+    Divider,
+    Group,
+    NativeSelect,
+    SimpleGrid,
+    Stack,
+    Text,
+    Textarea,
+    TextInput,
+    Tooltip,
+} from '@mantine/core';
+import {
+    IconEdit,
+    IconPackage,
+    IconTrash,
+} from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
-import classes from './Productos.module.css';
+import { cambioNombreWeb } from '../../scripts/globales.js';
+import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+
+const CAMPOS = [
+    { key: 'nombre', label: 'Nombre de Producto', required: true },
+    { key: 'codigoBarras', label: 'Código de barras', required: true },
+    {
+        key: 'categoriaProductoId',
+        label: 'Categoría',
+        required: true,
+        loadOptions: async () => {
+            try {
+                const res = await api.categoriaProducto.obtenerTodas();
+                return (res.data ?? []).map((c) => ({ value: String(c.id), label: c.nombre }));
+            } catch (err) {
+                console.error('[Productos] Error al cargar categorías:', err);
+                return [];
+            }
+        },
+    },
+    { key: 'precioVenta', label: 'Precio Venta', required: true, type: 'number', min: 0 },
+    { key: 'precioCompra', label: 'Precio Compra', required: true, type: 'number', min: 0 },
+    { key: 'stockActual', label: 'Stock Actual', required: true, type: 'number', min: 0 },
+    { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
+    { key: 'descripcion', label: 'Descripción' },
+];
+
+const INICIAL = {
+    nombre: '',
+    descripcion: '',
+    codigoBarras: '',
+    categoriaProductoId: '',
+    precioVenta: '',
+    precioCompra: '',
+    stockActual: '',
+    stockMinimo: '',
+};
 
 const COLUMNAS_PRODUCTOS = [
     { key: 'codigoBarras', label: 'Código', sortable: true, filterable: true },
@@ -19,307 +68,265 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
 ];
 
-export function Productos() {
-    const [productos, setProductos] = useState([]);
-    const [categorias, setCategorias] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+const SectionTitle = ({ children }) => (
+    <Box mb="xs" mt="xs">
+        <Text fw={600} size="sm" c="#1E293B" mb={4}>
+            {children}
+        </Text>
+        <Divider color="#E2E8F0" />
+    </Box>
+);
 
-    // Modal Formulario
-    const [abierto, setAbierto] = useState(false);
-    const [productoEditando, setProductoEditando] = useState(null);
-
-    // Modal Confirmación de Eliminación
-    const [registroPendiente, setRegistroPendiente] = useState(null);
-    const [eliminando, setEliminando] = useState(false);
-
-    // Campos del formulario
-    const [nombre, setNombre] = useState('');
-    const [categoriaProductoId, setCategoriaProductoId] = useState(null);
-    const [codigoBarras, setCodigoBarras] = useState('');
-    const [descripcion, setDescripcion] = useState('');
-    const [precioVenta, setPrecioVenta] = useState('');
-    const [precioCompra, setPrecioCompra] = useState('');
-    const [stockActual, setStockActual] = useState(0);
-    const [stockMinimo, setStockMinimo] = useState(1);
-    const [errores, setErrores] = useState({});
-
-    // ── Carga de datos ──────────────────────────────────────────────────────────
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const [resProductos, resCategorias] = await Promise.all([
-                api.producto.obtenerTodos().catch((e) => {
-                    console.error('Error al obtener productos:', e);
-                    return { data: [], responseFlag: 0 };
-                }),
-                api.categoriaProducto.obtenerTodas().catch((e) => {
-                    console.error('Error al obtener categorías:', e);
-                    return { data: [], responseFlag: 0 };
-                }),
-            ]);
-
-            setProductos(resProductos.data ?? []);
-            setCategorias(resCategorias.data ?? []);
-            setError(null);
-        } catch (err) {
-            setError(err.message || 'Error al cargar los datos');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    // ── Preparar datos para TablaRegistros ──────────────────────────────────────
-    const datosTabla = useMemo(
-        () =>
-            productos.map((prod) => ({
-                ...prod,
-                id: prod.id,
-                categoriaNombre: prod.categoria?.nombre || 'Sin categoría',
-                codigoBarras: prod.codigoBarras || '—',
-                descripcion: prod.descripcion || '—',
-                precioVentaTexto: `$ ${Number(prod.precioVenta || 0).toFixed(2)}`,
-                precioCompraTexto: prod.precioCompra ? `$ ${Number(prod.precioCompra).toFixed(2)}` : '—',
-            })),
-        [productos]
-    );
-
-    const limpiarFormulario = () => {
-        setNombre('');
-        setCategoriaProductoId(null);
-        setCodigoBarras('');
-        setDescripcion('');
-        setPrecioVenta('');
-        setPrecioCompra('');
-        setStockActual(0);
-        setStockMinimo(1);
-        setErrores({});
-        setProductoEditando(null);
-    };
-
-    const manejarCambioFormulario = (campo, valor) => {
-        const setters = {
-            nombre: setNombre,
-            categoriaProductoId: setCategoriaProductoId,
-            codigoBarras: setCodigoBarras,
-            descripcion: setDescripcion,
-            precioVenta: setPrecioVenta,
-            precioCompra: setPrecioCompra,
-            stockActual: setStockActual,
-            stockMinimo: setStockMinimo,
-        };
-
-        setters[campo]?.(valor);
-        setErrores((prev) => ({ ...prev, [campo]: null }));
-    };
-
-    // ── Guardar (Crear o Actualizar) ───────────────────────────────────────────
-    const guardar = async () => {
-        const nuevosErrores = {};
-
-        if (!nombre.trim()) {
-            nuevosErrores.nombre = 'El nombre del producto es requerido';
-        }
-
-        if (!categoriaProductoId) {
-            nuevosErrores.categoriaProductoId = 'Debes seleccionar una categoría';
-        }
-
-        if (precioVenta === '' || precioVenta === null || isNaN(Number(precioVenta))) {
-            nuevosErrores.precioVenta = 'El precio de venta es requerido y debe ser numérico';
-        }
-
-        if (Object.keys(nuevosErrores).length > 0) {
-            setErrores(nuevosErrores);
-            notifications.show({
-                title: 'Error en el formulario',
-                message: 'Por favor, revise los campos requeridos.',
-                color: 'red',
-            });
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const payload = {
-                categoriaProductoId: Number(categoriaProductoId),
-                codigoBarras: codigoBarras ? codigoBarras.trim() : null,
-                nombre: nombre.trim(),
-                descripcion: descripcion ? descripcion.trim() : null,
-                precioVenta: parseFloat(precioVenta),
-                precioCompra: precioCompra !== '' && precioCompra !== null ? parseFloat(precioCompra) : null,
-                stockActual: stockActual !== '' && stockActual !== null ? Number(stockActual) : 0,
-                stockMinimo: stockMinimo !== '' && stockMinimo !== null ? Number(stockMinimo) : 1,
-            };
-
-            let response;
-            let alerta;
-
-            if (productoEditando) {
-                response = await api.producto.actualizar(productoEditando, payload);
-                alerta = {
-                    title: 'Actualizado',
-                    message: 'Producto actualizado correctamente',
-                    color: 'green',
-                };
-            } else {
-                response = await api.producto.crear(payload);
-                alerta = {
-                    title: 'Agregado',
-                    message: 'Producto creado correctamente',
-                    color: 'green',
-                };
-            }
-
-            if (response.responseFlag !== 0) {
-                throw new Error(response.message || 'Error al guardar el producto');
-            }
-
-            notifications.show(alerta);
-            await fetchData();
-            limpiarFormulario();
-            setAbierto(false);
-        } catch (err) {
-            notifications.show({
-                title: 'Error',
-                message: err.message || 'Error al guardar el producto',
-                color: 'red',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const abrirAgregar = () => {
-        limpiarFormulario();
-        setAbierto(true);
-    };
-
-    const handleEditar = useCallback(
-        (producto) => {
-            const completo = productos.find((p) => p.id === producto.id) ?? producto;
-            setProductoEditando(completo.id);
-            setNombre(completo.nombre ?? '');
-            setCategoriaProductoId(completo.categoriaProductoId ? String(completo.categoriaProductoId) : null);
-            setCodigoBarras(completo.codigoBarras ?? '');
-            setDescripcion(completo.descripcion ?? '');
-            setPrecioVenta(completo.precioVenta ?? '');
-            setPrecioCompra(completo.precioCompra ?? '');
-            setStockActual(completo.stockActual ?? 0);
-            setStockMinimo(completo.stockMinimo ?? 1);
-            setErrores({});
-            setAbierto(true);
-        },
-        [productos]
-    );
-
-    const solicitarEliminacion = (producto) => {
-        setRegistroPendiente(producto);
-    };
-
-    const cancelarEliminacion = () => {
-        if (!eliminando) setRegistroPendiente(null);
-    };
-
-    const confirmarEliminacion = async () => {
-        if (!registroPendiente) return;
-
-        try {
-            setEliminando(true);
-            setLoading(true);
-
-            const response = await api.producto.eliminar(registroPendiente.id);
-
-            if (response.responseFlag !== 0) {
-                throw new Error(response.message || 'Error al eliminar el producto');
-            }
-
-            await fetchData();
-            notifications.show({
-                title: 'Eliminado',
-                message: 'Producto eliminado correctamente.',
-                color: 'green',
-            });
-        } catch (err) {
-            notifications.show({
-                title: 'Error',
-                message: err.message || 'Error al eliminar el producto',
-                color: 'red',
-            });
-        } finally {
-            setEliminando(false);
-            setLoading(false);
-        }
-
-        setRegistroPendiente(null);
-    };
-
-    const handleReload = () => {
-        fetchData();
-    };
-
+function FInput({ label, required, placeholder, type = 'text', value, error, onChange }) {
     return (
-        <>
-            <ModalConfirmacion
-                opened={Boolean(registroPendiente)}
-                onClose={cancelarEliminacion}
-                onConfirm={confirmarEliminacion}
-                loading={eliminando}
-                title="Confirmar eliminación"
-                message={`¿Deseas eliminar el producto "${registroPendiente?.nombre ?? ''}"? Esta acción no se puede deshacer.`}
-            />
-
-            <ModalProducto
-                abierto={abierto}
-                productoEditando={productoEditando}
-                form={{
-                    nombre,
-                    categoriaProductoId,
-                    codigoBarras,
-                    descripcion,
-                    precioVenta,
-                    precioCompra,
-                    stockActual,
-                    stockMinimo,
-                }}
-                errores={errores}
-                categorias={categorias}
-                onClose={() => {
-                    setAbierto(false);
-                    limpiarFormulario();
-                }}
-                onGuardar={guardar}
-                onChange={manejarCambioFormulario}
-            />
-
-            <div className={classes.crudLayout}>
-                <BarraAcciones onAdd={abrirAgregar} onReload={handleReload} />
-
-                {error && <div className={classes.errorBanner}>{error}</div>}
-
-                {loading && productos.length === 0 ? (
-                    <div className={classes.loadingBanner}>
-                        <Group justify="center" gap="sm">
-                            <Loader size="sm" color="apex" />
-                            Cargando productos…
-                        </Group>
-                    </div>
-                ) : (
-                    <TablaRegistros
-                        data={datosTabla}
-                        columns={COLUMNAS_PRODUCTOS}
-                        onEditar={handleEditar}
-                        onEliminar={solicitarEliminacion}
-                        entityLabel="Producto"
-                        pageSizeOptions={[10, 25, 50]}
-                        loading={loading}
-                    />
-                )}
-            </div>
-        </>
+        <TextInput
+            label={label}
+            withAsterisk={required}
+            placeholder={placeholder}
+            type={type}
+            value={value ?? ''}
+            error={error}
+            size="md"
+            radius="md"
+            onChange={(e) => onChange(e.currentTarget.value)}
+        />
     );
 }
+
+function FTextarea({ label, placeholder, value, error, onChange }) {
+    return (
+        <Textarea
+            label={label}
+            placeholder={placeholder}
+            value={value ?? ''}
+            error={error}
+            size="md"
+            radius="md"
+            minRows={3}
+            onChange={(e) => onChange(e.currentTarget.value)}
+        />
+    );
+}
+
+function FSelect({ label, required, placeholder, options = [], value, error, onChange }) {
+    return (
+        <NativeSelect
+            label={label}
+            withAsterisk={required}
+            value={value ?? ''}
+            error={error}
+            size="md"
+            radius="md"
+            data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]}
+            onChange={(e) => onChange(e.currentTarget.value)}
+        />
+    );
+}
+
+function ProductoForm({ form, errors, onChange, fieldOptions }) {
+    return (
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle>Información general</SectionTitle>
+                <Stack gap="md">
+                    <FInput
+                        label="Nombre de Producto"
+                        required
+                        placeholder="Ej. Creatina Monohidratada"
+                        value={form.nombre}
+                        error={errors.nombre}
+                        onChange={(v) => onChange('nombre', v)}
+                    />
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                        <FInput
+                            label="Código de barras"
+                            required
+                            placeholder="Ej. 750123456789"
+                            value={form.codigoBarras}
+                            error={errors.codigoBarras}
+                            onChange={(v) => onChange('codigoBarras', v)}
+                        />
+                        <FSelect
+                            label="Categoría"
+                            required
+                            placeholder="Selecciona una categoría"
+                            options={fieldOptions?.categoriaProductoId ?? []}
+                            value={form.categoriaProductoId}
+                            error={errors.categoriaProductoId}
+                            onChange={(v) => onChange('categoriaProductoId', v)}
+                        />
+                    </SimpleGrid>
+                    <FTextarea
+                        label="Descripción"
+                        placeholder="Breve descripción del producto"
+                        value={form.descripcion}
+                        error={errors.descripcion}
+                        onChange={(v) => onChange('descripcion', v)}
+                    />
+                </Stack>
+            </Box>
+
+            <Box>
+                <SectionTitle>Precios e inventario</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput
+                        label="Precio Compra"
+                        required
+                        type="number"
+                        placeholder="Ej. 150.00"
+                        value={form.precioCompra}
+                        error={errors.precioCompra}
+                        onChange={(v) => onChange('precioCompra', v)}
+                    />
+                    <FInput
+                        label="Precio Venta"
+                        required
+                        type="number"
+                        placeholder="Ej. 499.00"
+                        value={form.precioVenta}
+                        error={errors.precioVenta}
+                        onChange={(v) => onChange('precioVenta', v)}
+                    />
+                    <FInput
+                        label="Stock Actual"
+                        required
+                        type="number"
+                        placeholder="Ej. 100"
+                        value={form.stockActual}
+                        error={errors.stockActual}
+                        onChange={(v) => onChange('stockActual', v)}
+                    />
+                    <FInput
+                        label="Stock Mínimo"
+                        required
+                        type="number"
+                        placeholder="Ej. 10"
+                        value={form.stockMinimo}
+                        error={errors.stockMinimo}
+                        onChange={(v) => onChange('stockMinimo', v)}
+                    />
+                </SimpleGrid>
+            </Box>
+        </Stack>
+    );
+}
+
+export function Productos() {
+    cambioNombreWeb('Productos');
+
+    const mapRecordToForm = useMemo(() => (record) => ({
+        nombre: record.nombre ?? '',
+        descripcion: record.descripcion ?? '',
+        codigoBarras: record.codigoBarras ?? '',
+        categoriaProductoId: record.categoriaProductoId
+            ? String(record.categoriaProductoId)
+            : record.categoria?.id
+                ? String(record.categoria.id)
+                : '',
+        precioVenta: record.precioVenta ?? '',
+        precioCompra: record.precioCompra ?? '',
+        stockActual: record.stockActual ?? '',
+        stockMinimo: record.stockMinimo ?? '',
+    }), []);
+
+    const mapFormToPayload = (form) => ({
+        nombre: form.nombre ?? '',
+        descripcion: form.descripcion || null,
+        codigoBarras: form.codigoBarras ? String(form.codigoBarras) : null,
+        categoriaProductoId: Number(form.categoriaProductoId),
+        precioVenta: Number(form.precioVenta),
+        precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
+        stockActual: Number(form.stockActual ?? 0),
+        stockMinimo: Number(form.stockMinimo ?? 1),
+    });
+
+    const colorStock = (actual, minimo) => {
+        const stock = Number(actual ?? 0);
+        const min = Number(minimo ?? 0);
+        if (stock <= 0) return 'red';
+        if (stock <= min) return 'orange';
+        return 'green';
+    };
+
+    const mapRecordToRow = (record) => {
+        const stockActualNum = Number(record.stockActual ?? 0);
+        const stockMinimoNum = Number(record.stockMinimo ?? 0);
+        return {
+            id: record.id,
+            nombre: record.nombre ?? '',
+            descripcion: record.descripcion ?? '—',
+            codigoBarras: record.codigoBarras ?? '—',
+            categoriaNombre: record.categoria?.nombre ?? 'Sin categoría',
+            precioVentaTexto: record.precioVenta !== undefined && record.precioVenta !== null ? `$${Number(record.precioVenta).toFixed(2)}` : '—',
+            precioCompraTexto: record.precioCompra !== undefined && record.precioCompra !== null ? `$${Number(record.precioCompra).toFixed(2)}` : '—',
+            stockActual: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={colorStock(stockActualNum, stockMinimoNum)}
+                    radius="sm"
+                    fw={700}
+                >
+                    {stockActualNum}
+                </Badge>
+            ),
+            stockMinimo: stockMinimoNum,
+        };
+    };
+
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Producto" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+            {setPendingDelete && (
+                <Tooltip label="Eliminar Producto" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => setPendingDelete(fila)}
+                    >
+                        <IconTrash size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
+
+    return (
+        <CrudCatalogo
+            titulo="Productos"
+            singular="Producto"
+            icon={IconPackage}
+            servicio={api.Productos}
+            columnas={COLUMNAS_PRODUCTOS}
+            campos={CAMPOS}
+            valoresIniciales={INICIAL}
+            mapRecordToForm={mapRecordToForm}
+            mapFormToPayload={mapFormToPayload}
+            mapRecordToRow={mapRecordToRow}
+            renderForm={(props) => <ProductoForm {...props} />}
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            formMode="drawer"
+            drawerSize={580}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
+        />
+    );
+}
+
+export default Productos;

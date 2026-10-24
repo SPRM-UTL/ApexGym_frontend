@@ -1,26 +1,28 @@
 import { useMemo } from 'react';
 import {
+    ActionIcon,
+    Badge,
     Box,
+    Divider,
+    Group,
     NativeSelect,
     NumberInput,
     SimpleGrid,
     Stack,
+    Text,
     Textarea,
     TextInput,
-    ThemeIcon,
-    Title,
+    Tooltip,
 } from '@mantine/core';
 import {
-    IconBriefcase,
-    IconCurrencyDollar,
-    IconFileText,
+    IconEdit,
     IconId,
-    IconToggleRight,
+    IconTrash,
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 
-/* ─── Campos (solo para validación y payload) ───────────────────────────────── */
 const CAMPOS = [
     { key: 'areaTrabajoId', label: 'Área de trabajo', required: true,
       loadOptions: async () => {
@@ -35,7 +37,6 @@ const CAMPOS = [
     { key: 'descripcion', label: 'Descripción', type: 'textarea', maxLength: 500 },
 ];
 
-/* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
 const COLUMNAS = [
     { key: 'nombre',      label: 'Nombre del puesto', sortable: true,  filterable: true },
     { key: 'areaTrabajo', label: 'Área de trabajo',   sortable: true,  filterable: true },
@@ -46,38 +47,21 @@ const COLUMNAS = [
 
 const INICIAL = { areaTrabajoId: '', nombre: '', descripcion: '', salarioBase: 0, estado: 'ACTIVO' };
 
-/* ─── Estilos de sección ────────────────────────────────────────────────────── */
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
+const SectionTitle = ({ children }) => (
+    <Box mb="xs" mt="xs">
+        <Text fw={600} size="sm" c="#1E293B" mb={4}>
+            {children}
+        </Text>
+        <Divider color="#E2E8F0" />
+    </Box>
+);
 
-/* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function PuestoForm({ form, errors, onChange, fieldOptions }) {
     return (
-        <Stack gap="md">
+        <Stack gap="md" style={{ width: '100%' }}>
             <Box>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                        <IconId size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>Información del puesto</Title>
-                </div>
+                <SectionTitle>Datos del puesto</SectionTitle>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                    <NativeSelect
-                        label="Área de trabajo"
-                        withAsterisk
-                        value={form.areaTrabajoId ?? ''}
-                        error={errors.areaTrabajoId}
-                        size="md" radius="md"
-                        leftSection={<IconBriefcase size={16} stroke={1.5} />}
-                        data={[{ value: '', label: 'Selecciona área de trabajo' }, ...(fieldOptions.areaTrabajoId ?? [])]}
-                        onChange={(e) => onChange('areaTrabajoId', e.currentTarget.value)}
-                    />
                     <TextInput
                         label="Nombre del puesto"
                         withAsterisk
@@ -85,10 +69,19 @@ function PuestoForm({ form, errors, onChange, fieldOptions }) {
                         value={form.nombre ?? ''}
                         error={errors.nombre}
                         maxLength={100}
-                        description="Máximo 100 caracteres"
-                        size="md" radius="md"
-                        leftSection={<IconId size={16} stroke={1.5} />}
+                        size="md"
+                        radius="md"
                         onChange={(e) => onChange('nombre', e.currentTarget.value)}
+                    />
+                    <NativeSelect
+                        label="Área de trabajo"
+                        withAsterisk
+                        value={form.areaTrabajoId ?? ''}
+                        error={errors.areaTrabajoId}
+                        size="md"
+                        radius="md"
+                        data={[{ value: '', label: 'Selecciona área de trabajo' }, ...(fieldOptions.areaTrabajoId ?? [])]}
+                        onChange={(e) => onChange('areaTrabajoId', e.currentTarget.value)}
                     />
                     <NumberInput
                         label="Salario Base"
@@ -96,13 +89,12 @@ function PuestoForm({ form, errors, onChange, fieldOptions }) {
                         placeholder="0.00"
                         value={form.salarioBase ?? 0}
                         error={errors.salarioBase}
-                        description="Máximo $9,999,999.99"
-                        size="md" radius="md"
+                        size="md"
+                        radius="md"
                         min={0}
                         max={9999999.99}
                         step={100}
                         decimalScale={2}
-                        leftSection={<IconCurrencyDollar size={16} stroke={1.5} />}
                         onChange={(v) => onChange('salarioBase', v)}
                     />
                     <NativeSelect
@@ -110,32 +102,33 @@ function PuestoForm({ form, errors, onChange, fieldOptions }) {
                         withAsterisk
                         value={form.estado ?? 'ACTIVO'}
                         error={errors.estado}
-                        size="md" radius="md"
-                        leftSection={<IconToggleRight size={16} stroke={1.5} />}
+                        size="md"
+                        radius="md"
                         data={[{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }]}
                         onChange={(e) => onChange('estado', e.currentTarget.value)}
                     />
+                </SimpleGrid>
+                <Box mt="md">
                     <Textarea
                         label="Descripción"
-                        placeholder="Descripción del puesto de trabajo"
+                        placeholder="Breve descripción del puesto de trabajo"
                         value={form.descripcion ?? ''}
                         error={errors.descripcion}
                         maxLength={500}
-                        description="Máximo 500 caracteres"
-                        size="md" radius="md"
+                        size="md"
+                        radius="md"
                         minRows={3}
-                        leftSection={<IconFileText size={16} stroke={1.5} />}
                         onChange={(e) => onChange('descripcion', e.currentTarget.value)}
-                        style={{ gridColumn: '1 / -1' }}
                     />
-                </SimpleGrid>
+                </Box>
             </Box>
         </Stack>
     );
 }
 
-/* ─── Componente principal ──────────────────────────────────────────────────── */
 export function Puestos() {
+    cambioNombreWeb('Puestos');
+
     const mapRecordToForm = useMemo(() => (record) => ({
         areaTrabajoId: record.areaTrabajo?.id ? String(record.areaTrabajo.id) : String(record.areaTrabajoId ?? ''),
         nombre:        record.nombre      ?? '',
@@ -152,14 +145,67 @@ export function Puestos() {
         estado:        form.estado,
     });
 
-    const mapRecordToRow = (record) => ({
-        id:          record.id,
-        nombre:      record.nombre,
-        areaTrabajo: record.areaTrabajo?.nombre ?? 'Sin área',
-        salarioBase: record.salarioBase !== undefined ? `$${Number(record.salarioBase).toFixed(2)}` : '—',
-        estado:      record.estado,
-        descripcion: record.descripcion ?? '—',
-    });
+    const colorEstado = (estado) => {
+        if (!estado || estado === '—') return 'gray';
+        const e = estado.toLowerCase().trim();
+        if (e === 'inactivo' || e.includes('inactiv') || e.includes('baja') || e.includes('cancelad')) return 'red';
+        if (e.includes('suspendid') || e.includes('pendiente')) return 'orange';
+        if (e === 'activo' || e.includes('activ') || e.includes('vigente')) return 'green';
+        return 'gray';
+    };
+
+    const mapRecordToRow = (record) => {
+        const estadoNombre = record.estado ?? '—';
+        return {
+            id:          record.id,
+            nombre:      record.nombre,
+            areaTrabajo: record.areaTrabajo?.nombre ?? 'Sin área',
+            salarioBase: record.salarioBase !== undefined && record.salarioBase !== null ? `$${Number(record.salarioBase).toFixed(2)}` : '—',
+            estado: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={colorEstado(estadoNombre)}
+                    radius="sm"
+                    fw={700}
+                >
+                    {estadoNombre.toUpperCase()}
+                </Badge>
+            ),
+            descripcion: record.descripcion ?? '—',
+        };
+    };
+
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Puesto" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+            {setPendingDelete && (
+                <Tooltip label="Eliminar Puesto" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => setPendingDelete(fila)}
+                    >
+                        <IconTrash size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
 
     return (
         <CrudCatalogo
@@ -174,6 +220,13 @@ export function Puestos() {
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <PuestoForm {...props} />}
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            formMode="drawer"
+            drawerSize={560}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
         />
     );
 }

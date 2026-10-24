@@ -12,6 +12,31 @@
     border-color: #e55f00 !important;
 }
 
+.dropzoneCompact {
+    padding: 14px 16px;
+    border: 1.5px dashed #CBD5E1 !important;
+    background-color: #F8FAFC;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.dropzoneCompact:hover {
+    background-color: #FFF7ED;
+    border-color: var(--ag-color-primary) !important;
+}
+
+.avatarIdle {
+    border: 2px solid #E2E8F0;
+    background-color: #F1F5F9;
+    flex-shrink: 0;
+}
+
+.avatarActive {
+    border: 2px solid var(--ag-color-primary, #FF6A00);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+}
+
 .content {
     position: relative;
     z-index: 1;
