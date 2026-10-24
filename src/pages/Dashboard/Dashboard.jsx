@@ -10,6 +10,8 @@ import {
     Text,
     ThemeIcon,
     UnstyledButton,
+    Space,
+    Image
 } from '@mantine/core';
 import {
     IconAlertCircle,
@@ -28,6 +30,7 @@ import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { resolverModuloPorRuta, rutaModulo } from '../../scripts/modulosRutas.js';
 import classes from './Dashboard.module.css';
+import logoImg from '../../assets/apex_gym_large.png';
 
 const iconoModulo = (nombre) => {
     if (nombre === 'Usuarios') {
@@ -56,7 +59,7 @@ export function Dashboard({ children, onLogout }) {
     useEffect(() => {
         contentRef.current?.scrollTo(0, 0);
     }, [location.pathname, seccionActiva]);
-    
+
     useEffect(() => {
         const cargar = async () => {
             try {
@@ -116,9 +119,9 @@ export function Dashboard({ children, onLogout }) {
             label: seccionContexto.nombre,
             onClick: moduloEnRuta
                 ? () => {
-                      setSeccionActiva(seccionContexto);
-                      navigate('/');
-                  }
+                    setSeccionActiva(seccionContexto);
+                    navigate('/');
+                }
                 : null,
         });
     }
@@ -180,7 +183,6 @@ export function Dashboard({ children, onLogout }) {
         if (!seccionActiva) {
             return (
                 <>
-                    <Text className={classes.pageTitle}>Secciones</Text>
                     {secciones.length === 0 ? (
                         <div className={classes.emptyState}>
                             <ThemeIcon
@@ -202,15 +204,18 @@ export function Dashboard({ children, onLogout }) {
                             </Text>
                         </div>
                     ) : (
-                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
-                            {secciones.map((sec) => (
-                                <SeccionCard
-                                    key={sec.id}
-                                    seccion={sec}
-                                    onClick={(seccion) => setSeccionActiva(seccion)}
-                                />
-                            ))}
-                        </SimpleGrid>
+                        <>
+                            <Space h={24} />
+                            <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
+                                {secciones.map((sec) => (
+                                    <SeccionCard
+                                        key={sec.id}
+                                        seccion={sec}
+                                        onClick={(seccion) => setSeccionActiva(seccion)}
+                                    />
+                                ))}
+                            </SimpleGrid>
+                        </>
                     )}
                 </>
             );
@@ -250,7 +255,11 @@ export function Dashboard({ children, onLogout }) {
         <div className={classes.shell}>
             <header className={classes.header}>
                 <UnstyledButton className={classes.logo} onClick={irInicio}>
-                    Apex<span className={classes.logoAccent}>Gym</span>
+                    <Image
+                        radius="md"
+                        h={90}
+                        src={logoImg}
+                    />
                 </UnstyledButton>
 
                 <Group gap="sm" wrap="nowrap">
@@ -270,12 +279,15 @@ export function Dashboard({ children, onLogout }) {
 
             <main ref={contentRef} className={classes.content}>
                 {(enInicio || mostrarChildren) && (
-                    <Breadcrumbs
-                        className={classes.breadcrumb}
-                        separator={<IconChevronRight size={14} color="var(--ag-color-secondary)" />}
-                    >
-                        {breadcrumbItems}
-                    </Breadcrumbs>
+                    <>
+                        <Space h={8} />
+                        <Breadcrumbs
+                            className={classes.breadcrumb}
+                            separator={<IconChevronRight size={14} color="var(--ag-color-secondary)" />}
+                        >
+                            {breadcrumbItems}
+                        </Breadcrumbs>
+                    </>
                 )}
 
                 <div className={classes.pageBody}>{renderContenidoPrincipal()}</div>
