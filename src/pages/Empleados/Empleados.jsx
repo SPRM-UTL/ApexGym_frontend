@@ -4,13 +4,9 @@ import {
     Badge,
     Box,
     Button,
-    Divider,
     Group,
-    NativeSelect,
     SimpleGrid,
     Stack,
-    Text,
-    TextInput,
     Tooltip,
 } from '@mantine/core';
 import {
@@ -24,65 +20,70 @@ import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
+import { FInput, SectionTitle, FSelect } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
-    { key: 'nombre',           label: 'Nombre(s)',                    required: true, maxLength: 100 },
-    { key: 'apellidoPaterno',  label: 'Apellido Paterno',             required: true, maxLength: 100 },
-    { key: 'apellidoMaterno',  label: 'Apellido Materno',                             maxLength: 100 },
-    { key: 'telefono',         label: 'Teléfono',                     required: true, maxLength: 10 },
-    { key: 'correo',           label: 'Correo electrónico',                           maxLength: 191 },
-    { key: 'areaTrabajoId',    label: 'Área de trabajo',              required: true,
-      loadOptions: async () => {
-          const r = await api.areaTrabajo.obtenerTodos();
-          return (r.data ?? []).map((a) => ({ value: String(a.id), label: a.nombre }));
-      },
+    { key: 'nombre', label: 'Nombre(s)', required: true, maxLength: 100 },
+    { key: 'apellidoPaterno', label: 'Apellido Paterno', required: true, maxLength: 100 },
+    { key: 'apellidoMaterno', label: 'Apellido Materno', maxLength: 100 },
+    { key: 'telefono', label: 'Teléfono', required: true, maxLength: 10 },
+    { key: 'correo', label: 'Correo electrónico', maxLength: 191 },
+    {
+        key: 'areaTrabajoId', label: 'Área de trabajo', required: true,
+        loadOptions: async () => {
+            const r = await api.areaTrabajo.obtenerTodos();
+            return (r.data ?? []).map((a) => ({ value: String(a.id), label: a.nombre }));
+        },
     },
-    { key: 'puestoId',         label: 'Puesto',                       required: true,
-      loadOptions: async () => {
-          const r = await api.puesto.obtenerTodos();
-          return (r.data ?? []).map((p) => ({ value: String(p.id), label: p.nombre }));
-      },
+    {
+        key: 'puestoId', label: 'Puesto', required: true,
+        loadOptions: async () => {
+            const r = await api.puesto.obtenerTodos();
+            return (r.data ?? []).map((p) => ({ value: String(p.id), label: p.nombre }));
+        },
     },
-    { key: 'estadoEmpleadoId', label: 'Estado de empleado',           required: true,
-      loadOptions: async () => {
-          const r = await api.estadoEmpleado.obtenerTodos();
-          return (r.data ?? []).map((e) => ({ value: String(e.id), label: e.nombre }));
-      },
+    {
+        key: 'estadoEmpleadoId', label: 'Estado de empleado', required: true,
+        loadOptions: async () => {
+            const r = await api.estadoEmpleado.obtenerTodos();
+            return (r.data ?? []).map((e) => ({ value: String(e.id), label: e.nombre }));
+        },
     },
-    { key: 'fechaIngreso',     label: 'Fecha de Ingreso',             required: true, type: 'date' },
-    { key: 'fechaNacimiento',  label: 'Fecha de Nacimiento',          required: true, type: 'date' },
-    { key: 'usuarioId',        label: 'Usuario del sistema (opcional)',
-      loadOptions: async () => {
-          const [rUsers, rEmps] = await Promise.all([
-              api.user.obtenerTodos(),
-              api.empleado.obtenerTodos().catch(() => ({ data: [] })),
-          ]);
-          const usuarios = rUsers.data ?? [];
-          const empleados = rEmps.data ?? [];
-          const usuariosOcupados = new Map();
-          empleados.forEach((emp) => {
-              const uId = emp.usuario?.id ?? emp.usuarioId;
-              if (uId) {
-                  usuariosOcupados.set(String(uId), emp.id);
-              }
-          });
-          return usuarios.map((u) => ({
-              value: String(u.id),
-              label: `${u.nombre} (${u.email})`,
-              empleadoIdVinculado: usuariosOcupados.get(String(u.id)) ?? null,
-          }));
-      },
+    { key: 'fechaIngreso', label: 'Fecha de Ingreso', required: true, type: 'date' },
+    { key: 'fechaNacimiento', label: 'Fecha de Nacimiento', required: true, type: 'date' },
+    {
+        key: 'usuarioId', label: 'Usuario del sistema (opcional)',
+        loadOptions: async () => {
+            const [rUsers, rEmps] = await Promise.all([
+                api.user.obtenerTodos(),
+                api.empleado.obtenerTodos().catch(() => ({ data: [] })),
+            ]);
+            const usuarios = rUsers.data ?? [];
+            const empleados = rEmps.data ?? [];
+            const usuariosOcupados = new Map();
+            empleados.forEach((emp) => {
+                const uId = emp.usuario?.id ?? emp.usuarioId;
+                if (uId) {
+                    usuariosOcupados.set(String(uId), emp.id);
+                }
+            });
+            return usuarios.map((u) => ({
+                value: String(u.id),
+                label: `${u.nombre} (${u.email})`,
+                empleadoIdVinculado: usuariosOcupados.get(String(u.id)) ?? null,
+            }));
+        },
     },
-    { key: 'imagenUrl',        label: 'Fotografía de perfil',         type: 'dropzone' },
+    { key: 'imagenUrl', label: 'Fotografía de perfil', type: 'dropzone' },
 ];
 
 const COLUMNAS = [
-    { key: 'nombreCompleto', label: 'Nombre completo',  sortable: true, filterable: true },
-    { key: 'areaTrabajo',    label: 'Área',             sortable: true, filterable: true },
-    { key: 'puesto',         label: 'Puesto',           sortable: true, filterable: true },
-    { key: 'estadoEmpleado', label: 'Estado',           sortable: true, filterable: true },
-    { key: 'telefono',       label: 'Teléfono',         sortable: true, filterable: true },
-    { key: 'correo',         label: 'Correo',           sortable: true, filterable: true },
+    { key: 'nombreCompleto', label: 'Nombre completo', sortable: true, filterable: true },
+    { key: 'areaTrabajo', label: 'Área', sortable: true, filterable: true },
+    { key: 'puesto', label: 'Puesto', sortable: true, filterable: true },
+    { key: 'estadoEmpleado', label: 'Estado', sortable: true, filterable: true },
+    { key: 'telefono', label: 'Teléfono', sortable: true, filterable: true },
+    { key: 'correo', label: 'Correo', sortable: true, filterable: true },
 ];
 
 const INICIAL = {
@@ -93,54 +94,6 @@ const INICIAL = {
     areaTrabajoId: '', puestoId: '', estadoEmpleadoId: '',
     fechaIngreso: '', fechaNacimiento: '', usuarioId: '', imagenUrl: '',
 };
-
-const SectionTitle = ({ children, rightSection }) => (
-    <Box mb="xs" mt="xs">
-        <Group justify="space-between" align="center" mb={4}>
-            <Text fw={600} size="sm" c="#1E293B">
-                {children}
-            </Text>
-            {rightSection}
-        </Group>
-        <Divider color="#E2E8F0" />
-    </Box>
-);
-
-function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, maxLength, max, min, description, onChange }) {
-    return (
-        <TextInput
-            label={label}
-            withAsterisk={required}
-            placeholder={placeholder}
-            type={type}
-            value={value ?? ''}
-            error={error}
-            maxLength={maxLength}
-            max={max}
-            min={min}
-            description={description}
-            size="md"
-            radius="md"
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FSelect({ label, required, placeholder, options = [], value, error, onChange }) {
-    return (
-        <NativeSelect
-            label={label}
-            withAsterisk={required}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
 
 function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
     const fechaMaximaNacimiento = useMemo(() => {
@@ -277,7 +230,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
             <Box>
                 <SectionTitle>Dirección y residencia</SectionTitle>
                 <SimpleGrid cols={{ base: 1, sm: 12 }} spacing="md" verticalSpacing="xs">
-                    <Box style={{ gridColumn: 'span 8' }}>
+                    <Box style={{ gridColumn: 'span 12' }}>
                         <FInput
                             label="Calle"
                             placeholder="Ej. Av. Principal"
@@ -287,7 +240,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                             onChange={(v) => onChange('calle', v)}
                         />
                     </Box>
-                    <Box style={{ gridColumn: 'span 2' }}>
+                    <Box style={{ gridColumn: 'span 6' }}>
                         <FInput
                             label="Núm. ext."
                             placeholder="Ej. 123"
@@ -297,7 +250,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                             onChange={(v) => onChange('numeroExterior', v)}
                         />
                     </Box>
-                    <Box style={{ gridColumn: 'span 2' }}>
+                    <Box style={{ gridColumn: 'span 6' }}>
                         <FInput
                             label="Núm. int."
                             placeholder="Ej. A-4"
@@ -307,7 +260,8 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                             onChange={(v) => onChange('numeroInterior', v)}
                         />
                     </Box>
-                    <Box style={{ gridColumn: 'span 4' }}>
+
+                    <Box style={{ gridColumn: 'span 8' }}>
                         <FInput
                             label="Colonia"
                             placeholder="Ej. Centro"
@@ -317,7 +271,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                             onChange={(v) => onChange('colonia', v)}
                         />
                     </Box>
-                    <Box style={{ gridColumn: 'span 2' }}>
+                    <Box style={{ gridColumn: 'span 4' }}>
                         <FInput
                             label="Código Postal (CP)"
                             placeholder="Ej. 37000"
@@ -327,7 +281,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                             onChange={(v) => onChange('codigoPostal', v.replace(/\D/g, '').slice(0, 5))}
                         />
                     </Box>
-                    <Box style={{ gridColumn: 'span 3' }}>
+                    <Box style={{ gridColumn: 'span 6' }}>
                         <FInput
                             label="Municipio / Ciudad"
                             placeholder="Ej. León"
@@ -337,7 +291,7 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                             onChange={(v) => onChange('municipio', v)}
                         />
                     </Box>
-                    <Box style={{ gridColumn: 'span 3' }}>
+                    <Box style={{ gridColumn: 'span 6' }}>
                         <FInput
                             label="Estado"
                             placeholder="Ej. Guanajuato"
@@ -443,26 +397,26 @@ export function Empleados() {
         }
 
         return {
-            nombre:           record.nombre ?? '',
-            apellidoPaterno:  record.apellidoPaterno ?? '',
-            apellidoMaterno:  record.apellidoMaterno ?? '',
-            areaTrabajoId:    record.areaTrabajo?.id   ? String(record.areaTrabajo.id)   : String(record.areaTrabajoId    ?? ''),
-            puestoId:         record.puesto?.id         ? String(record.puesto.id)         : String(record.puestoId         ?? ''),
+            nombre: record.nombre ?? '',
+            apellidoPaterno: record.apellidoPaterno ?? '',
+            apellidoMaterno: record.apellidoMaterno ?? '',
+            areaTrabajoId: record.areaTrabajo?.id ? String(record.areaTrabajo.id) : String(record.areaTrabajoId ?? ''),
+            puestoId: record.puesto?.id ? String(record.puesto.id) : String(record.puestoId ?? ''),
             estadoEmpleadoId: record.estadoEmpleado?.id ? String(record.estadoEmpleado.id) : String(record.estadoEmpleadoId ?? ''),
-            usuarioId:        record.usuario?.id        ? String(record.usuario.id)        : String(record.usuarioId        ?? ''),
-            telefono:         record.telefono    ?? '',
-            correo:           record.correo      ?? '',
-            calle:            dir.calle          ?? '',
-            numeroExterior:   dir.numeroExterior ?? '',
-            numeroInterior:   dir.numeroInterior ?? '',
-            colonia:          dir.colonia        ?? '',
-            codigoPostal:     dir.codigoPostal   ?? '',
-            municipio:        dir.municipio      ?? '',
-            estado:           dir.estado         ?? '',
-            entreCalles:      dir.entreCalles    ?? '',
-            fechaNacimiento:  record.fechaNacimiento ? new Date(record.fechaNacimiento).toISOString().split('T')[0] : '',
-            fechaIngreso:     record.fechaIngreso    ? new Date(record.fechaIngreso).toISOString().split('T')[0]    : '',
-            imagenUrl:        record.imagenUrl   ?? '',
+            usuarioId: record.usuario?.id ? String(record.usuario.id) : String(record.usuarioId ?? ''),
+            telefono: record.telefono ?? '',
+            correo: record.correo ?? '',
+            calle: dir.calle ?? '',
+            numeroExterior: dir.numeroExterior ?? '',
+            numeroInterior: dir.numeroInterior ?? '',
+            colonia: dir.colonia ?? '',
+            codigoPostal: dir.codigoPostal ?? '',
+            municipio: dir.municipio ?? '',
+            estado: dir.estado ?? '',
+            entreCalles: dir.entreCalles ?? '',
+            fechaNacimiento: record.fechaNacimiento ? new Date(record.fechaNacimiento).toISOString().split('T')[0] : '',
+            fechaIngreso: record.fechaIngreso ? new Date(record.fechaIngreso).toISOString().split('T')[0] : '',
+            imagenUrl: record.imagenUrl ?? '',
         };
     }, []);
 
@@ -479,31 +433,31 @@ export function Empleados() {
 
         const direccion = tieneDireccion
             ? JSON.stringify({
-                  calle: form.calle?.trim() || '',
-                  numeroExterior: form.numeroExterior?.trim() || '',
-                  numeroInterior: form.numeroInterior?.trim() || '',
-                  colonia: form.colonia?.trim() || '',
-                  codigoPostal: form.codigoPostal?.trim() || '',
-                  municipio: form.municipio?.trim() || '',
-                  estado: form.estado?.trim() || '',
-                  entreCalles: form.entreCalles?.trim() || '',
-              })
+                calle: form.calle?.trim() || '',
+                numeroExterior: form.numeroExterior?.trim() || '',
+                numeroInterior: form.numeroInterior?.trim() || '',
+                colonia: form.colonia?.trim() || '',
+                codigoPostal: form.codigoPostal?.trim() || '',
+                municipio: form.municipio?.trim() || '',
+                estado: form.estado?.trim() || '',
+                entreCalles: form.entreCalles?.trim() || '',
+            })
             : null;
 
         return {
-            nombre:           form.nombre.trim(),
-            apellidoPaterno:  form.apellidoPaterno.trim(),
-            apellidoMaterno:  form.apellidoMaterno ? form.apellidoMaterno.trim() : null,
-            areaTrabajoId:    Number(form.areaTrabajoId),
-            puestoId:         Number(form.puestoId),
+            nombre: form.nombre.trim(),
+            apellidoPaterno: form.apellidoPaterno.trim(),
+            apellidoMaterno: form.apellidoMaterno ? form.apellidoMaterno.trim() : null,
+            areaTrabajoId: Number(form.areaTrabajoId),
+            puestoId: Number(form.puestoId),
             estadoEmpleadoId: Number(form.estadoEmpleadoId),
-            usuarioId:        form.usuarioId ? Number(form.usuarioId) : null,
-            telefono:         form.telefono.trim(),
-            correo:           form.correo ? form.correo.trim() : null,
+            usuarioId: form.usuarioId ? Number(form.usuarioId) : null,
+            telefono: form.telefono.trim(),
+            correo: form.correo ? form.correo.trim() : null,
             direccion,
-            fechaNacimiento:  form.fechaNacimiento,
-            fechaIngreso:     form.fechaIngreso,
-            imagenUrl:        form.imagenUrl || null,
+            fechaNacimiento: form.fechaNacimiento,
+            fechaIngreso: form.fechaIngreso,
+            imagenUrl: form.imagenUrl || null,
         };
     };
 
@@ -520,11 +474,11 @@ export function Empleados() {
         const estadoNombre = record.estadoEmpleado?.nombre ?? '—';
         const nombreCompleto = [record.nombre, record.apellidoPaterno, record.apellidoMaterno].filter(Boolean).join(' ');
         return {
-            id:             record.id,
-            nombre:         nombreCompleto || record.nombre,
+            id: record.id,
+            nombre: nombreCompleto || record.nombre,
             nombreCompleto,
-            areaTrabajo:    record.areaTrabajo?.nombre    ?? '—',
-            puesto:         record.puesto?.nombre         ?? '—',
+            areaTrabajo: record.areaTrabajo?.nombre ?? '—',
+            puesto: record.puesto?.nombre ?? '—',
             estadoEmpleado: (
                 <Badge
                     size="sm"
@@ -536,8 +490,8 @@ export function Empleados() {
                     {estadoNombre.toUpperCase()}
                 </Badge>
             ),
-            telefono:       record.telefono               ?? '—',
-            correo:         record.correo                 ?? '—',
+            telefono: record.telefono ?? '—',
+            correo: record.correo ?? '—',
         };
     };
 

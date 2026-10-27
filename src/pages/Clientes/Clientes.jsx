@@ -11,7 +11,6 @@ import {
     Stack,
     Text,
     Textarea,
-    TextInput,
     Tooltip,
 } from '@mantine/core';
 import {
@@ -28,6 +27,7 @@ import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { ModalAsignarMembresia } from './ModalAsignarMembresia.jsx';
 import { ModalHistorialMembresias } from './ModalHistorialMembresias.jsx';
+import { FInput, SectionTitle, FSelect, FTextarea } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     {
@@ -52,7 +52,7 @@ const CAMPOS = [
             { value: 'Otro', label: 'Otro' },
         ],
     },
-    { key: 'telefono', required: true },
+    { key: 'telefono', label: 'Teléfono', required: true, maxLength: 10 },
     { key: 'correo' },
     { key: 'direccion' },
     { key: 'contactoEmergenciaNombre' },
@@ -62,7 +62,7 @@ const CAMPOS = [
 const COLUMNAS = [
     { key: 'nombreCompleto', label: 'Nombre Completo', sortable: true, filterable: true },
     { key: 'estado', label: 'Estado', sortable: true, filterable: true },
-    { key: 'telefono', label: 'Teléfono', sortable: false, filterable: true },
+    { key: 'telefono', label: 'Teléfono', sortable: true, filterable: true },
     { key: 'correo', label: 'Correo', sortable: true, filterable: true },
 ];
 
@@ -71,62 +71,6 @@ const INICIAL = {
     fechaNacimiento: '', genero: '', telefono: '', correo: '', direccion: '',
     contactoEmergenciaNombre: '', contactoEmergenciaTelefono: ''
 };
-
-const SectionTitle = ({ children }) => (
-    <Box mb="xs" mt="xs">
-        <Text fw={600} size="sm" c="#1E293B" mb={4}>
-            {children}
-        </Text>
-        <Divider color="#E2E8F0" />
-    </Box>
-);
-
-function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, onChange }) {
-    return (
-        <TextInput
-            label={label}
-            withAsterisk={required}
-            placeholder={placeholder}
-            type={type}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FTextarea({ label, placeholder, value, error, onChange }) {
-    return (
-        <Textarea
-            label={label}
-            placeholder={placeholder}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            minRows={2}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FSelect({ label, required, placeholder, options = [], value, error, onChange }) {
-    return (
-        <NativeSelect
-            label={label}
-            withAsterisk={required}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
 
 function ClienteForm({ form, errors, onChange, fieldOptions }) {
     return (
@@ -138,14 +82,22 @@ function ClienteForm({ form, errors, onChange, fieldOptions }) {
                     <FInput label="Apellido Paterno" required placeholder="Ej. Gómez" value={form.apellidoPaterno} error={errors.apellidoPaterno} onChange={(v) => onChange('apellidoPaterno', v)} />
                     <FInput label="Apellido Materno" placeholder="Ej. Hernández" value={form.apellidoMaterno} error={errors.apellidoMaterno} onChange={(v) => onChange('apellidoMaterno', v)} />
                     <FInput label="Fecha de Nacimiento" required icon={IconCalendar} type="date" value={form.fechaNacimiento} error={errors.fechaNacimiento} onChange={(v) => onChange('fechaNacimiento', v)} />
-                    <FSelect label="Género" required placeholder="Selecciona género" options={[{value: 'Masculino', label: 'Masculino'}, {value: 'Femenino', label: 'Femenino'}, {value: 'Otro', label: 'Otro'}]} value={form.genero} error={errors.genero} onChange={(v) => onChange('genero', v)} />
+                    <FSelect label="Género" required placeholder="Selecciona género" options={[{ value: 'Masculino', label: 'Masculino' }, { value: 'Femenino', label: 'Femenino' }, { value: 'Otro', label: 'Otro' }]} value={form.genero} error={errors.genero} onChange={(v) => onChange('genero', v)} />
                 </SimpleGrid>
             </Box>
 
             <Box>
                 <SectionTitle>Contacto y Dirección</SectionTitle>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                    <FInput label="Teléfono" required placeholder="Ej. 4771234567" value={form.telefono} error={errors.telefono} onChange={(v) => onChange('telefono', v)} />
+                    <FInput
+                        label="Teléfono"
+                        required
+                        placeholder="Ej. 4771234567 (10 dígitos)"
+                        maxLength={10}
+                        value={form.telefono}
+                        error={errors.telefono}
+                        onChange={(v) => onChange('telefono', v.replace(/\D/g, '').slice(0, 10))}
+                    />
                     <FInput label="Correo Electrónico" type="email" placeholder="Ej. cliente@correo.com" value={form.correo} error={errors.correo} onChange={(v) => onChange('correo', v)} />
                     <FTextarea label="Dirección" placeholder="Ej. Calle Principal 123" value={form.direccion} error={errors.direccion} onChange={(v) => onChange('direccion', v)} />
                 </SimpleGrid>
@@ -289,18 +241,18 @@ export function Clientes() {
 
     return (
         <>
-            <CrudCatalogo 
-                titulo="Clientes" 
-                singular="Cliente" 
+            <CrudCatalogo
+                titulo="Clientes"
+                singular="Cliente"
                 icon={IconUsers}
-                servicio={api.cliente} 
-                columnas={COLUMNAS} 
-                campos={CAMPOS} 
-                valoresIniciales={INICIAL} 
-                mapRecordToForm={mapRecordToForm} 
-                mapFormToPayload={mapFormToPayload} 
-                mapRecordToRow={mapRecordToRow} 
-                renderForm={(props) => <ClienteForm {...props} />} 
+                servicio={api.cliente}
+                columnas={COLUMNAS}
+                campos={CAMPOS}
+                valoresIniciales={INICIAL}
+                mapRecordToForm={mapRecordToForm}
+                mapFormToPayload={mapFormToPayload}
+                mapRecordToRow={mapRecordToRow}
+                renderForm={(props) => <ClienteForm {...props} />}
                 renderAccionesFila={renderAccionesFila}
                 permitirEditar={false}
                 permitirEliminar={false}
@@ -309,15 +261,15 @@ export function Clientes() {
                 headerVariant="unified"
                 tableHeaderVariant="neutral"
             />
-            <ModalAsignarMembresia 
-                opened={!!clienteSeleccionado} 
-                onClose={() => setClienteSeleccionado(null)} 
-                cliente={clienteSeleccionado} 
+            <ModalAsignarMembresia
+                opened={!!clienteSeleccionado}
+                onClose={() => setClienteSeleccionado(null)}
+                cliente={clienteSeleccionado}
             />
-            <ModalHistorialMembresias 
-                opened={!!clienteHistorial} 
-                onClose={() => setClienteHistorial(null)} 
-                cliente={clienteHistorial} 
+            <ModalHistorialMembresias
+                opened={!!clienteHistorial}
+                onClose={() => setClienteHistorial(null)}
+                cliente={clienteHistorial}
             />
         </>
     );
