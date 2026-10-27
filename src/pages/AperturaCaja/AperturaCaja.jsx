@@ -26,6 +26,7 @@ import {
     IconCalendar,
     IconCash,
     IconCoins,
+    IconRefresh,
     IconEdit,
     IconEye,
     IconTrash,
@@ -36,6 +37,7 @@ import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
 import { obtenerUsuarioActual } from '../../scripts/constantes.js';
+import { DENOMINACIONES, desglosarMonto, formatearFechaHora } from '../../scripts/cajaUtils.js';
 
 /* ─── Obtener fecha y hora local en formato YYYY-MM-DDTHH:mm ───────────────── */
 const obtenerFechaHoraActualLocal = () => {
@@ -48,54 +50,7 @@ const obtenerFechaHoraActualLocal = () => {
     return `${anio}-${mes}-${dia}T${horas}:${minutos}`;
 };
 
-/* ─── Formatear fecha y hora para visualización en tabla (es-MX) ────────────── */
-const formatearFechaHora = (fecha) => {
-    if (!fecha) return '—';
-    const d = new Date(fecha);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleString('es-MX', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-    });
-};
 
-/* ─── Denominaciones monetarias (Pesos Mexicanos) ─────────────────────────── */
-const DENOMINACIONES = [
-    { valor: 1000, tipo: 'billete', label: '$1,000' },
-    { valor: 500,  tipo: 'billete', label: '$500'   },
-    { valor: 200,  tipo: 'billete', label: '$200'   },
-    { valor: 100,  tipo: 'billete', label: '$100'   },
-    { valor: 50,   tipo: 'billete', label: '$50'    },
-    { valor: 20,   tipo: 'billete', label: '$20'    },
-    { valor: 10,   tipo: 'moneda',  label: '$10'    },
-    { valor: 5,    tipo: 'moneda',  label: '$5'     },
-    { valor: 2,    tipo: 'moneda',  label: '$2'     },
-    { valor: 1,    tipo: 'moneda',  label: '$1'     },
-    { valor: 0.5,  tipo: 'moneda',  label: '$0.50'  },
-];
-
-/**
- * Distribuye automáticamente un monto en denominaciones para representar el fondo inicial
- * cuando no se capturó un desglose individual en aperturas previas.
- */
-function desglosarMonto(montoTotal) {
-    let restante = Number(montoTotal) || 0;
-    const resultado = {};
-    for (const d of DENOMINACIONES) {
-        if (restante >= d.valor) {
-            const cant = Math.floor(restante / d.valor);
-            resultado[d.valor] = cant;
-            restante = Math.round((restante - cant * d.valor) * 100) / 100;
-        } else {
-            resultado[d.valor] = 0;
-        }
-    }
-    return resultado;
-}
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -387,9 +342,11 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                             </Group>
                             {totalFondo > 0 && (
                                 <Button
-                                    variant="subtle"
-                                    color="gray"
-                                    size="compact-xs"
+                                    variant="light"
+                                    color="red"
+                                    size="xs"
+                                    radius="md"
+                                    leftSection={<IconRefresh size={14} />}
                                     onClick={limpiarConteo}
                                 >
                                     Limpiar conteo
@@ -440,7 +397,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                 >
                     <Stack gap={2}>
                         {Object.entries(errors)
-                            .filter(([_, msg]) => Boolean(msg))
+                            .filter(([, msg]) => Boolean(msg))
                             .map(([key, msg]) => (
                                 <Text size="xs" key={key} fw={600} c="red">
                                     • {msg}
@@ -455,21 +412,19 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
 
 /* ─── Modal para ver el desglose inicial de la caja (Idéntico a Corte de Caja) ─── */
 function ModalDetalleApertura({ apertura, opened, onClose }) {
-    if (!apertura) return null;
+    const fondoInicial = Number(apertura?.montoInicial ?? 0);
+    const esAbierta = apertura?.estado === 'ABIERTA';
 
-    let desglose = null;
-    try {
-        if (apertura.desgloseInicio) {
-            desglose = typeof apertura.desgloseInicio === 'string'
+    const desglose = useMemo(() => {
+        if (!apertura?.desgloseInicio) return null;
+        try {
+            return typeof apertura.desgloseInicio === 'string'
                 ? JSON.parse(apertura.desgloseInicio)
                 : apertura.desgloseInicio;
+        } catch {
+            return null;
         }
-    } catch (e) {
-        desglose = null;
-    }
-
-    const fondoInicial = Number(apertura.montoInicial ?? 0);
-    const esAbierta = apertura.estado === 'ABIERTA';
+    }, [apertura?.desgloseInicio]);
 
     // Totales calculados del desglose (con fallback automático para aperturas sin desglose previo)
     const desgloseFinal = useMemo(() => {
@@ -478,6 +433,8 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
         }
         return desglosarMonto(fondoInicial);
     }, [desglose, fondoInicial]);
+
+    if (!apertura) return null;
 
     let totalBilletes = 0;
     let totalMonedas = 0;
@@ -682,7 +639,9 @@ export function AperturaCaja() {
                     ? JSON.parse(record.desgloseInicio)
                     : record.desgloseInicio;
             }
-        } catch (e) {}
+        } catch {
+            desglose = null;
+        }
 
         return {
             cajaId:         record.caja?.id     ? String(record.caja.id)     : String(record.cajaId     ?? ''),
@@ -809,6 +768,8 @@ export function AperturaCaja() {
                 titulo="Apertura de Caja"
                 singular="Apertura"
                 icon={IconCash}
+                headerVariant="unified"
+                tableHeaderVariant="neutral"
                 servicio={api.aperturaCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
@@ -818,6 +779,7 @@ export function AperturaCaja() {
                 mapRecordToRow={mapRecordToRow}
                 renderForm={(props) => <AperturaForm {...props} />}
                 validateForm={validateForm}
+                pageSizeOptions={[6, 12, 18, 24]}
                 permitirEditar={false}
                 permitirEliminar={false}
                 initialSortBy="fechaApertura"

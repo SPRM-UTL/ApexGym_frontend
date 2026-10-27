@@ -37,17 +37,16 @@ import {
     IconCash,
     IconCheck,
     IconCoins,
-    IconEdit,
     IconEye,
     IconInfoCircle,
     IconShieldCheck,
-    IconTrash,
     IconUser,
     IconWallet,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { DENOMINACIONES, desglosarMonto, formatearFechaHora } from '../../scripts/cajaUtils.js';
 
 /* ─── Catálogo oficial de tipos de concepto por movimiento ──────────────────── */
 const CATALOGO_CONCEPTOS = {
@@ -71,20 +70,7 @@ const CATALOGO_CONCEPTOS = {
     ],
 };
 
-/* ─── Denominaciones monetarias (Pesos Mexicanos) ─────────────────────────── */
-const DENOMINACIONES = [
-    { valor: 1000, tipo: 'billete', label: '$1,000' },
-    { valor: 500,  tipo: 'billete', label: '$500'   },
-    { valor: 200,  tipo: 'billete', label: '$200'   },
-    { valor: 100,  tipo: 'billete', label: '$100'   },
-    { valor: 50,   tipo: 'billete', label: '$50'    },
-    { valor: 20,   tipo: 'billete', label: '$20'    },
-    { valor: 10,   tipo: 'moneda',  label: '$10'    },
-    { valor: 5,    tipo: 'moneda',  label: '$5'     },
-    { valor: 2,    tipo: 'moneda',  label: '$2'     },
-    { valor: 1,    tipo: 'moneda',  label: '$1'     },
-    { valor: 0.5,  tipo: 'moneda',  label: '$0.50'  },
-];
+
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -172,40 +158,7 @@ const sectionHeader = {
  * existan con valores numéricos limpios o cadena vacía, evitando undefined y NaN.
  */
 
-/**
- * Distribuye automáticamente un monto en denominaciones para representar el movimiento
- * cuando no se capturó un desglose individual en movimientos anteriores.
- */
-function desglosarMonto(montoTotal) {
-    let restante = Number(montoTotal) || 0;
-    const resultado = {};
-    for (const d of DENOMINACIONES) {
-        if (restante >= d.valor) {
-            const cant = Math.floor(restante / d.valor);
-            resultado[d.valor] = cant;
-            restante = Math.round((restante - cant * d.valor) * 100) / 100;
-        } else {
-            resultado[d.valor] = 0;
-        }
-    }
-    return resultado;
-}
 
-function formatearFechaHora(fechaStr) {
-    if (!fechaStr) return '—';
-    try {
-        const d = new Date(fechaStr);
-        return d.toLocaleDateString('es-MX', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    } catch {
-        return String(fechaStr);
-    }
-}
 
 function normalizarDesglose(desglose) {
     const init = {};
@@ -272,7 +225,9 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const totalDesglose = useMemo(() => {
         let total = 0;
         for (const d of DENOMINACIONES) {
-            total += d.valor * obtenerCantidad(d.valor);
+            const raw = conteoBilletes?.[d.valor];
+            const cant = (raw === '' || raw === null || raw === undefined || isNaN(Number(raw))) ? 0 : Number(raw);
+            total += d.valor * cant;
         }
         return Math.round(total * 100) / 100;
     }, [conteoBilletes]);
@@ -654,7 +609,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                 >
                     <Stack gap={2}>
                         {Object.entries(errors)
-                            .filter(([_, msg]) => Boolean(msg))
+                            .filter(([, msg]) => Boolean(msg))
                             .map(([key, msg]) => (
                                 <Text size="xs" key={key} fw={600} c="red">
                                     • {msg}
@@ -670,24 +625,22 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
 
 /* ─── Modal para ver el detalle completo del movimiento (Idéntico a Apertura y Corte) ─── */
 function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
-    if (!movimiento) return null;
+    const montoTotal = Number(movimiento?.monto ?? 0);
+    const esEntrada = movimiento?.tipo === 'ENTRADA';
+    const esValidado = movimiento?.estado === 'VALIDADO';
+    const cajaAbierta = movimiento?.aperturaCaja?.estado === 'ABIERTA';
+    const puedeValidar = !esValidado && cajaAbierta;
 
-    let desglose = null;
-    try {
-        if (movimiento.desglose) {
-            desglose = typeof movimiento.desglose === 'string'
+    const desglose = useMemo(() => {
+        if (!movimiento?.desglose) return null;
+        try {
+            return typeof movimiento.desglose === 'string'
                 ? JSON.parse(movimiento.desglose)
                 : movimiento.desglose;
+        } catch {
+            return null;
         }
-    } catch (e) {
-        desglose = null;
-    }
-
-    const montoTotal = Number(movimiento.monto ?? 0);
-    const esEntrada = movimiento.tipo === 'ENTRADA';
-    const esValidado = movimiento.estado === 'VALIDADO';
-    const cajaAbierta = movimiento.aperturaCaja?.estado === 'ABIERTA';
-    const puedeValidar = !esValidado && cajaAbierta;
+    }, [movimiento?.desglose]);
 
     // Totales calculados del desglose (con fallback automático para movimientos sin desglose previo)
     const desgloseFinal = useMemo(() => {
@@ -696,6 +649,8 @@ function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
         }
         return desglosarMonto(montoTotal);
     }, [desglose, montoTotal]);
+
+    if (!movimiento) return null;
 
     let totalBilletes = 0;
     let totalMonedas = 0;
@@ -944,7 +899,9 @@ export function MovimientosCaja() {
                 desglose = typeof record.desglose === 'string'
                     ? JSON.parse(record.desglose)
                     : record.desglose;
-            } catch (e) {}
+            } catch {
+                desglose = null;
+            }
         }
 
         // 2. Si no venía en record.desglose o venía concatenado en observaciones
@@ -955,7 +912,9 @@ export function MovimientosCaja() {
                 if (match) {
                     try {
                         desglose = JSON.parse(match[0]);
-                    } catch (e) {}
+                    } catch {
+                        desglose = null;
+                    }
                 }
             }
             obsLimpia = (parts[0]?.trim()) || '';
@@ -966,7 +925,9 @@ export function MovimientosCaja() {
                     if (!desglose) desglose = parsed.desglose;
                     obsLimpia = parsed.observaciones ?? '';
                 }
-            } catch (e) {}
+            } catch {
+                desglose = null;
+            }
         }
 
         // Limpiar cualquier residuo de formato anterior o JSON entre llaves
@@ -1110,7 +1071,7 @@ export function MovimientosCaja() {
                         errors.monto = `Saldo insuficiente en caja ($${saldo.toFixed(2)})`;
                     }
                 }
-            } catch (e) {
+            } catch {
                 // Validación final en backend
             }
         }
@@ -1124,6 +1085,8 @@ export function MovimientosCaja() {
                 titulo="Movimientos de Caja"
                 singular="Movimiento"
                 icon={IconArrowsExchange}
+                headerVariant="unified"
+                tableHeaderVariant="neutral"
                 servicio={api.movimientoCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
@@ -1133,6 +1096,7 @@ export function MovimientosCaja() {
                 mapRecordToRow={mapRecordToRow}
                 renderForm={(props) => <MovimientoForm {...props} />}
                 validateForm={validateForm}
+                pageSizeOptions={[6, 12, 18, 24]}
                 permitirEditar={false}
                 permitirEliminar={false}
                 renderAccionesFila={(fila, recordOriginal, helpers = {}) => {

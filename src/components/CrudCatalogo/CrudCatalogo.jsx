@@ -159,6 +159,7 @@ export function CrudCatalogo({
     drawerSize = 640,
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
+    pageSizeOptions,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -364,12 +365,20 @@ export function CrudCatalogo({
                             }
                             <div>
                                 <Title order={4} fw={700} c="#1E293B">
-                                    {editingId ? `Editar ${singular.toLowerCase()}` : `Nuevo ${singular.toLowerCase()}`}
+                                    {editingId
+                                        ? `Editar ${singular.toLowerCase()}`
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Nueva ${singular.toLowerCase()}`
+                                            : `Nuevo ${singular.toLowerCase()}`}
                                 </Title>
                                 <Text size="xs" c="dimmed">
                                     {editingId
-                                        ? `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
-                                        : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
+                                        ? ['caja', 'membresía', 'área de trabajo', 'configuración'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Modifica los datos de la ${singular.toLowerCase()} y guarda los cambios.`
+                                            : `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Completa los campos para registrar una nueva ${singular.toLowerCase()}.`
+                                            : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
                                 </Text>
                             </div>
                         </Group>
@@ -516,7 +525,7 @@ export function CrudCatalogo({
                                     <IconoHeader
                                         size={38}
                                         stroke={1.8}
-                                        color="var(--mantine-color-secondary-6"
+                                        color="var(--mantine-color-secondary-6)"
                                     />
                                     <Divider orientation="vertical" color="secondary.9" size="2" />
                                 </>
@@ -559,6 +568,7 @@ export function CrudCatalogo({
                         initialSortBy={initialSortBy}
                         initialSortDirection={initialSortDirection}
                         headerVariant={tableHeaderVariant}
+                        pageSizeOptions={pageSizeOptions}
                     />
                 )}
             </div>

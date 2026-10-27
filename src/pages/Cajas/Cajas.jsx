@@ -1,23 +1,15 @@
 import { useMemo } from 'react';
 import {
     Box,
-    Group,
     NativeSelect,
     SimpleGrid,
     Stack,
-    Text,
     TextInput,
-    ThemeIcon,
-    Title,
 } from '@mantine/core';
-import {
-    IconBuilding,
-    IconCash,
-    IconMapPin,
-    IconToggleRight,
-} from '@tabler/icons-react';
+import { IconCashRegister } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { SectionTitle } from '../../components/SectionTitle/SectionTitle.jsx';
 
 /* ─── Campos (solo para validación y payload) ───────────────────────────────── */
 const CAMPOS = [
@@ -36,28 +28,12 @@ const COLUMNAS = [
 
 const INICIAL = { nombre: '', ubicacion: '', estado: 'ACTIVO' };
 
-/* ─── Estilos de sección ────────────────────────────────────────────────────── */
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
-
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function CajaForm({ form, errors, onChange }) {
     return (
-        <Stack gap="md">
-            {/* Información general */}
+        <Stack gap="md" style={{ width: '100%' }}>
             <Box>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
-                        <IconCash size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>Información de la caja</Title>
-                </div>
+                <SectionTitle>Información de la caja</SectionTitle>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
                     <TextInput
                         label="Nombre de la caja"
@@ -67,8 +43,8 @@ function CajaForm({ form, errors, onChange }) {
                         error={errors.nombre}
                         maxLength={100}
                         description="Máximo 100 caracteres"
-                        size="md" radius="md"
-                        leftSection={<IconCash size={16} stroke={1.5} />}
+                        size="md"
+                        radius="md"
                         onChange={(e) => onChange('nombre', e.currentTarget.value)}
                     />
                     <NativeSelect
@@ -76,11 +52,13 @@ function CajaForm({ form, errors, onChange }) {
                         withAsterisk
                         value={form.estado ?? 'ACTIVO'}
                         error={errors.estado}
-                        size="md" radius="md"
-                        leftSection={<IconToggleRight size={16} stroke={1.5} />}
+                        size="md"
+                        radius="md"
                         data={[{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }]}
                         onChange={(e) => onChange('estado', e.currentTarget.value)}
                     />
+                </SimpleGrid>
+                <Box mt="xs">
                     <TextInput
                         label="Ubicación"
                         placeholder="Ej. Recepción - Entrada principal"
@@ -88,11 +66,11 @@ function CajaForm({ form, errors, onChange }) {
                         error={errors.ubicacion}
                         maxLength={255}
                         description="Máximo 255 caracteres"
-                        size="md" radius="md"
-                        leftSection={<IconMapPin size={16} stroke={1.5} />}
+                        size="md"
+                        radius="md"
                         onChange={(e) => onChange('ubicacion', e.currentTarget.value)}
                     />
-                </SimpleGrid>
+                </Box>
             </Box>
         </Stack>
     );
@@ -123,7 +101,11 @@ export function Cajas() {
         <CrudCatalogo
             titulo="Cajas"
             singular="Caja"
-            icon={IconCash}
+            icon={IconCashRegister}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
+            formMode="drawer"
+            drawerSize={560}
             servicio={api.caja}
             columnas={COLUMNAS}
             campos={CAMPOS}
@@ -132,6 +114,7 @@ export function Cajas() {
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <CajaForm {...props} />}
+            pageSizeOptions={[6, 12, 18, 24]}
         />
     );
 }

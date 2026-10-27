@@ -46,15 +46,8 @@ import {
     IconDeviceMobile,
     IconEye,
     IconFileDownload,
-    IconInfoCircle,
-    IconArrowDownRight,
-    IconArrowUpRight,
-    IconMinus,
-    IconPlus,
-    IconReceipt2,
     IconReportAnalytics,
     IconShieldCheck,
-    IconTrendingUp,
     IconUser,
     IconWallet,
 } from '@tabler/icons-react';
@@ -62,22 +55,10 @@ import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { generarPdfCorte } from '../../scripts/generarPdfCorte.js';
+import { DENOMINACIONES, desglosarMonto } from '../../scripts/cajaUtils.js';
 import classes from './CorteCaja.module.css';
 
-/* ─── Denominaciones monetarias (Pesos Mexicanos) ─────────────────────────── */
-const DENOMINACIONES = [
-    { valor: 1000, tipo: 'billete', label: '$1,000' },
-    { valor: 500,  tipo: 'billete', label: '$500'   },
-    { valor: 200,  tipo: 'billete', label: '$200'   },
-    { valor: 100,  tipo: 'billete', label: '$100'   },
-    { valor: 50,   tipo: 'billete', label: '$50'    },
-    { valor: 20,   tipo: 'billete', label: '$20'    },
-    { valor: 10,   tipo: 'moneda',  label: '$10'    },
-    { valor: 5,    tipo: 'moneda',  label: '$5'     },
-    { valor: 2,    tipo: 'moneda',  label: '$2'     },
-    { valor: 1,    tipo: 'moneda',  label: '$1'     },
-    { valor: 0.5,  tipo: 'moneda',  label: '$0.50'  },
-];
+
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -142,26 +123,10 @@ const sectionHeader = {
     borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
 };
 
-/**
- * Distribuye automáticamente un monto en denominaciones para representar el fondo inicial.
- */
-function desglosarMonto(montoTotal) {
-    let restante = Number(montoTotal) || 0;
-    const resultado = {};
-    for (const d of DENOMINACIONES) {
-        if (restante >= d.valor) {
-            const cant = Math.floor(restante / d.valor);
-            resultado[d.valor] = cant;
-            restante = Math.round((restante - cant * d.valor) * 100) / 100;
-        } else {
-            resultado[d.valor] = 0;
-        }
-    }
-    return resultado;
-}
+
 
 /* ─── Modal 1: Detalle de Ventas y Movimientos del Turno ────────────────────── */
-function ModalDetalleVentas({ opened, onClose, aperturaId, resumenApertura }) {
+function ModalDetalleVentas({ opened, onClose, resumenApertura }) {
     const totales = resumenApertura?.totales;
     const totalVentas = totales ? Number(totales.totalVentas ?? 0) : 0;
     const transacciones = totales ? Number(totales.transaccionesVentas ?? 0) : 0;
@@ -430,7 +395,7 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
     let desgloseFin = null;
     try {
         if (corte.desgloseFin) desgloseFin = JSON.parse(corte.desgloseFin);
-    } catch (e) {
+    } catch {
         desgloseFin = null;
     }
 
@@ -596,73 +561,22 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
                     </Box>
 
                     {/* Acciones del Modal */}
-                    <Group justify="space-between" mt="md">
-                        <Menu shadow="md" width={230} position="top-start" radius="md" withArrow withinPortal>
-                            <Menu.Target>
-                                <Tooltip
-                                    label={!esValidado ? 'Debe validar el corte para descargar el comprobante oficial en PDF' : 'Descargar reporte PDF oficial'}
-                                    withArrow
-                                >
-                                    <span style={{ display: 'inline-block' }}>
-                                        <Button
-                                            variant="light"
-                                            color="apex"
-                                            leftSection={<IconFileDownload size={16} />}
-                                            disabled={!esValidado}
-                                        >
-                                            Descargar PDF
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-                            </Menu.Target>
-                            <Menu.Dropdown>
-                                <Menu.Label>Formato de Comprobante</Menu.Label>
-                                <Menu.Item
-                                    leftSection={<IconFileCheck size={16} stroke={1.8} color="var(--ag-color-primary)" />}
-                                    onClick={async () => {
-                                        let configuraciones = [];
-                                        try {
-                                            const resConfig = await api.configuracionSistema.obtenerTodos();
-                                            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
-                                        } catch (e) {}
-                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones, { esReimpresion: false });
-                                    }}
-                                >
-                                    Original (Sin marca de agua)
-                                </Menu.Item>
-                                <Menu.Item
-                                    leftSection={<IconCopy size={16} stroke={1.8} color="#868e96" />}
-                                    onClick={async () => {
-                                        let configuraciones = [];
-                                        try {
-                                            const resConfig = await api.configuracionSistema.obtenerTodos();
-                                            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
-                                        } catch (e) {}
-                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones, { esReimpresion: true });
-                                    }}
-                                >
-                                    Copia / Reimpresión
-                                </Menu.Item>
-                            </Menu.Dropdown>
-                        </Menu>
-
-                        <Group gap="xs">
-                            {!esValidado && (
-                                <Button
-                                    color="green"
-                                    leftSection={<IconShieldCheck size={16} />}
-                                    onClick={() => {
-                                        onValidar(corte);
-                                        onClose();
-                                    }}
-                                >
-                                    Validar Corte
-                                </Button>
-                            )}
-                            <Button variant="default" onClick={onClose}>
-                                Cerrar
+                    <Group justify="flex-end" mt="md" gap="xs">
+                        {!esValidado && (
+                            <Button
+                                color="green"
+                                leftSection={<IconShieldCheck size={16} />}
+                                onClick={() => {
+                                    onValidar(corte);
+                                    onClose();
+                                }}
+                            >
+                                Validar Corte
                             </Button>
-                        </Group>
+                        )}
+                        <Button variant="default" onClick={onClose}>
+                            Cerrar
+                        </Button>
                     </Group>
                 </Stack>
             </Box>
@@ -708,7 +622,9 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                     ? JSON.parse(resumenApertura.apertura.desgloseInicio)
                     : resumenApertura.apertura.desgloseInicio;
                 if (parsed && typeof parsed === 'object') return parsed;
-            } catch (e) {}
+            } catch {
+                // Ignorar error de parseo y continuar con fallback
+            }
         }
         const monto = resumenApertura
             ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
@@ -721,7 +637,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         if (desgloseInicio) {
             onChange('desgloseInicio', desgloseInicio);
         }
-    }, [desgloseInicio]);
+    }, [desgloseInicio, onChange]);
 
     // Recalcular efectivo contado a partir del conteo de cierre
     const actualizarConteoCierre = (valor, cantidad) => {
@@ -764,7 +680,6 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             <ModalDetalleVentas
                 opened={modalVentasAbierto}
                 onClose={() => setModalVentasAbierto(false)}
-                aperturaId={form.aperturaCajaId}
                 resumenApertura={resumenApertura}
             />
 
@@ -1043,7 +958,7 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 >
                     <Stack gap={2}>
                         {Object.entries(errors)
-                            .filter(([_, msg]) => Boolean(msg))
+                            .filter(([, msg]) => Boolean(msg))
                             .map(([key, msg]) => (
                                 <Text size="xs" key={key} fw={600} c="red">
                                     • {msg}
@@ -1126,7 +1041,9 @@ export function CorteCaja() {
             try {
                 const r = await api.movimientoCaja.obtenerPorApertura(aperturaId);
                 if (r.responseFlag === 0) movs = r.data ?? [];
-            } catch (e) {}
+            } catch {
+                movs = [];
+            }
         }
 
         let desglose = null;
@@ -1136,13 +1053,17 @@ export function CorteCaja() {
                     ? JSON.parse(corte.desgloseFin)
                     : corte.desgloseFin;
             }
-        } catch (e) {}
+        } catch {
+            desglose = null;
+        }
 
         let configuraciones = [];
         try {
             const resConfig = await api.configuracionSistema.obtenerTodos();
             if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
-        } catch (e) {}
+        } catch {
+            configuraciones = [];
+        }
 
         generarPdfCorte(corte, movs, desglose, configuraciones, { esReimpresion });
     };
@@ -1222,7 +1143,7 @@ export function CorteCaja() {
                         }
                     }
                 }
-            } catch (e) {
+            } catch {
                 // Validación respaldada en backend
             }
         }
@@ -1247,6 +1168,8 @@ export function CorteCaja() {
                 titulo="Corte de Caja"
                 singular="Corte"
                 icon={IconCalculator}
+                headerVariant="unified"
+                tableHeaderVariant="neutral"
                 servicio={api.corteCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
@@ -1256,6 +1179,7 @@ export function CorteCaja() {
                 mapRecordToRow={mapRecordToRow}
                 renderForm={(props) => <CorteForm {...props} />}
                 validateForm={validateForm}
+                pageSizeOptions={[5, 10, 15, 20]}
                 permitirEditar={false}
                 permitirEliminar={false}
                 renderAccionesFila={(fila, recordOriginal, helpers = {}) => {

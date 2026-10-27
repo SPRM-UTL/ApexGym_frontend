@@ -4,13 +4,12 @@ import {
     Stack,
     Textarea,
     TextInput,
-    ThemeIcon,
-    Title,
 } from '@mantine/core';
 import { IconCreditCard } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { SectionTitle } from '../../components/SectionTitle/SectionTitle.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre', required: true, maxLength: 30, placeholder: 'Ej. Efectivo' },
@@ -24,26 +23,12 @@ const COLUMNAS_METODOS_PAGO = [
 
 const INICIAL = { nombre: '', descripcion: '' };
 
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
-
 function MetodoPagoForm({ form, errors, onChange }) {
     return (
-        <Stack gap="md">
+        <Stack gap="md" style={{ width: '100%' }}>
             <Box>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
-                        <IconCreditCard size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>Información General</Title>
-                </div>
-                <Stack gap="sm">
+                <SectionTitle>Datos del método de pago</SectionTitle>
+                <Stack gap="md">
                     <TextInput
                         label="Nombre"
                         withAsterisk
@@ -98,6 +83,10 @@ export function MetodosPago() {
             titulo="Métodos de Pago"
             singular="Método de Pago"
             icon={IconCreditCard}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
+            formMode="drawer"
+            drawerSize={540}
             servicio={api.metodosPago}
             columnas={COLUMNAS_METODOS_PAGO}
             campos={CAMPOS}
@@ -106,6 +95,7 @@ export function MetodosPago() {
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <MetodoPagoForm {...props} />}
+            pageSizeOptions={[6, 12, 18, 24]}
         />
     );
 }
