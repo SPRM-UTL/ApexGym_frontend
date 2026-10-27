@@ -34,30 +34,30 @@ const CAMPOS = [
     { key: 'correo',           label: 'Correo electrónico',                           maxLength: 191 },
     { key: 'direccion',        label: 'Dirección',                                    maxLength: 500 },
     { key: 'areaTrabajoId',    label: 'Área de trabajo',              required: true,
-      loadOptions: async () => {
-          const r = await api.areaTrabajo.obtenerTodos();
-          return (r.data ?? []).map((a) => ({ value: String(a.id), label: a.nombre }));
-      },
+        loadOptions: async () => {
+        const r = await api.areaTrabajo.obtenerTodos();
+        return (r.data ?? []).map((a) => ({ value: String(a.id), label: a.nombre }));
+        },
     },
     { key: 'puestoId',         label: 'Puesto',                       required: true,
-      loadOptions: async () => {
-          const r = await api.puesto.obtenerTodos();
-          return (r.data ?? []).map((p) => ({ value: String(p.id), label: p.nombre }));
-      },
+        loadOptions: async () => {
+            const r = await api.puesto.obtenerTodos();
+            return (r.data ?? []).map((p) => ({ value: String(p.id), label: p.nombre }));
+        },
     },
     { key: 'estadoEmpleadoId', label: 'Estado de empleado',           required: true,
-      loadOptions: async () => {
-          const r = await api.estadoEmpleado.obtenerTodos();
-          return (r.data ?? []).map((e) => ({ value: String(e.id), label: e.nombre }));
-      },
+        loadOptions: async () => {
+            const r = await api.estadoEmpleado.obtenerTodos();
+            return (r.data ?? []).map((e) => ({ value: String(e.id), label: e.nombre }));
+        },
     },
     { key: 'fechaIngreso',     label: 'Fecha de Ingreso',             required: true, type: 'date' },
     { key: 'fechaNacimiento',  label: 'Fecha de Nacimiento',          required: true, type: 'date' },
     { key: 'usuarioId',        label: 'Usuario del sistema (opcional)',
-      loadOptions: async () => {
-          const r = await api.user.obtenerTodos();
-          return (r.data ?? []).map((u) => ({ value: String(u.id), label: `${u.nombre} (${u.email})` }));
-      },
+        loadOptions: async () => {
+            const r = await api.user.obtenerTodos();
+            return (r.data ?? []).map((u) => ({ value: String(u.id), label: `${u.nombre} (${u.email})` }));
+        },
     },
     { key: 'imagenUrl',        label: 'Fotografía de perfil',         type: 'dropzone' },
 ];
@@ -76,6 +76,15 @@ const INICIAL = {
     telefono: '', correo: '', direccion: '',
     areaTrabajoId: '', puestoId: '', estadoEmpleadoId: '',
     fechaIngreso: '', fechaNacimiento: '', usuarioId: '', imagenUrl: '',
+};
+
+const getFechaMaximaNacimiento = () => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
 };
 
 const SectionTitle = ({ children, rightSection }) => (
@@ -143,11 +152,7 @@ function FSelect({ label, required, placeholder, options = [], value, error, onC
 }
 
 function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
-    const fechaMaximaNacimiento = useMemo(() => {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() - 18);
-        return d.toISOString().split('T')[0];
-    }, []);
+    const fechaMaximaNacimiento  = useMemo(getFechaMaximaNacimiento, []);
 
     const handleDrop = (archivos) => {
         const archivo = archivos[0] ?? null;
@@ -396,17 +401,8 @@ export function Empleados() {
         if (form.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) {
             errors.correo = 'Formato de correo electrónico no válido';
         }
-        if (form.fechaNacimiento) {
-            const birth = new Date(form.fechaNacimiento);
-            const today = new Date();
-            let age = today.getFullYear() - birth.getFullYear();
-            const m = today.getMonth() - birth.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-                age--;
-            }
-            if (isNaN(age) || age < 18) {
-                errors.fechaNacimiento = 'El empleado debe ser mayor de edad (mínimo 18 años)';
-            }
+        if(form.fechaNacimiento && form.fechaNacimiento > getFechaMaximaNacimiento){
+            errors.fechaNacimiento = 'El empleado tiene que ser mayor de edad (minima : 18)'
         }
         return errors;
     };

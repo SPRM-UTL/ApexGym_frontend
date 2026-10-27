@@ -1,5 +1,7 @@
 
 import classes from './Nueva.module.css';
+import { notifications } from '@mantine/notifications';
+import { api } from '../../../scripts/services/api.js';
 
 import {
     ActionIcon,
@@ -32,56 +34,16 @@ import {
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 
-const productos = [
-    {
-        id: 1,
-        nombre: 'Producto 1',
-        categoria: 'Producto',
-        precio: 150,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 2,
-        nombre: 'Producto 2',
-        categoria: 'Producto',
-        precio: 250,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 3,
-        nombre: 'Producto 3',
-        categoria: 'Producto',
-        precio: 99,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 4,
-        nombre: 'Producto 4',
-        categoria: 'Producto',
-        precio: 320,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 5,
-        nombre: 'Producto 5',
-        categoria: 'Producto',
-        precio: 180,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 6,
-        nombre: 'Producto 6',
-        categoria: 'Producto',
-        precio: 450,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-];
+const [catalogoProductos, setCatalogoProductos] = useState([]);
+const [aperturasAbiertas, setAperturasAbiertas] = useState([]);
+const [clientes, setClientes] = useState([]);
+const [metodosPago, setMetodosPago] = useState([]);
+
+const [aperturaCajaId, setAperturaCajaId] = useState('');
+const [clienteId, setClienteId] = useState('');
+const [metodoPago, setMetodoPago] = useState('');
+const [cobrando, setCobrando] = useState(false);
+
 
 const servicios = [
     {
@@ -139,7 +101,6 @@ const membresias = [
 
 const channel = new BroadcastChannel('app_sync_channel');
 
-// Enviar un mensaje o evento de cambio
 function triggerUpdate(data) {
     channel.postMessage({
         type: 'DATA_UPDATED',
@@ -212,7 +173,40 @@ function ListaProductos({ productos, agregarProducto }) {
         </ScrollArea>
     );
 }
+const cobrar = async () => {
+    if (!aperturaCajaId || !clienteId || !metodoPago || listaProductos.length === 0) {
+        notifications.show({
+            color: 'yellow',
+            message: 'Selecciona apertura, cliente y método de pago; agrega productos al ticket.',
+        });
+        return;
+    }
 
+    setCobrando(true);
+
+    try {
+        await api.venta.crearVenta({
+            aperturaCajaId: Number(aperturaCajaId),
+            metodoPago,
+            clienteId: Number(clienteId),
+            descuento: 0,
+            detalleVenta: listaProductos.map((producto) => ({
+                productoId: producto.id,
+                cantidad: producto.cantidad,
+            })),
+        });
+
+        notifications.show({ color: 'green', message: 'Venta creada correctamente.' });
+        setListaProductos([]);
+    } catch (error) {
+        notifications.show({
+            color: 'red',
+            message: error.message || 'No se pudo crear la venta.',
+        });
+    } finally {
+        setCobrando(false);
+    }
+};
 function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
 
     let subtotal = 0;
@@ -368,6 +362,9 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
                         size="md"
                         fullWidth
                         mt="xs"
+                         onLoad={cobrando} 
+                         onClick={onCobrar} 
+                         disabled={productos.length === 0}
                         leftSection={<IconCash size={19} />}
                     >
                         Cobrar
@@ -377,6 +374,8 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
         </Paper>
     );
 }
+
+
 
 export function Nueva() {
 
