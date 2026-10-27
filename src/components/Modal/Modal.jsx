@@ -13,9 +13,11 @@ export function ModalCrud({ abierto, setAbierto, contenido: Contenido, titulo })
             opened={abierto}
             onClose={cerrar}
             title={titulo}
-            zIndex={9999}
+            fullScreen
+            radius={0}
+            zIndex={999999}
             withinPortal
-            centered
+            transitionProps={{ transition: 'slide-up', duration: 200 }}
         >
             {/* Renderizamos el contenido pasando setAbierto por si quieren cerrar el modal desde adentro */}
             <Contenido setAbierto={setAbierto} />

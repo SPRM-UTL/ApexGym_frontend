@@ -287,7 +287,28 @@ export function CrudCatalogo({
         }
     };
 
-    const tableData = useMemo(() => records.map(mapRecordToRow), [records, mapRecordToRow]);
+    const tableData = useMemo(() => records.map((record) => {
+        const row = mapRecordToRow(record);
+        return {
+            ...row,
+            _recordOriginal: record,
+        };
+    }), [records, mapRecordToRow]);
+
+    const handleRenderAcciones = useMemo(() => {
+        if (!renderAccionesFila) return undefined;
+        return (fila) => {
+            const recordOriginal = fila?._recordOriginal ?? records.find((r) => r.id === fila?.id) ?? fila;
+            return renderAccionesFila(fila, recordOriginal, {
+                reload: () => {
+                    fetchData();
+                    fetchOptions();
+                },
+                openEdit: (rec = recordOriginal) => openEdit(rec),
+                deleteRecord: (rec = recordOriginal) => setPendingDelete(rec),
+            });
+        };
+    }, [renderAccionesFila, records]);
 
     const leftFields = useMemo(() => campos.filter((c) => c.side !== 'right'), [campos]);
     const rightFields = useMemo(() => campos.filter((c) => c.side === 'right'), [campos]);
