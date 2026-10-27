@@ -196,18 +196,16 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
     }, [form.desgloseInicio]);
 
     // Totales calculados en tiempo real
-    const { totalFondo, totalBilletes, totalMonedas, totalPiezas } = useMemo(() => {
+    const { totalFondo, totalBilletes, totalMonedas } = useMemo(() => {
         let fondo = 0;
         let billetes = 0;
         let monedas = 0;
-        let piezas = 0;
 
         for (const d of DENOMINACIONES) {
             const raw = conteoInicio[d.valor];
             const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             const sub = d.valor * c;
             fondo += sub;
-            piezas += c;
             if (d.tipo === 'billete') billetes += sub;
             else monedas += sub;
         }
@@ -216,7 +214,6 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
             totalFondo: Math.round(fondo * 100) / 100,
             totalBilletes: Math.round(billetes * 100) / 100,
             totalMonedas: Math.round(monedas * 100) / 100,
-            totalPiezas: piezas,
         };
     }, [conteoInicio]);
 
@@ -250,15 +247,6 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
         onChange('desgloseInicio', null);
     };
 
-    const nombreCajaSeleccionada = useMemo(() => {
-        const opciones = fieldOptions?.cajaId ?? [];
-        return opciones.find((o) => o.value === String(form.cajaId))?.label ?? '';
-    }, [fieldOptions?.cajaId, form.cajaId]);
-
-    const nombreEmpleadoSeleccionado = useMemo(() => {
-        const opciones = fieldOptions?.empleadoId ?? [];
-        return opciones.find((o) => o.value === String(form.empleadoId))?.label ?? '';
-    }, [fieldOptions?.empleadoId, form.empleadoId]);
 
     return (
         <Stack gap="md">
@@ -340,9 +328,6 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                                     Billetes de inicio (Fondo del día)
                                 </Text>
                             </Group>
-                            <Badge color="apex" variant="filled">
-                                Fondo: ${totalFondo.toFixed(2)}
-                            </Badge>
                         </Group>
                         <Text size="xs" c="dimmed" mb="md">
                             Ingresa la cantidad física contada de cada denominación.
@@ -387,13 +372,6 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                             </Table.Tbody>
                         </Table>
 
-                        {/* Barra Total Fondo Inicial (exacta a Corte de Caja) */}
-                        <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
-                            <Group justify="space-between">
-                                <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
-                                <Text fw={800} size="sm" c="blue">${totalFondo.toFixed(2)}</Text>
-                            </Group>
-                        </Paper>
                     </Paper>
 
                     {/* ── Columna 2: Resumen y Desglose de Apertura ── */}
@@ -433,30 +411,9 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                                     <Text size="xs" c="dimmed">Total en Monedas:</Text>
                                     <Text size="sm" fw={700}>${totalMonedas.toFixed(2)}</Text>
                                 </Group>
-                                <Divider my="xs" />
-                                <Group justify="space-between">
-                                    <Text size="xs" c="dimmed">Piezas físicas totales:</Text>
-                                    <Text size="sm" fw={700}>{totalPiezas} piezas</Text>
-                                </Group>
+
                             </Paper>
 
-                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
-                                <Text size="xs" fw={700} c="dimmed" mb="xs" tt="uppercase">
-                                    Datos de la Sesión
-                                </Text>
-                                <Group justify="space-between" mb={4}>
-                                    <Text size="xs" c="dimmed">Caja asignada:</Text>
-                                    <Text size="xs" fw={600}>{nombreCajaSeleccionada || '—'}</Text>
-                                </Group>
-                                <Group justify="space-between" mb={4}>
-                                    <Text size="xs" c="dimmed">Cajero responsable:</Text>
-                                    <Text size="xs" fw={600}>{nombreEmpleadoSeleccionado || '—'}</Text>
-                                </Group>
-                                <Group justify="space-between">
-                                    <Text size="xs" c="dimmed">Fecha de apertura:</Text>
-                                    <Text size="xs" fw={600}>{formatearFechaHora(form.fechaApertura || new Date())}</Text>
-                                </Group>
-                            </Paper>
 
                             <Paper p="sm" radius="md" mt="auto" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
                                 <Group justify="space-between" align="center">
@@ -524,11 +481,9 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
 
     let totalBilletes = 0;
     let totalMonedas = 0;
-    let totalPiezas = 0;
     for (const d of DENOMINACIONES) {
         const cant = Number(desgloseFinal[d.valor] ?? 0);
         const sub = d.valor * cant;
-        totalPiezas += cant;
         if (d.tipo === 'billete') totalBilletes += sub;
         else totalMonedas += sub;
     }
@@ -599,9 +554,6 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
                                         Billetes de inicio (Fondo del día)
                                     </Text>
                                 </Group>
-                                <Badge color="blue" variant="light">
-                                    Fondo: ${fondoInicial.toFixed(2)}
-                                </Badge>
                             </Group>
                             <Text size="xs" c="dimmed" mb="md">
                                 Desglose con el que se aperturó la caja física.
@@ -631,12 +583,6 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
                                 </Table.Tbody>
                             </Table>
 
-                            <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd', borderColor: '#b6dbf9' }}>
-                                <Group justify="space-between">
-                                    <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
-                                    <Text fw={800} size="sm" c="blue">${fondoInicial.toFixed(2)}</Text>
-                                </Group>
-                            </Paper>
                         </Paper>
 
                         {/* ── Columna 2: Resumen del Fondo ── */}
@@ -666,11 +612,7 @@ function ModalDetalleApertura({ apertura, opened, onClose }) {
                                         <Text size="xs" c="dimmed">Total en Monedas:</Text>
                                         <Text size="sm" fw={700}>${totalMonedas.toFixed(2)}</Text>
                                     </Group>
-                                    <Divider my="xs" />
-                                    <Group justify="space-between">
-                                        <Text size="xs" c="dimmed">Piezas físicas totales:</Text>
-                                        <Text size="sm" fw={700}>{totalPiezas} piezas</Text>
-                                    </Group>
+
                                 </Paper>
 
                                 {apertura.observaciones && (

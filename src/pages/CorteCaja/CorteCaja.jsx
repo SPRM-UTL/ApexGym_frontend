@@ -18,6 +18,7 @@ import {
     Button,
     Divider,
     Group,
+    Menu,
     Modal,
     NativeSelect,
     NumberInput,
@@ -39,6 +40,8 @@ import {
     IconCash,
     IconCheck,
     IconCoins,
+    IconCopy,
+    IconFileCheck,
     IconCreditCard,
     IconDeviceMobile,
     IconEye,
@@ -59,6 +62,7 @@ import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { generarPdfCorte } from '../../scripts/generarPdfCorte.js';
+import classes from './CorteCaja.module.css';
 
 /* ─── Denominaciones monetarias (Pesos Mexicanos) ─────────────────────────── */
 const DENOMINACIONES = [
@@ -593,29 +597,54 @@ function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
 
                     {/* Acciones del Modal */}
                     <Group justify="space-between" mt="md">
-                        <Tooltip
-                            label={!esValidado ? 'Debe validar el corte para descargar el comprobante oficial en PDF' : 'Descargar reporte PDF oficial'}
-                            withArrow
-                        >
-                            <span style={{ display: 'inline-block' }}>
-                                <Button
-                                    variant="light"
-                                    color="apex"
-                                    leftSection={<IconFileDownload size={16} />}
-                                    disabled={!esValidado}
+                        <Menu shadow="md" width={230} position="top-start" radius="md" withArrow withinPortal>
+                            <Menu.Target>
+                                <Tooltip
+                                    label={!esValidado ? 'Debe validar el corte para descargar el comprobante oficial en PDF' : 'Descargar reporte PDF oficial'}
+                                    withArrow
+                                >
+                                    <span style={{ display: 'inline-block' }}>
+                                        <Button
+                                            variant="light"
+                                            color="apex"
+                                            leftSection={<IconFileDownload size={16} />}
+                                            disabled={!esValidado}
+                                        >
+                                            Descargar PDF
+                                        </Button>
+                                    </span>
+                                </Tooltip>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Label>Formato de Comprobante</Menu.Label>
+                                <Menu.Item
+                                    leftSection={<IconFileCheck size={16} stroke={1.8} color="var(--ag-color-primary)" />}
                                     onClick={async () => {
                                         let configuraciones = [];
                                         try {
                                             const resConfig = await api.configuracionSistema.obtenerTodos();
                                             if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
                                         } catch (e) {}
-                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones);
+                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones, { esReimpresion: false });
                                     }}
                                 >
-                                    Descargar PDF
-                                </Button>
-                            </span>
-                        </Tooltip>
+                                    Original (Sin marca de agua)
+                                </Menu.Item>
+                                <Menu.Item
+                                    leftSection={<IconCopy size={16} stroke={1.8} color="#868e96" />}
+                                    onClick={async () => {
+                                        let configuraciones = [];
+                                        try {
+                                            const resConfig = await api.configuracionSistema.obtenerTodos();
+                                            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+                                        } catch (e) {}
+                                        generarPdfCorte(corte, movimientos, desgloseFin, configuraciones, { esReimpresion: true });
+                                    }}
+                                >
+                                    Copia / Reimpresión
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
 
                         <Group gap="xs">
                             {!esValidado && (
@@ -1089,6 +1118,35 @@ export function CorteCaja() {
         };
     };
 
+    const handleDescargarPdf = async (corte, esReimpresion = false) => {
+        if (!corte) return;
+        let movs = [];
+        const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
+        if (aperturaId) {
+            try {
+                const r = await api.movimientoCaja.obtenerPorApertura(aperturaId);
+                if (r.responseFlag === 0) movs = r.data ?? [];
+            } catch (e) {}
+        }
+
+        let desglose = null;
+        try {
+            if (corte?.desgloseFin) {
+                desglose = typeof corte.desgloseFin === 'string'
+                    ? JSON.parse(corte.desgloseFin)
+                    : corte.desgloseFin;
+            }
+        } catch (e) {}
+
+        let configuraciones = [];
+        try {
+            const resConfig = await api.configuracionSistema.obtenerTodos();
+            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+        } catch (e) {}
+
+        generarPdfCorte(corte, movs, desglose, configuraciones, { esReimpresion });
+    };
+
     const handleValidar = async (corte, helpers = {}) => {
         const reload = helpers?.reload;
         if (!corte?.id) return;
@@ -1177,7 +1235,7 @@ export function CorteCaja() {
     };
 
     return (
-        <>
+        <div className={classes.corteCajaWrapper}>
             <ModalDetalleCorte
                 corte={corteSeleccionado}
                 opened={modalDetalleAbierto}
@@ -1241,56 +1299,53 @@ export function CorteCaja() {
                                 </span>
                             </Tooltip>
 
-                            {/* 3. Descargar PDF (Solo si el corte está VALIDADO) */}
-                            <Tooltip
-                                label={!esValidado ? 'Debe validar el corte para descargar el comprobante en PDF' : 'Descargar comprobante en PDF'}
+                            {/* 3. Descargar PDF (Menu con opciones Original vs Copia / Reimpresión) */}
+                            <Menu
+                                shadow="md"
+                                width={240}
+                                position="bottom-end"
+                                radius="md"
                                 withArrow
-                                openDelay={200}
+                                withinPortal
+                                disabled={!esValidado}
                             >
-                                <span style={{ display: 'inline-block' }}>
-                                    <ActionIcon
-                                        variant="light"
-                                        color={esValidado ? 'apex' : 'gray'}
-                                        size="lg"
-                                        disabled={!esValidado}
-                                        onClick={async () => {
-                                            if (!esValidado) return;
-                                            let movs = [];
-                                            const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
-                                            if (aperturaId) {
-                                                try {
-                                                    const r = await api.movimientoCaja.obtenerPorApertura(aperturaId);
-                                                    if (r.responseFlag === 0) movs = r.data ?? [];
-                                                } catch (e) {}
-                                            }
-
-                                            let desglose = null;
-                                            try {
-                                                if (corte?.desgloseFin) {
-                                                    desglose = typeof corte.desgloseFin === 'string'
-                                                        ? JSON.parse(corte.desgloseFin)
-                                                        : corte.desgloseFin;
-                                                }
-                                            } catch (e) {}
-
-                                            let configuraciones = [];
-                                            try {
-                                                const resConfig = await api.configuracionSistema.obtenerTodos();
-                                                if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
-                                            } catch (e) {}
-
-                                            generarPdfCorte(corte, movs, desglose, configuraciones);
-                                        }}
+                                <Menu.Target>
+                                    <Tooltip
+                                        label={!esValidado ? 'Debe validar el corte para descargar el comprobante en PDF' : 'Descargar comprobante en PDF'}
+                                        withArrow
+                                        openDelay={200}
                                     >
-                                        <IconFileDownload size={18} stroke={1.8} />
-                                    </ActionIcon>
-                                </span>
-                            </Tooltip>
+                                        <ActionIcon
+                                            variant="light"
+                                            color={esValidado ? 'apex' : 'gray'}
+                                            size="lg"
+                                            disabled={!esValidado}
+                                        >
+                                            <IconFileDownload size={18} stroke={1.8} />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                </Menu.Target>
+                                <Menu.Dropdown>
+                                    <Menu.Label>Formato de Comprobante</Menu.Label>
+                                    <Menu.Item
+                                        leftSection={<IconFileCheck size={16} stroke={1.8} color="var(--ag-color-primary)" />}
+                                        onClick={() => handleDescargarPdf(corte, false)}
+                                    >
+                                        Original (Sin marca de agua)
+                                    </Menu.Item>
+                                    <Menu.Item
+                                        leftSection={<IconCopy size={16} stroke={1.8} color="#868e96" />}
+                                        onClick={() => handleDescargarPdf(corte, true)}
+                                    >
+                                        Copia / Reimpresión
+                                    </Menu.Item>
+                                </Menu.Dropdown>
+                            </Menu>
                         </Group>
                     );
                 }}
             />
-        </>
+        </div>
     );
 }
 

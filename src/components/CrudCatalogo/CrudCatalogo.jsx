@@ -290,14 +290,22 @@ export function CrudCatalogo({
         if (!renderAccionesFila) return undefined;
         return (fila) => {
             const recordOriginal = fila?._recordOriginal ?? records.find((r) => r.id === fila?.id) ?? fila;
-            return renderAccionesFila(fila, recordOriginal, {
+            const helpers = {
                 reload: () => {
                     fetchData();
                     fetchOptions();
                 },
                 openEdit: (rec = recordOriginal) => openEdit(rec),
+                setPendingDelete: (rec = recordOriginal) => setPendingDelete(rec),
                 deleteRecord: (rec = recordOriginal) => setPendingDelete(rec),
-            });
+            };
+
+            const segundoArg = {
+                ...recordOriginal,
+                ...helpers,
+            };
+
+            return renderAccionesFila(fila, segundoArg, helpers);
         };
     }, [renderAccionesFila, records]);
 

@@ -1,0 +1,100 @@
+/* Contenedor exclusivo para Corte de Caja */
+.corteCajaWrapper {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* Evitar que el grid del CRUD se expanda mas alla de la pantalla */
+.corteCajaWrapper > div {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Barra superior (+ Agregar): se queda fija al 100% de la pantalla */
+.corteCajaWrapper :global([class*="BarraAcciones_toolbar"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Marco de registros: no se desborda */
+.corteCajaWrapper :global([class*="TablaRegistros_frame"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Envolvente de TableSort: ancho maximo 100% */
+.corteCajaWrapper :global([class*="TableSort_wrapper"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* Barra de busqueda y controles de tabla: fija al 100% (no se mueve) */
+.corteCajaWrapper :global([class*="TableSort_tableControls"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Barra de paginacion inferior: fija al 100% (no se mueve) */
+.corteCajaWrapper :global([class*="TableSort_footer"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* UNICAMENTE el area de la tabla tiene scroll horizontal independiente */
+.corteCajaWrapper :global([class*="TableSort_scroll"]),
+.corteCajaWrapper :global(.mantine-ScrollArea-root) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+}
+
+.corteCajaWrapper :global(.mantine-ScrollArea-viewport) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+}
+
+/* Ancho minimo de la tabla de corte de caja para ver todas las columnas */
+.corteCajaWrapper :global(table) {
+    min-width: 1350px !important;
+    width: 100% !important;
+}
+
+/* Scrollbar horizontal siempre visible y con estilo Apex */
+.corteCajaWrapper :global(.mantine-ScrollArea-scrollbar[data-orientation="horizontal"]) {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: 10px !important;
+    background-color: rgba(27, 31, 58, 0.06) !important;
+    border-radius: 6px !important;
+}
+
+.corteCajaWrapper :global(.mantine-ScrollArea-thumb) {
+    background-color: var(--ag-color-secondary-light, #343B63) !important;
+    border-radius: 6px !important;
+}
+
+.corteCajaWrapper :global(.mantine-ScrollArea-thumb:hover) {
+    background-color: var(--ag-color-primary, #FF6A00) !important;
+}

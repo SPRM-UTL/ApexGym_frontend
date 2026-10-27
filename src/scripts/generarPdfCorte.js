@@ -32,13 +32,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
     const configHuella = configMap['mostrar_huella_digital_corte'] ?? configMap['mostrar_auditoria_digital'];
     const mostrarHuella = configHuella !== undefined ? String(configHuella).toLowerCase() === 'true' : true;
 
-    // Configuración para el logo del sistema
-    const logoConfig = configMap['logo_sistema'] ?? configMap['imagen_sistema'] ?? configMap['logo'] ?? '/favicon.svg';
-    let logoUrl = logoConfig;
-    if (logoUrl && !logoUrl.startsWith('http://') && !logoUrl.startsWith('https://') && !logoUrl.startsWith('data:')) {
-        const origin = window.location.origin || '';
-        logoUrl = `${origin}${logoUrl.startsWith('/') ? '' : '/'}${logoUrl}`;
-    }
+    // Logotipo e identidad institucional: tipografía oficial ApexGym
 
     // ── Conteo de impresiones y control de ORIGINAL vs REIMPRESIÓN ───────────
     const storageKey = `corte_impresiones_${corte?.id ?? 0}`;
@@ -280,9 +274,6 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
             </span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <button type="button" class="btn-action" onclick="toggleModoImpresion()" id="btnToggleModo">
-                ${esOriginal ? '⚠️ Ver vista con Marca de Agua (Reimpresión)' : '📄 Ver vista Original (Sin Marca de Agua)'}
-            </button>
             <button type="button" class="btn-action primary" onclick="window.print()">
                 🖨️ Imprimir / Guardar PDF
             </button>
@@ -295,12 +286,13 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
     </div>
 
     <div class="header">
-        <div style="display: flex; align-items: center; gap: 14px;">
-            ${logoUrl ? `<img src="${logoUrl}" alt="Logo ApexGym" style="height: 52px; width: auto; max-width: 90px; object-fit: contain;" onerror="this.style.display='none'" />` : ''}
-            <div class="logo-title">
-                <h1>APEX GYM</h1>
-                <p>Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno</p>
-            </div>
+        <div class="logo-title">
+            <h1 style="font-size: 26px; font-weight: 900; color: #1B1F3A; margin: 0; letter-spacing: -0.5px; line-height: 1.1;">
+                APEX<span style="color: #FF6A00;">GYM</span>
+            </h1>
+            <p style="margin: 4px 0 0 0; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;">
+                Control Financiero Operativo · Reporte Oficial de Arqueo y Corte de Turno
+            </p>
         </div>
         <div class="header-badges">
             <span class="badge-doc ${esOriginal ? 'original' : 'reimpresion'}" id="badgeDoc">
@@ -486,55 +478,6 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
 
     <script>
         var storageKey = '${storageKey}';
-        var numeroCopia = ${numeroCopia};
-
-        function toggleModoImpresion() {
-            var body = document.body;
-            var badgeDoc = document.getElementById('badgeDoc');
-            var toolbarBadge = document.getElementById('toolbarStatusBadge');
-            var btnToggle = document.getElementById('btnToggleModo');
-            var huellaDoc = document.getElementById('huellaEstadoDoc');
-
-            var esModoOriginal = body.classList.contains('modo-original');
-            if (esModoOriginal) {
-                // Cambiar a REIMPRESIÓN
-                body.classList.remove('modo-original');
-                body.classList.add('modo-reimpresion');
-                if (badgeDoc) {
-                    badgeDoc.className = 'badge-doc reimpresion';
-                    badgeDoc.innerText = 'REIMPRESIÓN · COPIA #' + (numeroCopia || 1);
-                }
-                if (toolbarBadge) {
-                    toolbarBadge.className = 'badge-doc reimpresion';
-                    toolbarBadge.innerText = 'REIMPRESIÓN (COPIA #' + (numeroCopia || 1) + ')';
-                }
-                if (btnToggle) {
-                    btnToggle.innerText = '📄 Ver vista Original (Sin Marca de Agua)';
-                }
-                if (huellaDoc) {
-                    huellaDoc.innerHTML = '▲ <b>DOCUMENTO EN REIMPRESIÓN (COPIA #' + (numeroCopia || 1) + ')</b>';
-                }
-            } else {
-                // Cambiar a ORIGINAL
-                body.classList.remove('modo-reimpresion');
-                body.classList.add('modo-original');
-                if (badgeDoc) {
-                    badgeDoc.className = 'badge-doc original';
-                    badgeDoc.innerText = 'ORIGINAL';
-                }
-                if (toolbarBadge) {
-                    toolbarBadge.className = 'badge-doc original';
-                    toolbarBadge.innerText = 'ORIGINAL';
-                }
-                if (btnToggle) {
-                    btnToggle.innerText = '⚠️ Ver vista con Marca de Agua (Reimpresión)';
-                }
-                if (huellaDoc) {
-                    huellaDoc.innerHTML = '● <b>DOCUMENTO ORIGINAL OFICIAL</b>';
-                }
-            }
-        }
-
         window.onafterprint = function() {
             try {
                 var actual = Number(localStorage.getItem(storageKey) || 0);
