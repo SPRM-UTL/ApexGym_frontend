@@ -10,7 +10,6 @@ import {
     Stack,
     Text,
     Textarea,
-    TextInput,
     Tooltip,
 } from '@mantine/core';
 import {
@@ -21,6 +20,7 @@ import {
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { SectionTitle, FInput, FSelect, FTextarea } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
@@ -68,60 +68,6 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
 ];
 
-const SectionTitle = ({ children }) => (
-    <Box mb="xs" mt="xs">
-        <Text fw={600} size="sm" c="#1E293B" mb={4}>
-            {children}
-        </Text>
-        <Divider color="#E2E8F0" />
-    </Box>
-);
-
-function FInput({ label, required, placeholder, type = 'text', value, error, onChange }) {
-    return (
-        <TextInput
-            label={label}
-            withAsterisk={required}
-            placeholder={placeholder}
-            type={type}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FTextarea({ label, placeholder, value, error, onChange }) {
-    return (
-        <Textarea
-            label={label}
-            placeholder={placeholder}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            minRows={3}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FSelect({ label, required, placeholder, options = [], value, error, onChange }) {
-    return (
-        <NativeSelect
-            label={label}
-            withAsterisk={required}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
 
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
     return (
