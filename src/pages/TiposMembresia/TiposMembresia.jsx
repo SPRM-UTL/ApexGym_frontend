@@ -1,33 +1,34 @@
 import { useMemo } from 'react';
 import {
+    ActionIcon,
+    Badge,
     Box,
+    Divider,
     Group,
     NativeSelect,
     SimpleGrid,
     Stack,
+    Text,
     Textarea,
     TextInput,
-    ThemeIcon,
-    Title,
+    Tooltip,
 } from '@mantine/core';
 import {
-    IconId,
-    IconFileText,
-    IconCalendar,
-    IconCurrencyDollar,
-    IconShieldCheck,
-    IconCertificate
+    IconCertificate,
+    IconEdit,
+    IconTrash,
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { FInput, FSelect, FTextarea, SectionTitle } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
-    { key: 'nombre', required: true },
-    { key: 'descripcion' },
-    { key: 'duracionDias', required: true },
-    { key: 'precio', required: true },
-    { key: 'estado', required: true }
+    { key: 'nombre', label: 'Nombre de Membresía', required: true },
+    { key: 'descripcion', label: 'Descripción' },
+    { key: 'duracionDias', label: 'Duración (Días)', required: true, type: 'number', min: 1 },
+    { key: 'precio', label: 'Precio', required: true, type: 'number', min: 0 },
+    { key: 'estado', label: 'Estado', required: true }
 ];
 
 const COLUMNAS = [
@@ -40,56 +41,62 @@ const COLUMNAS = [
 
 const INICIAL = { nombre: '', descripcion: '', duracionDias: '', precio: '', estado: 'ACTIVO' };
 
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
-
-function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, onChange }) {
-    return (
-        <TextInput label={label} withAsterisk={required} placeholder={placeholder} type={type} value={value ?? ''} error={error} size="md" radius="md" leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined} onChange={(e) => onChange(e.currentTarget.value)} />
-    );
-}
-
-function FTextarea({ label, icon: Icon, placeholder, value, error, onChange }) {
-    return (
-        <Textarea label={label} placeholder={placeholder} value={value ?? ''} error={error} size="md" radius="md" minRows={2} leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined} onChange={(e) => onChange(e.currentTarget.value)} />
-    );
-}
-
-function FSelect({ label, icon: Icon, required, placeholder, options = [], value, error, onChange }) {
-    return (
-        <NativeSelect label={label} withAsterisk={required} value={value ?? ''} error={error} size="md" radius="md" leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined} data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]} onChange={(e) => onChange(e.currentTarget.value)} />
-    );
-}
-
 function TipoMembresiaForm({ form, errors, onChange }) {
     return (
-        <Group align="stretch" gap="xl" wrap="nowrap">
-            <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconCertificate size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Datos de Membresía</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                        <FInput label="Nombre de Membresía" required icon={IconId} placeholder="Ej. Mensualidad Básica" value={form.nombre} error={errors.nombre} onChange={(v) => onChange('nombre', v)} />
-                        <FInput label="Duración (Días)" required icon={IconCalendar} type="number" placeholder="Ej. 30" value={form.duracionDias} error={errors.duracionDias} onChange={(v) => onChange('duracionDias', v)} />
-                        <FInput label="Precio" required icon={IconCurrencyDollar} type="number" placeholder="Ej. 499.00" value={form.precio} error={errors.precio} onChange={(v) => onChange('precio', v)} />
-                        <FSelect label="Estado" required icon={IconShieldCheck} placeholder="Selecciona estado" options={[{value: 'ACTIVO', label: 'Activo'}, {value: 'INACTIVO', label: 'Inactivo'}]} value={form.estado} error={errors.estado} onChange={(v) => onChange('estado', v)} />
-                    </SimpleGrid>
-                    <Box mt="xs">
-                        <FTextarea label="Descripción" icon={IconFileText} placeholder="Breve descripción del plan" value={form.descripcion} error={errors.descripcion} onChange={(v) => onChange('descripcion', v)} />
-                    </Box>
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle>Datos de la membresía</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput
+                        label="Nombre de Membresía"
+                        required
+                        placeholder="Ej. Mensualidad Básica"
+                        value={form.nombre}
+                        error={errors.nombre}
+                        onChange={(v) => onChange('nombre', v)}
+                    />
+                    <FInput
+                        label="Duración (Días)"
+                        required
+                        type="number"
+                        placeholder="Ej. 30"
+                        value={form.duracionDias}
+                        error={errors.duracionDias}
+                        onChange={(v) => onChange('duracionDias', v)}
+                    />
+                    <FInput
+                        label="Precio"
+                        required
+                        type="number"
+                        placeholder="Ej. 499.00"
+                        value={form.precio}
+                        error={errors.precio}
+                        onChange={(v) => onChange('precio', v)}
+                    />
+                    <FSelect
+                        label="Estado"
+                        required
+                        placeholder="Selecciona estado"
+                        options={[
+                            { value: 'ACTIVO', label: 'Activo' },
+                            { value: 'INACTIVO', label: 'Inactivo' },
+                        ]}
+                        value={form.estado}
+                        error={errors.estado}
+                        onChange={(v) => onChange('estado', v)}
+                    />
+                </SimpleGrid>
+                <Box mt="md">
+                    <FTextarea
+                        label="Descripción"
+                        placeholder="Breve descripción del plan"
+                        value={form.descripcion}
+                        error={errors.descripcion}
+                        onChange={(v) => onChange('descripcion', v)}
+                    />
                 </Box>
-            </Stack>
-        </Group>
+            </Box>
+        </Stack>
     );
 }
 
@@ -112,28 +119,88 @@ export function TiposMembresia() {
         estado: form.estado,
     });
 
-    const mapRecordToRow = (record) => ({
-        id: record.id,
-        nombre: record.nombre,
-        duracionDias: record.duracionDias,
-        precio: record.precio,
-        descripcion: record.descripcion ?? '—',
-        estado: record.estado,
-    });
+    const colorEstado = (estado) => {
+        if (!estado || estado === '—') return 'gray';
+        const e = estado.toLowerCase().trim();
+        if (e === 'inactivo' || e.includes('inactiv') || e.includes('baja') || e.includes('cancelad')) return 'red';
+        if (e.includes('suspendid') || e.includes('pendiente') || e.includes('vencid')) return 'orange';
+        if (e === 'activo' || e.includes('activ') || e.includes('vigente')) return 'green';
+        return 'gray';
+    };
+
+    const mapRecordToRow = (record) => {
+        const estadoNombre = record.estado ?? '—';
+        return {
+            id: record.id,
+            nombre: record.nombre,
+            duracionDias: record.duracionDias,
+            precio: record.precio !== undefined && record.precio !== null ? `$${Number(record.precio).toFixed(2)}` : '—',
+            descripcion: record.descripcion ?? '—',
+            estado: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={colorEstado(estadoNombre)}
+                    radius="sm"
+                    fw={700}
+                >
+                    {estadoNombre.toUpperCase()}
+                </Badge>
+            ),
+        };
+    };
+
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Tipo de Membresía" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+            {setPendingDelete && (
+                <Tooltip label="Eliminar Tipo de Membresía" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => setPendingDelete(fila)}
+                    >
+                        <IconTrash size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
 
     return (
-        <CrudCatalogo 
-            titulo="Tipos de Membresía" 
-            singular="Tipo de membresía" 
+        <CrudCatalogo
+            titulo="Tipos de Membresía"
+            singular="Tipo de membresía"
             icon={IconCertificate}
-            servicio={api.tipoMembresia} 
-            columnas={COLUMNAS} 
-            campos={CAMPOS} 
-            valoresIniciales={INICIAL} 
-            mapRecordToForm={mapRecordToForm} 
-            mapFormToPayload={mapFormToPayload} 
-            mapRecordToRow={mapRecordToRow} 
-            renderForm={(props) => <TipoMembresiaForm {...props} />} 
+            servicio={api.tipoMembresia}
+            columnas={COLUMNAS}
+            campos={CAMPOS}
+            valoresIniciales={INICIAL}
+            mapRecordToForm={mapRecordToForm}
+            mapFormToPayload={mapFormToPayload}
+            mapRecordToRow={mapRecordToRow}
+            renderForm={(props) => <TipoMembresiaForm {...props} />}
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            formMode="drawer"
+            drawerSize={560}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
         />
     );
 }

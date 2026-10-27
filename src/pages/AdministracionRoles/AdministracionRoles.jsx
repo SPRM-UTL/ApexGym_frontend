@@ -1,14 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Accordion, Badge, Group, Loader, Stack, Switch, Text, TextInput } from '@mantine/core';
-import { IconSearch } from '@tabler/icons-react';
+import {
+    Accordion,
+    ActionIcon,
+    Badge,
+    Box,
+    Checkbox,
+    Divider,
+    Group,
+    Loader,
+    SimpleGrid,
+    Stack,
+    Switch,
+    Text,
+    Textarea,
+    TextInput,
+    Tooltip,
+} from '@mantine/core';
+import {
+    IconEdit,
+    IconSearch,
+    IconShieldLock,
+    IconTrash,
+} from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import classes from './AdministracionRoles.module.css';
 
 const CAMPOS = [
-    { key: 'nombre', label: 'Nombre', required: true, placeholder: 'Ej. Instructor' },
-    { key: 'descripcion', label: 'Descripción', type: 'textarea', minRows: 3 },
+    { key: 'nombre', label: 'Nombre del Rol', required: true },
+    { key: 'descripcion', label: 'Descripción' },
 ];
 
 const COLUMNAS = [
@@ -17,6 +38,18 @@ const COLUMNAS = [
 ];
 
 const INICIAL = { nombre: '', descripcion: '', permisosIds: [] };
+
+const SectionTitle = ({ children, rightSection }) => (
+    <Box mb="xs" mt="xs">
+        <Group justify="space-between" align="center" mb={4}>
+            <Text fw={600} size="sm" c="#1E293B">
+                {children}
+            </Text>
+            {rightSection}
+        </Group>
+        <Divider color="#E2E8F0" />
+    </Box>
+);
 
 export function AdministracionRoles() {
     cambioNombreWeb('Administración de roles');
@@ -45,7 +78,7 @@ export function AdministracionRoles() {
         return secciones;
     }, {}), [busqueda, permisos]);
 
-    const renderFormExtra = ({ form, errors, onChange }) => {
+    const renderForm = ({ form, errors, onChange }) => {
         const permisosSeleccionados = form.permisosIds ?? [];
 
         const alternarPermiso = (permisoId, activo) => {
@@ -56,83 +89,191 @@ export function AdministracionRoles() {
             onChange('permisosIds', siguientes);
         };
 
+        const alternarModuloCompleto = (itemsModulo, activarTodos) => {
+            const idsModulo = itemsModulo.map((p) => String(p.id));
+            const siguientes = activarTodos
+                ? [...new Set([...permisosSeleccionados, ...idsModulo])]
+                : permisosSeleccionados.filter((id) => !idsModulo.includes(id));
+            onChange('permisosIds', siguientes);
+        };
+
+        const alternarSeccionCompleta = (permisosSeccion, activarTodos) => {
+            const idsSeccion = permisosSeccion.map((p) => String(p.id));
+            const siguientes = activarTodos
+                ? [...new Set([...permisosSeleccionados, ...idsSeccion])]
+                : permisosSeleccionados.filter((id) => !idsSeccion.includes(id));
+            onChange('permisosIds', siguientes);
+        };
+
+
         return (
-            <Stack gap="xs" className={classes.permissionsPanel}>
-                <Group justify="space-between" align="end" gap="sm">
-                    <Text size="sm" fw={600}>Permisos</Text>
+            <Stack gap="md" style={{ width: '100%' }}>
+                <Box>
+                    <SectionTitle>Datos del rol</SectionTitle>
+                    <Stack gap="md">
+                        <TextInput
+                            label="Nombre del Rol"
+                            placeholder="Ej. Instructor"
+                            withAsterisk
+                            size="md"
+                            radius="md"
+                            value={form.nombre ?? ''}
+                            error={errors.nombre}
+                            onChange={(e) => onChange('nombre', e.currentTarget.value)}
+                        />
+                        <Textarea
+                            label="Descripción"
+                            placeholder="Breve descripción de las responsabilidades del rol"
+                            size="md"
+                            radius="md"
+                            minRows={2}
+                            value={form.descripcion ?? ''}
+                            error={errors.descripcion}
+                            onChange={(e) => onChange('descripcion', e.currentTarget.value)}
+                        />
+                    </Stack>
+                </Box>
+
+                <Box className={classes.permissionsPanel}>
+                    <SectionTitle>Permisos del rol</SectionTitle>
+
                     <TextInput
                         className={classes.search}
-                        size="xs"
-                        placeholder="Buscar módulo o acción"
+                        size="sm"
+                        radius="md"
+                        mb="sm"
+                        placeholder="Filtrar por sección, módulo o acción…"
                         value={busqueda}
                         onChange={(event) => setBusqueda(event.currentTarget.value)}
-                        leftSection={<IconSearch size={14} stroke={1.8} />}
+                        leftSection={<IconSearch size={16} stroke={1.8} />}
                         aria-label="Buscar permisos"
                     />
-                </Group>
 
-                {cargandoPermisos ? (
-                    <div className={classes.loadingPermissions}>
-                        <Loader size="sm" color="apex" />
-                        <Text size="sm" c="dimmed">Cargando permisos…</Text>
-                    </div>
-                ) : (
-                    <Accordion className={classes.accordion} multiple variant="separated" radius="md" defaultValue={[]}>
-                        {Object.entries(permisosPorSeccion).map(([seccion, modulos]) => {
-                            const permisosSeccion = Object.values(modulos).flat();
-                            const activosSeccion = permisosSeccion.filter((permiso) => permisosSeleccionados.includes(String(permiso.id))).length;
+                    {errors.permisosIds && (
+                        <Text size="xs" c="red" fw={500} mb="xs">
+                            {errors.permisosIds}
+                        </Text>
+                    )}
 
-                            return (
-                                <Accordion.Item key={seccion} value={seccion}>
-                                    <Accordion.Control>
-                                        <Stack gap={2}>
-                                            <Text size="sm" fw={700}>{seccion}</Text>
-                                            <Badge size="xs" className={classes.permissionBadge} w="fit-content">
-                                                {activosSeccion} de {permisosSeccion.length} permisos
-                                            </Badge>
-                                        </Stack>
-                                    </Accordion.Control>
-                                    <Accordion.Panel>
-                                        <Accordion className={classes.moduleAccordion} multiple variant="separated" radius="sm" defaultValue={[]}>
-                                            {Object.entries(modulos).map(([modulo, items]) => {
-                                                const activos = items.filter((permiso) => permisosSeleccionados.includes(String(permiso.id))).length;
+                    {cargandoPermisos ? (
+                        <div className={classes.loadingPermissions}>
+                            <Loader size="sm" color="apex" />
+                            <Text size="sm" c="dimmed">Cargando permisos…</Text>
+                        </div>
+                    ) : (
+                        <Accordion className={classes.accordion} multiple variant="separated" radius="md" defaultValue={[]}>
+                            {Object.entries(permisosPorSeccion).map(([seccion, modulos]) => {
+                                const permisosSeccion = Object.values(modulos).flat();
+                                const activosSeccion = permisosSeccion.filter((permiso) =>
+                                    permisosSeleccionados.includes(String(permiso.id))
+                                ).length;
+                                const todosActivosSeccion = permisosSeccion.length > 0 && activosSeccion === permisosSeccion.length;
+                                const algunosActivosSeccion = activosSeccion > 0 && activosSeccion < permisosSeccion.length;
 
-                                                return (
-                                                    <Accordion.Item key={modulo} value={modulo}>
-                                                        <Accordion.Control>
-                                                            <Group justify="space-between" wrap="nowrap" pr="sm">
-                                                                <Text size="sm" fw={600}>{modulo}</Text>
-                                                                <Text size="xs" c="dimmed">{activos}/{items.length}</Text>
-                                                            </Group>
-                                                        </Accordion.Control>
-                                                        <Accordion.Panel>
-                                                            <Stack gap="sm">
+                                return (
+                                    <Accordion.Item key={seccion} value={seccion}>
+                                        <Accordion.Control>
+                                            <Group justify="space-between" wrap="nowrap" pr="sm">
+                                                <Group gap="sm" wrap="nowrap" align="center">
+                                                    <Checkbox
+                                                        size="xs"
+                                                        color="apex"
+                                                        checked={todosActivosSeccion}
+                                                        indeterminate={algunosActivosSeccion}
+                                                        aria-label={`Seleccionar todos los permisos de ${seccion}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onChange={(event) =>
+                                                            alternarSeccionCompleta(permisosSeccion, event.currentTarget.checked)
+                                                        }
+                                                        styles={{
+                                                            input: { cursor: 'pointer' },
+                                                        }}
+                                                    />
+                                                    <Text size="sm" fw={700} c="#1E293B">
+                                                        {seccion}
+                                                    </Text>
+                                                </Group>
+                                                <Badge
+                                                    size="sm"
+                                                    variant="light"
+                                                    color={todosActivosSeccion ? 'green' : activosSeccion > 0 ? 'yellow' : 'gray'}
+                                                    radius="sm"
+                                                    fw={700}
+                                                >
+                                                    {activosSeccion} / {permisosSeccion.length}
+                                                </Badge>
+                                            </Group>
+                                        </Accordion.Control>
+                                        <Accordion.Panel>
+                                            <Stack gap="sm">
+                                                {Object.entries(modulos).map(([modulo, items]) => {
+                                                    const activos = items.filter((permiso) =>
+                                                        permisosSeleccionados.includes(String(permiso.id))
+                                                    ).length;
+                                                    const todosActivos = items.length > 0 && activos === items.length;
+                                                    const algunosActivos = activos > 0 && activos < items.length;
+
+                                                    return (
+                                                        <div key={modulo} className={classes.moduleCard}>
+                                                            <div className={classes.moduleCardHeader}>
+                                                                <Text size="sm" fw={600} c="#1E293B">
+                                                                    {modulo}
+                                                                </Text>
+                                                                <Checkbox
+                                                                    size="xs"
+                                                                    color="apex"
+                                                                    label="Todos"
+                                                                    checked={todosActivos}
+                                                                    indeterminate={algunosActivos}
+                                                                    onChange={(event) =>
+                                                                        alternarModuloCompleto(items, event.currentTarget.checked)
+                                                                    }
+                                                                    styles={{
+                                                                        label: {
+                                                                            fontSize: 12,
+                                                                            fontWeight: 600,
+                                                                            color: '#475569',
+                                                                            cursor: 'pointer',
+                                                                            paddingLeft: 6,
+                                                                        },
+                                                                        input: { cursor: 'pointer' },
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs" verticalSpacing="xs" className={classes.switchesGrid}>
                                                                 {items.map((permiso) => (
                                                                     <Switch
                                                                         key={permiso.id}
                                                                         size="sm"
                                                                         color="apex"
                                                                         checked={permisosSeleccionados.includes(String(permiso.id))}
-                                                                        onChange={(event) => alternarPermiso(permiso.id, event.currentTarget.checked)}
+                                                                        onChange={(event) =>
+                                                                            alternarPermiso(permiso.id, event.currentTarget.checked)
+                                                                        }
                                                                         label={permiso.accion?.nombre ?? 'Permiso'}
+                                                                        styles={{
+                                                                            label: { fontSize: 13, color: '#334155', cursor: 'pointer' },
+                                                                        }}
                                                                     />
                                                                 ))}
-                                                            </Stack>
-                                                        </Accordion.Panel>
-                                                    </Accordion.Item>
-                                                );
-                                            })}
-                                        </Accordion>
-                                    </Accordion.Panel>
-                                </Accordion.Item>
-                            );
-                        })}
-                    </Accordion>
-                )}
-                {!cargandoPermisos && Object.keys(permisosPorSeccion).length === 0 && (
-                    <Text size="sm" c="dimmed" ta="center" py="md">No se encontraron permisos.</Text>
-                )}
-                {errors.permisosIds && <Text size="xs" c="red">{errors.permisosIds}</Text>}
+                                                            </SimpleGrid>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </Stack>
+                                        </Accordion.Panel>
+                                    </Accordion.Item>
+                                );
+                            })}
+                        </Accordion>
+                    )}
+
+                    {!cargandoPermisos && Object.keys(permisosPorSeccion).length === 0 && (
+                        <Text size="sm" c="dimmed" ta="center" py="md">
+                            No se encontraron permisos con ese criterio.
+                        </Text>
+                    )}
+                </Box>
             </Stack>
         );
     };
@@ -158,7 +299,60 @@ export function AdministracionRoles() {
         permisosLabel: (record.permisos ?? []).map((permiso) => `${permiso.modulo?.nombre}: ${permiso.accion?.nombre}`).join(', ') || 'Sin permisos',
     });
 
-    return <CrudCatalogo titulo="Administración de roles" singular="Rol" servicio={api.rol} columnas={COLUMNAS} campos={CAMPOS} valoresIniciales={INICIAL} mapRecordToForm={mapRecordToForm} mapFormToPayload={mapFormToPayload} mapRecordToRow={mapRecordToRow} renderFormExtra={renderFormExtra} validateForm={validateForm} formLayout="columns" />;
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Rol" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+            {setPendingDelete && (
+                <Tooltip label="Eliminar Rol" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => setPendingDelete(fila)}
+                    >
+                        <IconTrash size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
+
+    return (
+        <CrudCatalogo
+            titulo="Administración de roles"
+            singular="Rol"
+            icon={IconShieldLock}
+            servicio={api.rol}
+            columnas={COLUMNAS}
+            campos={CAMPOS}
+            valoresIniciales={INICIAL}
+            mapRecordToForm={mapRecordToForm}
+            mapFormToPayload={mapFormToPayload}
+            mapRecordToRow={mapRecordToRow}
+            renderForm={renderForm}
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            validateForm={validateForm}
+            formMode="drawer"
+            drawerSize={620}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
+        />
+    );
 }
 
 export default AdministracionRoles;

@@ -1,34 +1,33 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
+    ActionIcon,
+    Badge,
     Box,
+    Divider,
     Group,
+    Menu,
     NativeSelect,
     SimpleGrid,
     Stack,
+    Text,
     Textarea,
-    TextInput,
-    ThemeIcon,
-    Title,
+    Tooltip,
 } from '@mantine/core';
 import {
-    IconUser,
-    IconPhone,
-    IconMail,
-    IconMapPin,
     IconCalendar,
-    IconId,
-    IconHeartbeat,
     IconUsers,
     IconCertificate,
-    IconHistory
+    IconHistory,
+    IconDotsVertical,
+    IconEdit,
+    IconTrash,
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { ModalAsignarMembresia } from './ModalAsignarMembresia.jsx';
 import { ModalHistorialMembresias } from './ModalHistorialMembresias.jsx';
-import { ActionIcon, Tooltip } from '@mantine/core';
-import { useState } from 'react';
+import { FInput, SectionTitle, FSelect, FTextarea } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     {
@@ -53,7 +52,7 @@ const CAMPOS = [
             { value: 'Otro', label: 'Otro' },
         ],
     },
-    { key: 'telefono', required: true },
+    { key: 'telefono', label: 'Teléfono', required: true, maxLength: 10 },
     { key: 'correo' },
     { key: 'direccion' },
     { key: 'contactoEmergenciaNombre' },
@@ -63,7 +62,7 @@ const CAMPOS = [
 const COLUMNAS = [
     { key: 'nombreCompleto', label: 'Nombre Completo', sortable: true, filterable: true },
     { key: 'estado', label: 'Estado', sortable: true, filterable: true },
-    { key: 'telefono', label: 'Teléfono', sortable: false, filterable: true },
+    { key: 'telefono', label: 'Teléfono', sortable: true, filterable: true },
     { key: 'correo', label: 'Correo', sortable: true, filterable: true },
 ];
 
@@ -73,113 +72,46 @@ const INICIAL = {
     contactoEmergenciaNombre: '', contactoEmergenciaTelefono: ''
 };
 
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
-
-function FInput({ label, icon: Icon, required, placeholder, type = 'text', value, error, onChange }) {
-    return (
-        <TextInput
-            label={label}
-            withAsterisk={required}
-            placeholder={placeholder}
-            type={type}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FTextarea({ label, icon: Icon, placeholder, value, error, onChange }) {
-    return (
-        <Textarea
-            label={label}
-            placeholder={placeholder}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            minRows={2}
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FSelect({ label, icon: Icon, required, placeholder, options = [], value, error, onChange }) {
-    return (
-        <NativeSelect
-            label={label}
-            withAsterisk={required}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            leftSection={Icon ? <Icon size={16} stroke={1.5} /> : undefined}
-            data={[{ value: '', label: placeholder ?? `Selecciona ${label.toLowerCase()}` }, ...options]}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
 function ClienteForm({ form, errors, onChange, fieldOptions }) {
     return (
-        <Group align="stretch" gap="xl" wrap="nowrap">
-            <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconUser size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Datos personales</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                        <FInput label="Nombre(s)" required icon={IconUser} placeholder="Ej. José Juan" value={form.nombre} error={errors.nombre} onChange={(v) => onChange('nombre', v)} />
-                        <FInput label="Apellido Paterno" required icon={IconUser} placeholder="Ej. Gómez" value={form.apellidoPaterno} error={errors.apellidoPaterno} onChange={(v) => onChange('apellidoPaterno', v)} />
-                        <FInput label="Apellido Materno" icon={IconUser} placeholder="Ej. Hernández" value={form.apellidoMaterno} error={errors.apellidoMaterno} onChange={(v) => onChange('apellidoMaterno', v)} />
-                        <FInput label="Fecha de Nacimiento" required icon={IconCalendar} type="date" value={form.fechaNacimiento} error={errors.fechaNacimiento} onChange={(v) => onChange('fechaNacimiento', v)} />
-                        <FSelect label="Género" required icon={IconId} placeholder="Selecciona género" options={[{value: 'Masculino', label: 'Masculino'}, {value: 'Femenino', label: 'Femenino'}, {value: 'Otro', label: 'Otro'}]} value={form.genero} error={errors.genero} onChange={(v) => onChange('genero', v)} />
-                    </SimpleGrid>
-                </Box>
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle>Datos personales</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput label="Nombre(s)" required placeholder="Ej. José Juan" value={form.nombre} error={errors.nombre} onChange={(v) => onChange('nombre', v)} />
+                    <FInput label="Apellido Paterno" required placeholder="Ej. Gómez" value={form.apellidoPaterno} error={errors.apellidoPaterno} onChange={(v) => onChange('apellidoPaterno', v)} />
+                    <FInput label="Apellido Materno" placeholder="Ej. Hernández" value={form.apellidoMaterno} error={errors.apellidoMaterno} onChange={(v) => onChange('apellidoMaterno', v)} />
+                    <FInput label="Fecha de Nacimiento" required icon={IconCalendar} type="date" value={form.fechaNacimiento} error={errors.fechaNacimiento} onChange={(v) => onChange('fechaNacimiento', v)} />
+                    <FSelect label="Género" required placeholder="Selecciona género" options={[{ value: 'Masculino', label: 'Masculino' }, { value: 'Femenino', label: 'Femenino' }, { value: 'Otro', label: 'Otro' }]} value={form.genero} error={errors.genero} onChange={(v) => onChange('genero', v)} />
+                </SimpleGrid>
+            </Box>
 
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconPhone size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Contacto y Dirección</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                        <FInput label="Teléfono" required icon={IconPhone} placeholder="Ej. 4771234567" value={form.telefono} error={errors.telefono} onChange={(v) => onChange('telefono', v)} />
-                        <FInput label="Correo Electrónico" icon={IconMail} type="email" placeholder="Ej. cliente@correo.com" value={form.correo} error={errors.correo} onChange={(v) => onChange('correo', v)} />
-                        <FTextarea label="Dirección" icon={IconMapPin} placeholder="Ej. Calle Principal 123" value={form.direccion} error={errors.direccion} onChange={(v) => onChange('direccion', v)} />
-                    </SimpleGrid>
-                </Box>
+            <Box>
+                <SectionTitle>Contacto y Dirección</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput
+                        label="Teléfono"
+                        required
+                        placeholder="Ej. 4771234567 (10 dígitos)"
+                        maxLength={10}
+                        value={form.telefono}
+                        error={errors.telefono}
+                        onChange={(v) => onChange('telefono', v.replace(/\D/g, '').slice(0, 10))}
+                    />
+                    <FInput label="Correo Electrónico" type="email" placeholder="Ej. cliente@correo.com" value={form.correo} error={errors.correo} onChange={(v) => onChange('correo', v)} />
+                    <FTextarea label="Dirección" placeholder="Ej. Calle Principal 123" value={form.direccion} error={errors.direccion} onChange={(v) => onChange('direccion', v)} />
+                </SimpleGrid>
+            </Box>
 
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconHeartbeat size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Emergencia y Sistema</Title>
-                    </div>
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                        <FInput label="Contacto Emergencia (Nombre)" icon={IconUser} placeholder="Ej. María López" value={form.contactoEmergenciaNombre} error={errors.contactoEmergenciaNombre} onChange={(v) => onChange('contactoEmergenciaNombre', v)} />
-                        <FInput label="Contacto Emergencia (Teléfono)" icon={IconPhone} placeholder="Ej. 4779876543" value={form.contactoEmergenciaTelefono} error={errors.contactoEmergenciaTelefono} onChange={(v) => onChange('contactoEmergenciaTelefono', v)} />
-                        <FSelect label="Estado de Cliente" required icon={IconUsers} placeholder="Selecciona estado" options={fieldOptions.estadoClienteId ?? []} value={form.estadoClienteId} error={errors.estadoClienteId} onChange={(v) => onChange('estadoClienteId', v)} />
-                    </SimpleGrid>
-                </Box>
-            </Stack>
-        </Group>
+            <Box>
+                <SectionTitle>Emergencia y Sistema</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput label="Contacto Emergencia (Nombre)" placeholder="Ej. María López" value={form.contactoEmergenciaNombre} error={errors.contactoEmergenciaNombre} onChange={(v) => onChange('contactoEmergenciaNombre', v)} />
+                    <FInput label="Contacto Emergencia (Teléfono)" placeholder="Ej. 4779876543" value={form.contactoEmergenciaTelefono} error={errors.contactoEmergenciaTelefono} onChange={(v) => onChange('contactoEmergenciaTelefono', v)} />
+                    <FSelect label="Estado de Cliente" required placeholder="Selecciona estado" options={fieldOptions.estadoClienteId ?? []} value={form.estadoClienteId} error={errors.estadoClienteId} onChange={(v) => onChange('estadoClienteId', v)} />
+                </SimpleGrid>
+            </Box>
+        </Stack>
     );
 }
 
@@ -216,55 +148,128 @@ export function Clientes() {
         contactoEmergenciaTelefono: form.contactoEmergenciaTelefono
     });
 
-    const mapRecordToRow = (record) => ({
-        id: record.id,
-        nombre: record.nombre,
-        nombreCompleto: `${record.nombre} ${record.apellidoPaterno} ${record.apellidoMaterno || ''}`.trim(),
-        estado: record.estadoCliente?.nombre ?? '—',
-        telefono: record.telefono ?? '—',
-        correo: record.correo ?? '—',
-    });
+    const colorEstadoCliente = (estado) => {
+        if (!estado || estado === '—') return 'gray';
+        const e = estado.toLowerCase().trim();
+        if (e === 'inactivo' || e.includes('inactiv') || e.includes('baja') || e.includes('cancelad')) return 'red';
+        if (e.includes('suspendid') || e.includes('pendiente') || e.includes('vencid') || e.includes('moros')) return 'orange';
+        if (e === 'activo' || e.includes('activ') || e.includes('vigente')) return 'green';
+        return 'gray';
+    };
 
-    const renderAccionesFila = (fila) => (
-        <>
-            <Tooltip label="Ver Historial de Membresías" withArrow openDelay={250}>
-                <ActionIcon variant="light" color="blue" size="lg" onClick={() => setClienteHistorial(fila)}>
-                    <IconHistory size={20} stroke={1.8} />
-                </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Asignar / Renovar Membresía" withArrow openDelay={250}>
-                <ActionIcon variant="light" color="indigo" size="lg" onClick={() => setClienteSeleccionado(fila)}>
-                    <IconCertificate size={20} stroke={1.8} />
-                </ActionIcon>
-            </Tooltip>
-        </>
+    const mapRecordToRow = (record) => {
+        const estadoNombre = record.estadoCliente?.nombre ?? '—';
+        const estadoColor = record.estadoCliente?.color;
+        return {
+            id: record.id,
+            nombre: record.nombre,
+            nombreCompleto: `${record.nombre} ${record.apellidoPaterno} ${record.apellidoMaterno || ''}`.trim(),
+            estado: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={estadoColor || colorEstadoCliente(estadoNombre)}
+                    radius="sm"
+                    fw={700}
+                    style={estadoColor ? {
+                        backgroundColor: `${estadoColor}18`,
+                        color: estadoColor,
+                        border: `1px solid ${estadoColor}40`,
+                    } : undefined}
+                >
+                    {estadoNombre.toUpperCase()}
+                </Badge>
+            ),
+            telefono: record.telefono ?? '—',
+            correo: record.correo ?? '—',
+        };
+    };
+
+    const renderAccionesFila = (fila, { openEdit, setPendingDelete } = {}) => (
+        <Group gap={6} wrap="nowrap">
+            {openEdit && (
+                <Tooltip label="Editar Cliente" withArrow openDelay={250}>
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="md"
+                        radius="md"
+                        onClick={() => openEdit(fila)}
+                    >
+                        <IconEdit size={17} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+
+            <Menu shadow="md" width={220} position="bottom-end" radius="md" withArrow>
+                <Menu.Target>
+                    <Tooltip label="Más acciones" withArrow openDelay={250}>
+                        <ActionIcon variant="subtle" color="gray" size="md" radius="md">
+                            <IconDotsVertical size={17} stroke={1.8} />
+                        </ActionIcon>
+                    </Tooltip>
+                </Menu.Target>
+                <Menu.Dropdown>
+                    <Menu.Item
+                        leftSection={<IconCertificate size={16} stroke={1.8} />}
+                        onClick={() => setClienteSeleccionado(fila)}
+                    >
+                        Asignar Membresía
+                    </Menu.Item>
+                    <Menu.Item
+                        leftSection={<IconHistory size={16} stroke={1.8} />}
+                        onClick={() => setClienteHistorial(fila)}
+                    >
+                        Historial de Membresías
+                    </Menu.Item>
+                    {setPendingDelete && (
+                        <>
+                            <Menu.Divider />
+                            <Menu.Item
+                                color="red"
+                                leftSection={<IconTrash size={16} stroke={1.8} />}
+                                onClick={() => setPendingDelete(fila)}
+                            >
+                                Eliminar Cliente
+                            </Menu.Item>
+                        </>
+                    )}
+                </Menu.Dropdown>
+            </Menu>
+        </Group>
     );
 
     return (
         <>
-            <CrudCatalogo 
-                titulo="Clientes" 
-                singular="Cliente" 
+            <CrudCatalogo
+                titulo="Clientes"
+                singular="Cliente"
                 icon={IconUsers}
-                servicio={api.cliente} 
-                columnas={COLUMNAS} 
-                campos={CAMPOS} 
-                valoresIniciales={INICIAL} 
-                mapRecordToForm={mapRecordToForm} 
-                mapFormToPayload={mapFormToPayload} 
-                mapRecordToRow={mapRecordToRow} 
-                renderForm={(props) => <ClienteForm {...props} />} 
+                servicio={api.cliente}
+                columnas={COLUMNAS}
+                campos={CAMPOS}
+                valoresIniciales={INICIAL}
+                mapRecordToForm={mapRecordToForm}
+                mapFormToPayload={mapFormToPayload}
+                mapRecordToRow={mapRecordToRow}
+                renderForm={(props) => <ClienteForm {...props} />}
                 renderAccionesFila={renderAccionesFila}
+                permitirEditar={false}
+                permitirEliminar={false}
+                formMode="drawer"
+                drawerSize={620}
+                headerVariant="unified"
+                tableHeaderVariant="neutral"
             />
-            <ModalAsignarMembresia 
-                opened={!!clienteSeleccionado} 
-                onClose={() => setClienteSeleccionado(null)} 
-                cliente={clienteSeleccionado} 
+            <ModalAsignarMembresia
+                opened={!!clienteSeleccionado}
+                onClose={() => setClienteSeleccionado(null)}
+                cliente={clienteSeleccionado}
             />
-            <ModalHistorialMembresias 
-                opened={!!clienteHistorial} 
-                onClose={() => setClienteHistorial(null)} 
-                cliente={clienteHistorial} 
+            <ModalHistorialMembresias
+                opened={!!clienteHistorial}
+                onClose={() => setClienteHistorial(null)}
+                cliente={clienteHistorial}
             />
         </>
     );

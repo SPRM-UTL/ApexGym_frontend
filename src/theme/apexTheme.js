@@ -14,10 +14,24 @@ const apexPrimary = [
     '#a84400',
 ];
 
+const apexSecondary = [
+    '#e8e9ef',
+    '#c5c7d5',
+    '#a2a5bb',
+    '#7f839f',
+    '#5c6183',
+    '#393f67',
+    '#1B1F3A',
+    '#171a32',
+    '#121526',
+    '#0d101f',];
+
+
 export const apexTheme = createTheme({
     primaryColor: 'apex',
     colors: {
         apex: apexPrimary,
+        secondary: apexSecondary,
     },
     fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
     headings: {
