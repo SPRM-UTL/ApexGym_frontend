@@ -97,6 +97,15 @@ export function AdministracionRoles() {
             onChange('permisosIds', siguientes);
         };
 
+        const alternarSeccionCompleta = (permisosSeccion, activarTodos) => {
+            const idsSeccion = permisosSeccion.map((p) => String(p.id));
+            const siguientes = activarTodos
+                ? [...new Set([...permisosSeleccionados, ...idsSeccion])]
+                : permisosSeleccionados.filter((id) => !idsSeccion.includes(id));
+            onChange('permisosIds', siguientes);
+        };
+
+
         return (
             <Stack gap="md" style={{ width: '100%' }}>
                 <Box>
@@ -158,18 +167,36 @@ export function AdministracionRoles() {
                                 const activosSeccion = permisosSeccion.filter((permiso) =>
                                     permisosSeleccionados.includes(String(permiso.id))
                                 ).length;
+                                const todosActivosSeccion = permisosSeccion.length > 0 && activosSeccion === permisosSeccion.length;
+                                const algunosActivosSeccion = activosSeccion > 0 && activosSeccion < permisosSeccion.length;
 
                                 return (
                                     <Accordion.Item key={seccion} value={seccion}>
                                         <Accordion.Control>
                                             <Group justify="space-between" wrap="nowrap" pr="sm">
-                                                <Text size="sm" fw={700} c="#1E293B">
-                                                    {seccion}
-                                                </Text>
+                                                <Group gap="sm" wrap="nowrap" align="center">
+                                                    <Checkbox
+                                                        size="xs"
+                                                        color="apex"
+                                                        checked={todosActivosSeccion}
+                                                        indeterminate={algunosActivosSeccion}
+                                                        aria-label={`Seleccionar todos los permisos de ${seccion}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onChange={(event) =>
+                                                            alternarSeccionCompleta(permisosSeccion, event.currentTarget.checked)
+                                                        }
+                                                        styles={{
+                                                            input: { cursor: 'pointer' },
+                                                        }}
+                                                    />
+                                                    <Text size="sm" fw={700} c="#1E293B">
+                                                        {seccion}
+                                                    </Text>
+                                                </Group>
                                                 <Badge
                                                     size="sm"
                                                     variant="light"
-                                                    color={activosSeccion > 0 ? 'green' : 'gray'}
+                                                    color={todosActivosSeccion ? 'green' : activosSeccion > 0 ? 'yellow' : 'gray'}
                                                     radius="sm"
                                                     fw={700}
                                                 >

@@ -1,71 +1,32 @@
-import { ResponseModel } from './models/ResponseModel.js';
-import { httpClient } from './httpClient.js';
 import { CatalogoService } from './CatalogoService.js';
+
 export class CategoriaProductoService extends CatalogoService {
     constructor(urlBase) {
         super(urlBase, 'categorias-productos', 'categorías de productos');
     }
+
     // Alias para compatibilidad con el módulo de Productos
     obtenerTodas() {
         return this.obtenerTodos();
-    } 
-
-    // Alias para compatibilidad con CrudCatalogo y el estándar del resto de servicios
-    async obtenerTodos() {
-        return this.obtenerTodas();
     }
 
-    async crear(nombre, descripcion) {
-        try {
-            // POST a la raíz / (sin /crearCategoria)
-            const response = await httpClient.post(`${this.urlApi}/`, {
-                nombre,
-                descripcion,
-            });
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al crear la categoría',
-                error.response?.status || 500
-            );
-        }
+    crear(datosONombre, descripcion) {
+        const payload =
+            typeof datosONombre === 'object' && datosONombre !== null
+                ? datosONombre
+                : { nombre: datosONombre, descripcion };
+        return super.crear(payload);
     }
 
-    async actualizar(id, nombre, descripcion) {
-        try {
-            // PUT a la raíz / enviando id en el body
-            const response = await httpClient.put(`${this.urlApi}/`, {
-                id,
-                nombre,
-                descripcion,
-            });
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al actualizar la categoría',
-                error.response?.status || 500
-            );
-        }
+    actualizar(id, datosONombre, descripcion) {
+        const payload =
+            typeof datosONombre === 'object' && datosONombre !== null
+                ? datosONombre
+                : { nombre: datosONombre, descripcion };
+        return super.actualizar(id, payload);
     }
 
-    async eliminar(id) {
-        try {
-            // DELETE a la raíz / enviando id en el body
-            const response = await httpClient.delete(`${this.urlApi}/`, {
-                data: { id },
-            });
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al eliminar la categoría',
-                error.response?.status || 500
-            );
-        }
+    eliminar(id) {
+        return super.eliminar(id);
     }
 }

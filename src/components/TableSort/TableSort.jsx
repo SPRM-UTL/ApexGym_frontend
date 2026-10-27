@@ -1,31 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ActionIcon, 
-    Badge, 
-    Button, 
-    Center, 
-    Checkbox, 
-    CloseButton, 
+    ActionIcon,
+    Badge,
+    Button,
+    Center,
+    Checkbox,
+    CloseButton,
     Group,
-    NativeSelect, 
-    Popover, 
-    ScrollArea, 
-    Select, 
-    Stack, 
-    Table, 
+    NativeSelect,
+    Popover,
+    ScrollArea,
+    Select,
+    Stack,
+    Table,
     Text,
-    TextInput, 
-    Tooltip, 
+    TextInput,
+    Tooltip,
     UnstyledButton,
 } from '@mantine/core';
 import {
     IconReload,
-    IconChevronDown, 
-    IconChevronUp, 
-    IconEdit, 
-    IconFilter, 
+    IconChevronDown,
+    IconChevronUp,
+    IconEdit,
+    IconFilter,
     IconPlus,
-    IconSelector, 
+    IconSelector,
     IconTrash
 } from '@tabler/icons-react';
 import classes from './TableSort.module.css';
@@ -59,12 +59,22 @@ function Th({ children, reversed, sorted, onSort, sortable, isNeutral }) {
 
 function getCellString(val) {
     if (val === null || val === undefined) return '';
-    if (typeof val === 'object' && val.props?.children) {
-        if (typeof val.props.children === 'string' || typeof val.props.children === 'number') {
-            return String(val.props.children);
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        return String(val);
+    }
+    if (Array.isArray(val)) {
+        return val.map(getCellString).join(' ');
+    }
+    if (typeof val === 'object') {
+        if (val.props && val.props.children !== undefined) {
+            return getCellString(val.props.children);
+        }
+        if (typeof val.toString === 'function') {
+            const s = val.toString();
+            if (s && s !== '[object Object]') return s;
         }
     }
-    return String(val);
+    return '';
 }
 
 function filterRows(data, columns, globalSearch, columnFilters) {
@@ -163,13 +173,13 @@ export function TableSort({
     const [page, setPage] = useState(1);
     const [selectedIds, setSelectedIds] = useState(() => new Set());
 
-    
+
     /**Muestra o cierra el filtro */
     const [filterOpen, setFilterOpen] = useState(false);
     /**Guarda temporalmente los fultros usados */
     const [draftField, setDraftField] = useState(null);
     /**Guarda temporalmente el texto ingresado*/
-    const[draftValue, setDraftValue] = useState('');
+    const [draftValue, setDraftValue] = useState('');
 
     /**useMemo(...) memoriza el resultado */
     const filterableColums = useMemo(
@@ -183,21 +193,27 @@ export function TableSort({
     /**de esta manera entra a la funcion para filtrar el seleciondado */
     const draftOptions = useMemo(() => {
         //en el caso de que no sea el tipo de filtro de selecionado no hace nada
-        if(draftColumn?.filterType !== 'select') return null;
+        if (draftColumn?.filterType !== 'select') return null;
         //recorre los datos de la tabla y extrae el valor correspondiente de la columna actual al mismo tiempo elimiina duplicados
-        return [...new Set(data.map((r) => String(r[draftColumn.key] ?? '')).filtrer(Boolean))].sort();
+        return [
+            ...new Set(
+                data
+                    .map((r) => getCellString(r[draftColumn.key]))
+                    .filter((v) => v.trim())
+            ),
+        ].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     }, [data, draftColumn]);
 
     /**con la funcion permite asegurar que los filtros esten en textos y que se almacenen los filtros en un 
      en un arreglo en par clave - valor de cada filtro*/
-    const activeFilters = Object.entries(columnFilters).filter(([,v]) => String(v ?? '').trim());
+    const activeFilters = Object.entries(columnFilters).filter(([, v]) => String(v ?? '').trim());
 
     /**De esta manera agregamos los filtros */
-    const addFilter = () =>{
+    const addFilter = () => {
         /**si es que no hace nada o no hay nada para filtrar no hace nada */
-        if(!draftField || !String(draftValue).trim()) return;
+        if (!draftField || !String(draftValue).trim()) return;
         //de esta manera actualizamos los filtros de manera recorrida
-        setColumnFilters((prev) =>({ ...prev, [draftField]: String(draftValue).trim()}));
+        setColumnFilters((prev) => ({ ...prev, [draftField]: String(draftValue).trim() }));
         //limpiamos los filtros
         setDraftField(null);
         setDraftValue('');
@@ -205,18 +221,18 @@ export function TableSort({
     }
     /**De esta manera recorremos para borrar todos los filtros de manera individual */
     const removeFilter = (key) => {
-    setColumnFilters((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-    });
-    setPage(1);
-};
-/**Limpia de manera completa los filtros en todos */
-const clearFilters = () => {
-    setColumnFilters({});
-    setPage(1);
-};
+        setColumnFilters((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+        setPage(1);
+    };
+    /**Limpia de manera completa los filtros en todos */
+    const clearFilters = () => {
+        setColumnFilters({});
+        setPage(1);
+    };
 
     const processed = useMemo(() => {
         const filtered = filterRows(data, columns, globalSearch, columnFilters);
@@ -278,7 +294,7 @@ const clearFilters = () => {
 
     return (
         <div className={classes.wrapper}>
-  
+
             <div className={classes.tableControls}>
                 <Group gap="xs">
                     <Text className={classes.controlLabel}>Mostrar</Text>
@@ -308,40 +324,40 @@ const clearFilters = () => {
                     />
                 </Group>
 
-                      <Popover
-                opend={filterOpen ? true : undefined}
-                onChange={setFilterOpen}
-                position="bottom-start"
-                offset={8}
-                width={320}
-                shadow="lg"
-                radius="md"
-                trapFocus
+                <Popover
+                    opened={filterOpen}
+                    onChange={setFilterOpen}
+                    position="bottom-start"
+                    offset={8}
+                    width={320}
+                    shadow="lg"
+                    radius="md"
+                    trapFocus
                 >
 
-                        <Popover.Target>
-                            <Button
+                    <Popover.Target>
+                        <Button
                             variant="default"
                             size="sm"
                             radius="md"
                             className={classes.filterButton}
-                            leftSection={<IconFilter size={16} stroke={1.6}/>}
-                            rightSection={
-                                activeFilters.length > 0 ? (
+                            aria-label="Filtrar registros"
+                            onClick={() => setFilterOpen((o) => !o)}
+                        >
+                            <Center style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <IconFilter size={16} stroke={1.8} />
+                                {activeFilters.length > 0 && (
                                     <Badge size="xs" circle>
                                         {activeFilters.length}
                                     </Badge>
-                                ): undefined
-                            }
-                            >
-
-                            </Button>
-
-                        </Popover.Target>
-                        <Popover.Dropdown className={classes.popoverDropdown}>
-                            <Stack gap="sm">
-                                <Text className={classes.popoverTitle}>Filtrar por</Text>
-                                <Select
+                                )}
+                            </Center>
+                        </Button>
+                    </Popover.Target>
+                    <Popover.Dropdown className={classes.popoverDropdown}>
+                        <Stack gap="sm">
+                            <Text className={classes.popoverTitle}>Filtrar por</Text>
+                            <Select
                                 label="Campo"
                                 placeholder="Selecciona un campo"
                                 size="xs"
@@ -357,88 +373,104 @@ const clearFilters = () => {
                                         setDraftValue('');
                                     }
                                 }
-                                comboboxProps={{withinPortal: false}}
+                                comboboxProps={{ withinPortal: false }}
+                            />
+
+
+
+
+                            {draftOptions ? (
+                                <Select
+                                    label="Valor"
+                                    placeholder="Selecciona un valor"
+                                    size="xs"
+                                    searchable
+                                    data={draftOptions}
+                                    value={draftValue || null}
+                                    onChange={(v) => setDraftValue(v ?? '')}
+                                    comboboxProps={{ withinPortal: false }}
                                 />
+                            ) : (
+                                <TextInput
+                                    label="Valor"
+                                    placeholder={
+                                        draftField ? 'Escribe el valor...' : 'Primero elige un campo'
+                                    }
+                                    size="xs"
+                                    disabled={!draftField}
+                                    value={draftValue}
+                                    onChange={(e) => setDraftValue(e.currentTarget.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && addFilter()}
+                                />
+                            )}
 
-                                
-
-
-                                 {draftOptions ? (
-                                    <Select
-                                        label="Valor"
-                                        placeholder="Selecciona un valor"
-                                        size="xs"
-                                        searchable
-                                        data={draftOptions}
-                                        value={draftValue || null}
-                                        onChange={(v) => setDraftValue(v ?? '')}
-                                        comboboxProps={{ withinPortal: false }}
-                                    />
-                                ) : (
-                                    <TextInput
-                                        label="Valor"
-                                        placeholder={
-                                            draftField ? 'Escribe el valor...' : 'Primero elige un campo'
-                                        }
-                                        size="xs"
-                                        disabled={!draftField}
-                                        value={draftValue}
-                                        onChange={(e) => setDraftValue(e.currentTarget.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && addFilter()}
-                                    />
-                                )}
-
-                                <Group justify="space-between">
-                                    <Button variant="subtle" size="xs" color="gray" onClick={clearFilters}>
-                                        Borrar todos
-                                    </Button>
-                                    <Button
-                                        size="xs"
-                                        leftSection={<IconPlus size={14} />}
-                                        disabled={!draftField || !String(draftValue).trim()}
-                                        onClick={addFilter}
-                                    >
-                                        Agregar filtro
-                                    </Button>
-                                </Group>
-                            </Stack>
-                        </Popover.Dropdown>
+                            <Group justify="space-between">
+                                <Button variant="subtle" size="xs" color="gray" onClick={clearFilters}>
+                                    Borrar todos
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    leftSection={<IconPlus size={14} />}
+                                    disabled={!draftField || !String(draftValue).trim()}
+                                    onClick={addFilter}
+                                >
+                                    Agregar filtro
+                                </Button>
+                            </Group>
+                        </Stack>
+                    </Popover.Dropdown>
                 </Popover>
-                
-                            <Button
-                            variant="default"
-                            size="sm"
-                            radius="md"
-                            className={classes.filterButton}
-                            onClick={onReload}
-                            >
-                                <IconReload size={18} stroke={1.8} />
-                            </Button>
+
+                <Button
+                    variant="default"
+                    size="sm"
+                    radius="md"
+                    className={classes.filterButton}
+                    onClick={onReload}
+                    aria-label="Recargar registros"
+                >
+                    <Center>
+                        <IconReload size={18} stroke={1.8} />
+                    </Center>
+                </Button>
             </div>
             {activeFilters.length > 0 && (
-    <div className={classes.activeFilters}>
-        {activeFilters.map(([key, value]) => {
-            const col = columns.find((c) => c.key === key);
-            return (
-                <Badge
-                    key={key}
-                    variant="light"
-                    size="lg"
-                    radius="sm"
-                    className={classes.filterChip}
-                    rightSection={
-                        <CloseButton size="xs" aria-label="Quitar filtro" onClick={() => removeFilter(key)} />
-                    }
-                >
-                    {col?.label ?? key}: {value}
-                </Badge>
-            );
-        })}
-        <UnstyledButton className={classes.clearAll} onClick={clearFilters}>
-            Limpiar todo
-        </UnstyledButton>
-    </div>
-)}
+                <div className={classes.activeFilters}>
+                    {activeFilters.map(([key, value]) => {
+                        const col = columns.find((c) => c.key === key);
+                        return (
+                            <Badge
+                                key={key}
+                                variant="light"
+                                size="lg"
+                                radius="sm"
+                                className={classes.filterChip}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                    setDraftField(key);
+                                    setDraftValue(value);
+                                    setFilterOpen(true);
+                                }}
+                                rightSection={
+                                    <CloseButton
+                                        size="xs"
+                                        aria-label="Quitar filtro"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeFilter(key);
+                                        }}
+                                    />
+                                }
+                            >
+                                {col?.label ?? key}: {value}
+                            </Badge>
+                        );
+                    })}
+                    <UnstyledButton className={classes.clearAll} onClick={clearFilters}>
+                        Limpiar todo
+                    </UnstyledButton>
+                </div>
+            )}
             <ScrollArea className={classes.scroll}>
                 <Table className={classes.table} horizontalSpacing="md" verticalSpacing={0} striped={false}>
                     <Table.Thead>
@@ -475,26 +507,6 @@ const clearFilters = () => {
                                 </Table.Th>
                             )}
                         </Table.Tr>
-{/*
-                        <Table.Tr className={classes.filterRow}>
-                            {enableSelection && <Table.Th className={classes.filterCell} />}
-                            {columns.map((col) => (
-                                <Table.Th key={`filter-${col.key}`} className={classes.filterCell}>
-                                    {col.filterable !== false ? (
-                                        <TextInput
-                                            className={classes.filterInput}
-                                            size="xs"
-                                            placeholder=""
-                                            value={columnFilters[col.key] ?? ''}
-                                            onChange={(e) =>
-                                                updateColumnFilter(col.key, e.currentTarget.value)
-                                            }
-                                        />
-                                    ) : null}
-                                </Table.Th>
-                            ))}
-                            {(onEditar || onEliminar) && <Table.Th className={classes.filterCell} />}
-                        </Table.Tr>*/}
                     </Table.Thead>
 
                     <Table.Tbody>

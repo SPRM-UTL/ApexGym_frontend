@@ -15,9 +15,16 @@ import {
     Text,
     Textarea,
     TextInput,
+    ThemeIcon,
+    Divider,
+    ActionIcon,
     Title,
 } from '@mantine/core';
-import { IconPlus, IconUpload } from '@tabler/icons-react';
+import {
+    IconPlus, IconUpload,
+    IconX,
+    IconDeviceFloppy,
+} from '@tabler/icons-react';
 import { DropzoneImagen } from '../DropzoneImagen/DropzoneImagen.jsx';
 import { ModalConfirmacion } from '../ModalConfirmacion/ModalConfirmacion.jsx';
 import { TablaRegistros } from '../TablaRegistros/TablaRegistros.jsx';
@@ -64,15 +71,18 @@ function Field({ campo, value, options, error, onChange, form }) {
     if (tipo === 'file' || tipo === 'image') {
         const handleFileChange = (file) => {
             if (!file) {
-                onChange('');
+                onChange(null);
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                onChange(e.target?.result ?? '');
-            };
-            reader.readAsDataURL(file);
+            onChange(file);
         };
+
+        const previewSrc =
+            value instanceof File
+                ? URL.createObjectURL(value)
+                : typeof value === 'string' && value
+                    ? value
+                    : null;
 
         return (
             <Stack gap="xs">
@@ -83,12 +93,13 @@ function Field({ campo, value, options, error, onChange, form }) {
                     accept={campo.accept ?? 'image/*'}
                     leftSection={<IconUpload size={18} />}
                     clearable
+                    value={value instanceof File ? value : null}
                     onChange={handleFileChange}
                 />
-                {value ? (
+                {previewSrc ? (
                     <Group gap="sm" align="center">
-                        <Avatar src={value} size="lg" radius="md" />
-                        <Button variant="subtle" color="red" size="xs" onClick={() => onChange('')}>
+                        <Avatar src={previewSrc} size="lg" radius="md" />
+                        <Button variant="subtle" color="red" size="xs" onClick={() => onChange(null)}>
                             Quitar imagen
                         </Button>
                     </Group>
@@ -102,7 +113,11 @@ function Field({ campo, value, options, error, onChange, form }) {
     }
 
     if (tipo === 'select') {
-        return <NativeSelect {...common} data={[{ value: '', label: campo.placeholder ?? `Selecciona ${campo.label.toLowerCase()}` }, ...(options ?? campo.options ?? [])]} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
+        const data = [
+            { value: '', label: campo.placeholder ?? `Selecciona ${campo.label.toLowerCase()}` },
+            ...(options ?? campo.options ?? []),
+        ];
+        return <NativeSelect {...common} data={data} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
     }
 
     if (tipo === 'number') {
@@ -187,7 +202,6 @@ export function CrudCatalogo({
     useEffect(() => {
         fetchData();
         fetchOptions();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const resetForm = () => {
@@ -221,7 +235,7 @@ export function CrudCatalogo({
                 nextErrors[campo.key] = `${campo.label} es requerido`;
                 continue;
             }
-            if (value !== undefined && value !== null && value !== '') {
+            if (value !== undefined && value !== null && value !== '' && !(value instanceof File)) {
                 if (campo.maxLength && String(value).length > campo.maxLength) {
                     nextErrors[campo.key] = `${campo.label} no puede exceder ${campo.maxLength} caracteres`;
                 }
@@ -236,7 +250,7 @@ export function CrudCatalogo({
                 }
             }
         }
-        const customErrors = (await validateForm?.(form)) ?? {};
+        const customErrors = (await validateForm?.(form, { editingId })) ?? {};
         Object.assign(nextErrors, customErrors);
         if (Object.keys(nextErrors).length) {
             setErrors(nextErrors);
@@ -319,8 +333,14 @@ export function CrudCatalogo({
                 onClose={() => !deleting && setPendingDelete(null)}
                 onConfirm={confirmDelete}
                 loading={deleting}
-                title="Confirmar eliminación"
-                message={`¿Deseas eliminar el registro de ${pendingDelete?.nombreTexto ?? (typeof pendingDelete?.nombre === 'string' ? pendingDelete.nombre : null) ?? pendingDelete?.clave ?? singular.toLowerCase()}? Esta acción no se puede deshacer.`}
+                title="Eliminar estado de cliente"
+                message={`¿Deseas eliminar el registro de '${pendingDelete?.nombreTexto ??
+                    (typeof pendingDelete?.nombre === 'string'
+                        ? pendingDelete.nombre
+                        : null) ??
+                    pendingDelete?.clave ??
+                    singular.toLowerCase()
+                    }'? Esta acción no se puede deshacer.`}
             />
 
             {formMode === 'drawer' ? (
@@ -331,7 +351,17 @@ export function CrudCatalogo({
                     size={drawerSize}
                     title={
                         <Group gap="sm">
-                            {IconoHeader && <IconoHeader size={22} stroke={1.8} color="var(--ag-color-primary)" />}
+                            {
+                                IconoHeader &&
+                                <>
+                                    <IconoHeader
+                                        size={32}
+                                        stroke={1.8}
+                                        color="var(--ag-color-secondary)"
+                                    />
+                                    <Divider orientation="vertical" color="secondary.9" size="2" />
+                                </>
+                            }
                             <div>
                                 <Title order={4} fw={700} c="#1E293B">
                                     {editingId ? `Editar ${singular.toLowerCase()}` : `Nuevo ${singular.toLowerCase()}`}
@@ -404,7 +434,13 @@ export function CrudCatalogo({
                             marginTop: 'auto',
                         }}
                     >
-                        <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading} radius="md">
+                        <Button
+                            variant="default"
+                            onClick={() => setModalOpen(false)}
+                            disabled={loading}
+                            radius="md"
+                            leftSection={<IconX size={16} />}
+                        >
                             Cancelar
                         </Button>
                         <Button
@@ -412,8 +448,8 @@ export function CrudCatalogo({
                             onClick={save}
                             loading={loading}
                             radius="md"
-                            className={classes.addButtonUnified}
                             styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
+                            leftSection={<IconDeviceFloppy size={16} />}
                         >
                             {editingId ? 'Actualizar' : 'Guardar'}
                         </Button>
@@ -474,19 +510,32 @@ export function CrudCatalogo({
             <div className={classes.layout}>
                 {headerVariant === 'unified' ? (
                     <div className={classes.unifiedHeader}>
-                        <Title order={2} className={classes.unifiedTitle}>
-                            {titulo}
-                        </Title>
-                        <Button
+                        <Group gap="sm" align="center">
+                            {IconoHeader && (
+                                <>
+                                    <IconoHeader
+                                        size={38}
+                                        stroke={1.8}
+                                        color="var(--mantine-color-secondary-6"
+                                    />
+                                    <Divider orientation="vertical" color="secondary.9" size="2" />
+                                </>
+                            )}
+                            <Title order={2} className={classes.unifiedTitle}>
+                                {titulo}
+                            </Title>
+                        </Group>
+                        <ActionIcon
                             className={classes.addButtonUnified}
                             onClick={openCreate}
                             aria-label={`Agregar ${singular.toLowerCase()}`}
-                            leftSection={<IconPlus size={18} stroke={2.2} />}
-                            size="md"
-                            radius="md"
+                            size={42}
+                            radius="xl"
+                            color="apex"
+                            variant="filled"
                         >
-                            Agregar
-                        </Button>
+                            <IconPlus size={20} stroke={2.5} />
+                        </ActionIcon>
                     </div>
                 ) : (
                     <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
