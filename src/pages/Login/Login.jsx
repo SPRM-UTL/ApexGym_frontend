@@ -8,11 +8,11 @@ import {
     TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState , useRef} from 'react';
+import { useState, useRef } from 'react';
 import classes from './Login.module.css';
 import { cambioNombreWeb } from '../../scripts/globales';
 import { api } from '../../scripts/services/api.js';
-import BackgruondLogin  from '../../components/BackgroudLogin/BackgroudLogin.jsx'
+import BackgruondLogin from '../../components/BackgroudLogin/BackgroudLogin.jsx'
 import logoImg from '../../assets/apex_gym.png';
 
 export function Login({ onLoginAceptado }) {
@@ -104,7 +104,7 @@ export function Login({ onLoginAceptado }) {
                         if (errorCorreo) setErrorCorreo(false);
                     }}
                     onKeyDown={(e) => {
-                        if(e.key === 'Enter'){
+                        if (e.key === 'Enter') {
                             passwordRef.current?.focus();
                         }
                     }}
@@ -124,8 +124,8 @@ export function Login({ onLoginAceptado }) {
                         if (errorContrasena) setErrorContrasena(false);
                     }}
                     error={errorContrasena}
-                    onKeyDown={(e)=> {
-                        if(e.key === 'Enter'){
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
                             verificarLogin();
                         }
                     }}
@@ -143,10 +143,10 @@ export function Login({ onLoginAceptado }) {
                     Iniciar sesión
                 </Button>
             </Paper>
-            
+
         </div>
-        
-        
+
+
     );
 }
 

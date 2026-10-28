@@ -3,6 +3,8 @@ import {
     ActionIcon,
     Badge,
     Box,
+    ColorInput,
+    ColorSwatch,
     Divider,
     Group,
     SimpleGrid,
@@ -20,58 +22,21 @@ import {
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { FInput, FSelect, FTextarea, SectionTitle } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre del Estado', required: true },
+    { key: 'color', label: 'Color distintivo' },
     { key: 'descripcion', label: 'Descripción' }
 ];
 
 const COLUMNAS = [
     { key: 'nombre', label: 'Nombre', sortable: true, filterable: true },
+    { key: 'colorBadge', label: 'Color', sortable: false, filterable: false },
     { key: 'descripcion', label: 'Descripción', sortable: false, filterable: true },
 ];
 
-const INICIAL = { nombre: '', descripcion: '' };
-
-const SectionTitle = ({ children }) => (
-    <Box mb="xs" mt="xs">
-        <Text fw={600} size="sm" c="#1E293B" mb={4}>
-            {children}
-        </Text>
-        <Divider color="#E2E8F0" />
-    </Box>
-);
-
-function FInput({ label, required, placeholder, type = 'text', value, error, onChange }) {
-    return (
-        <TextInput
-            label={label}
-            withAsterisk={required}
-            placeholder={placeholder}
-            type={type}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
-
-function FTextarea({ label, placeholder, value, error, onChange }) {
-    return (
-        <Textarea
-            label={label}
-            placeholder={placeholder}
-            value={value ?? ''}
-            error={error}
-            size="md"
-            radius="md"
-            minRows={3}
-            onChange={(e) => onChange(e.currentTarget.value)}
-        />
-    );
-}
+const INICIAL = { nombre: '', color: '', descripcion: '' };
 
 function EstadoMembresiaForm({ form, errors, onChange }) {
     return (
@@ -86,6 +51,26 @@ function EstadoMembresiaForm({ form, errors, onChange }) {
                         value={form.nombre}
                         error={errors.nombre}
                         onChange={(v) => onChange('nombre', v)}
+                    />
+                    <ColorInput
+                        label="Color distintivo"
+                        placeholder="Selecciona o escribe un color (ej. #10B981)"
+                        value={form.color ?? ''}
+                        error={errors.color}
+                        size="md"
+                        radius="md"
+                        format="hex"
+                        swatches={[
+                            '#10B981',
+                            '#3B82F6',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6',
+                            '#06B6D4',
+                            '#F97316',
+                            '#64748B',
+                        ]}
+                        onChange={(v) => onChange('color', v)}
                     />
                     <FTextarea
                         label="Descripción"
@@ -105,11 +90,13 @@ export function EstadosMembresia() {
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
+        color: record.color ?? '',
         descripcion: record.descripcion ?? '',
     }), []);
 
     const mapFormToPayload = (form) => ({
         nombre: form.nombre,
+        color: form.color || null,
         descripcion: form.descripcion,
     });
 
@@ -124,6 +111,7 @@ export function EstadosMembresia() {
 
     const mapRecordToRow = (record) => {
         const nombreEstado = record.nombre ?? '—';
+        const color = record.color;
         return {
             id: record.id,
             nombreTexto: nombreEstado,
@@ -131,13 +119,24 @@ export function EstadosMembresia() {
                 <Badge
                     size="sm"
                     variant="light"
-                    color={colorEstadoMembresia(nombreEstado)}
+                    color={color || colorEstadoMembresia(nombreEstado)}
                     radius="sm"
                     fw={700}
+                    style={color ? {
+                        backgroundColor: `${color}18`,
+                        color: color,
+                        border: `1px solid ${color}40`,
+                    } : undefined}
                 >
                     {nombreEstado.toUpperCase()}
                 </Badge>
             ),
+            colorBadge: color ? (
+                <Group gap={8} align="center">
+                    <ColorSwatch color={color} size={18} />
+                    <Text size="xs" c="dimmed" ff="monospace">{color}</Text>
+                </Group>
+            ) : '—',
             descripcion: record.descripcion ?? '—',
         };
     };
@@ -174,18 +173,18 @@ export function EstadosMembresia() {
     );
 
     return (
-        <CrudCatalogo 
-            titulo="Estados de Membresía" 
-            singular="Estado" 
+        <CrudCatalogo
+            titulo="Estados de Membresía"
+            singular="Estado"
             icon={IconShieldCheck}
-            servicio={api.estadoMembresia} 
-            columnas={COLUMNAS} 
-            campos={CAMPOS} 
-            valoresIniciales={INICIAL} 
-            mapRecordToForm={mapRecordToForm} 
-            mapFormToPayload={mapFormToPayload} 
-            mapRecordToRow={mapRecordToRow} 
-            renderForm={(props) => <EstadoMembresiaForm {...props} />} 
+            servicio={api.estadoMembresia}
+            columnas={COLUMNAS}
+            campos={CAMPOS}
+            valoresIniciales={INICIAL}
+            mapRecordToForm={mapRecordToForm}
+            mapFormToPayload={mapFormToPayload}
+            mapRecordToRow={mapRecordToRow}
+            renderForm={(props) => <EstadoMembresiaForm {...props} />}
             renderAccionesFila={renderAccionesFila}
             permitirEditar={false}
             permitirEliminar={false}
