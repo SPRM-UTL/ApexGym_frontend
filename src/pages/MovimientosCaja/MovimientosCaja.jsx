@@ -726,7 +726,7 @@ function DrawerDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
                         Empleado: {movimiento.empleado ? `${movimiento.empleado.nombre} ${movimiento.empleado.apellidoPaterno}` : '—'}
                     </Badge>
                     <Badge variant="light" color="gray" leftSection={<IconCash size={13} />} size="md" radius="sm">
-                        Apertura: {movimiento.aperturaCaja ? `#${movimiento.aperturaCaja.id} — ${movimiento.aperturaCaja.caja?.nombre ?? 'Caja'}` : '—'}
+                        Apertura: {movimiento.aperturaCaja ? `${movimiento.aperturaCaja.caja?.nombre ?? 'Caja'} — ${formatearFechaHora(movimiento.aperturaCaja.fechaApertura)}` : '—'}
                     </Badge>
                     <Badge color={esEntrada ? 'green' : 'red'} variant="light" size="md" radius="sm">
                         {movimiento.tipo ?? '—'}
@@ -1049,7 +1049,7 @@ export function MovimientosCaja() {
     const mapRecordToRow = (record) => {
         const apertura = record.aperturaCaja;
         const aperturaLabel = apertura
-            ? `#${apertura.id} — ${apertura.caja?.nombre ?? 'Caja'} — ${apertura.fechaApertura ? new Date(apertura.fechaApertura).toLocaleDateString('es-MX') : ''}`
+            ? `${apertura.caja?.nombre ?? 'Caja'} — ${formatearFechaHora(apertura.fechaApertura)}`
             : '—';
         const esValidado = record.estado === 'VALIDADO';
 
