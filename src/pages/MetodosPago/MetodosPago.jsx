@@ -96,6 +96,8 @@ export function MetodosPago() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <MetodoPagoForm {...props} />}
             pageSizeOptions={[6, 12, 18, 24]}
+            initialSortBy="id"
+            initialSortDirection="desc"
         />
     );
 }

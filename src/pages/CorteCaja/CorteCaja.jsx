@@ -1286,6 +1286,8 @@ export function CorteCaja() {
                 renderForm={(props) => <CorteForm {...props} />}
                 validateForm={validateForm}
                 pageSizeOptions={[5, 10, 15, 20]}
+                initialSortBy="numero"
+                initialSortDirection="desc"
                 permitirEditar={false}
                 permitirEliminar={false}
                 renderAccionesFila={(fila, recordOriginal, helpers = {}) => {

@@ -1097,6 +1097,8 @@ export function MovimientosCaja() {
                 renderForm={(props) => <MovimientoForm {...props} />}
                 validateForm={validateForm}
                 pageSizeOptions={[6, 12, 18, 24]}
+                initialSortBy="numero"
+                initialSortDirection="desc"
                 permitirEditar={false}
                 permitirEliminar={false}
                 renderAccionesFila={(fila, recordOriginal, helpers = {}) => {

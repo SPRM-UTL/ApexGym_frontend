@@ -158,6 +158,8 @@ export function Servicios() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <ServicioForm {...props} />}
             pageSizeOptions={[6, 12, 18, 24]}
+            initialSortBy="id"
+            initialSortDirection="desc"
         />
     );
 }

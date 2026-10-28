@@ -781,8 +781,8 @@ export function AperturaCaja() {
                 pageSizeOptions={[6, 12, 18, 24]}
                 permitirEditar={false}
                 permitirEliminar={false}
-                initialSortBy="fechaApertura"
-                initialSortDirection="asc"
+                initialSortBy="numero"
+                initialSortDirection="desc"
                 renderAccionesFila={(fila, recordOriginal, helpers) => {
                     const apertura = recordOriginal ?? fila?._recordOriginal ?? fila;
                     const esAbierta = apertura?.estado === 'ABIERTA';

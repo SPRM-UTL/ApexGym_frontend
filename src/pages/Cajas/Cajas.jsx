@@ -115,6 +115,8 @@ export function Cajas() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <CajaForm {...props} />}
             pageSizeOptions={[6, 12, 18, 24]}
+            initialSortBy="id"
+            initialSortDirection="desc"
         />
     );
 }

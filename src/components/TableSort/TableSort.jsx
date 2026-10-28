@@ -104,10 +104,23 @@ function filterRows(data, columns, globalSearch, columnFilters) {
 function sortRows(data, sortBy, reversed, columns) {
     if (!sortBy) return data;
 
+    if (sortBy === 'id') {
+        return [...data].sort((a, b) => {
+            const idA = Number(a._recordOriginal?.id ?? a.id ?? 0);
+            const idB = Number(b._recordOriginal?.id ?? b.id ?? 0);
+            return reversed ? idB - idA : idA - idB;
+        });
+    }
+
     const col = columns.find((c) => c.key === sortBy);
     if (!col?.sortable) return data;
 
     return [...data].sort((a, b) => {
+        if (sortBy === 'numero') {
+            const idA = Number(a._recordOriginal?.id ?? a.id ?? 0);
+            const idB = Number(b._recordOriginal?.id ?? b.id ?? 0);
+            return reversed ? idB - idA : idA - idB;
+        }
         const rawA = a._recordOriginal?.[sortBy] ?? a[sortBy];
         const rawB = b._recordOriginal?.[sortBy] ?? b[sortBy];
 
@@ -281,11 +294,6 @@ export function TableSort({
         const reversed = field === sortBy ? !reverseSortDirection : false;
         setReverseSortDirection(reversed);
         setSortBy(field);
-    };
-
-    const updateColumnFilter = (key, value) => {
-        setColumnFilters((prev) => ({ ...prev, [key]: value }));
-        setPage(1);
     };
 
     const idsOnPage = pageRows.map((row, i) => rowId(row, pageStart + i));
