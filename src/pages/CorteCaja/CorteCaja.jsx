@@ -47,6 +47,7 @@ import {
     IconFileCheck,
     IconFileDownload,
     IconFileText,
+    IconReceiptOff,
     IconReportAnalytics,
     IconScale,
     IconShieldCheck,
@@ -142,163 +143,231 @@ function ModalDetalleVentas({ opened, onClose, resumenApertura }) {
         <Modal
             opened={opened}
             onClose={onClose}
-            size="lg"
-            radius="md"
+            size={740}
+            radius="lg"
             zIndex={1000000}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" variant="light" color="orange">
-                        <IconReportAnalytics size={18} stroke={1.8} />
+                <Group gap="sm">
+                    <ThemeIcon size={38} radius="md" variant="light" color="orange" style={{ backgroundColor: '#FFF4EC', color: '#FF6A00' }}>
+                        <IconReportAnalytics size={22} stroke={1.8} />
                     </ThemeIcon>
                     <div>
-                        <Title order={5}>Detalle de Ventas y Movimientos</Title>
-                        <Text size="xs" c="dimmed">Auditoría del turno en curso</Text>
+                        <Title order={4} fw={700} c="#1E293B">Detalle de Ventas y Movimientos</Title>
+                        <Text size="xs" c="dimmed">Auditoría del turno en curso y flujo de efectivo</Text>
                     </div>
                 </Group>
             }
+            styles={{
+                header: {
+                    backgroundColor: '#ffffff',
+                    borderBottom: '1px solid #E2E8F0',
+                    padding: '16px 20px',
+                },
+                title: {
+                    color: '#1E293B',
+                },
+                close: {
+                    color: '#64748B',
+                    '&:hover': {
+                        backgroundColor: '#F1F5F9',
+                    },
+                },
+                body: {
+                    padding: '20px',
+                    backgroundColor: 'var(--ag-color-surface, #ffffff)',
+                },
+            }}
         >
             <Stack gap="md">
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Ventas</Text>
-                        <Text fw={800} size="lg" c="#FF6A00">${totalVentas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
-                        <Text fw={800} size="lg" c="dark">{transacciones}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
-                        <Text fw={800} size="lg" c="dark">${ticketPromedio.toFixed(2)}</Text>
-                    </Paper>
-                </SimpleGrid>
+                {/* ─── Card 1: Ventas del Turno ─── */}
+                <SectionCard
+                    icon={<IconReportAnalytics size={22} stroke={1.8} />}
+                    iconBg="#FFF4EC"
+                    iconColor="#FF6A00"
+                    title="Ventas del Turno"
+                    subtitle="Métricas de ventas y cobros procesados en este turno"
+                    rightAmount={`$${totalVentas.toFixed(2)}`}
+                    rightAmountColor="#FF6A00"
+                    collapsible={true}
+                    defaultOpen={true}
+                >
+                    <Stack gap="sm">
+                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                <Text size="xs" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
+                                <Text fw={800} size="xl" c="#FF6A00">$${totalVentas.toFixed(2)}</Text>
+                            </Paper>
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                                <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
+                                <Text fw={800} size="xl" c="#1E293B">{transacciones}</Text>
+                            </Paper>
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                                <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
+                                <Text fw={800} size="xl" c="#1E293B">$${ticketPromedio.toFixed(2)}</Text>
+                            </Paper>
+                        </SimpleGrid>
 
-                <Divider label="Ventas por Método de Pago" labelPosition="left" />
-                <Stack gap="xs">
-                    {metodos.length > 0 ? (
-                        metodos.map((m) => {
-                            const { icon, color } = getMetodoIcon(m.nombre);
-                            const totalNum = Number(m.total ?? 0);
-                            const pct = totalVentas > 0 ? ((totalNum / totalVentas) * 100).toFixed(1) : '0.0';
-
-                            return (
-                                <Paper key={m.metodoPagoId ?? m.nombre} p="xs" radius="md" withBorder>
-                                    <Group justify="space-between" mb={4}>
-                                        <Group gap="xs">
-                                            <ThemeIcon color={color} variant="light" radius="md" size="sm">
-                                                {icon}
-                                            </ThemeIcon>
-                                            <Text fw={600} size="xs">{m.nombre}</Text>
-                                        </Group>
-                                        <Group gap="xs">
-                                            <Badge color={color} variant="light" size="xs">{m.transacciones} ops</Badge>
-                                            <Text fw={700} size="xs">${totalNum.toFixed(2)} ({pct}%)</Text>
-                                        </Group>
-                                    </Group>
-                                    <Progress value={Number(pct)} color={color} size="xs" radius="xl" />
-                                </Paper>
-                            );
-                        })
-                    ) : (
-                        <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
-                            <Text size="xs" c="dimmed">No se han registrado ventas en esta apertura.</Text>
-                        </Paper>
-                    )}
-                </Stack>
-
-                <Divider label="Movimientos Manuales del Turno" labelPosition="left" />
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#f4fbf5', borderColor: '#40c057' }}>
-                        <Text size="xs" c="dimmed" fw={600}>Total Entradas (+)</Text>
-                        <Text fw={800} size="sm" c="green">+${totalEntradas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#fff5f5', borderColor: '#fa5252' }}>
-                        <Text size="xs" c="dimmed" fw={600}>Total Salidas (-)</Text>
-                        <Text fw={800} size="sm" c="red">-${totalSalidas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600}>Balance Neto</Text>
-                        <Text fw={800} size="sm" c={balanceMovimientos >= 0 ? 'green' : 'red'}>
-                            {balanceMovimientos >= 0 ? '+' : ''}${balanceMovimientos.toFixed(2)}
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt="xs">
+                            Ventas por Método de Pago
                         </Text>
-                    </Paper>
-                </SimpleGrid>
+                        {metodos.length > 0 ? (
+                            <Stack gap="xs">
+                                {metodos.map((m) => {
+                                    const { icon, color } = getMetodoIcon(m.nombre);
+                                    const totalNum = Number(m.total ?? 0);
+                                    const pct = totalVentas > 0 ? ((totalNum / totalVentas) * 100).toFixed(1) : '0.0';
 
-                <Accordion variant="separated" radius="md" defaultValue={['entradas', 'salidas']} multiple>
-                    <Accordion.Item value="entradas">
-                        <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={14} /></ThemeIcon>}>
-                            <Group justify="space-between" w="100%" pr="sm">
-                                <Text fw={600} size="xs">Ingresos de Efectivo (+)</Text>
-                                <Badge color="green" variant="filled" size="xs">+${totalEntradas.toFixed(2)}</Badge>
-                            </Group>
-                        </Accordion.Control>
-                        <Accordion.Panel>
-                            {entradas.length > 0 ? (
-                                <Table striped highlightOnHover style={{ fontSize: 12 }}>
-                                    <Table.Thead>
-                                        <Table.Tr>
-                                            <Table.Th>#</Table.Th>
-                                            <Table.Th>Concepto</Table.Th>
-                                            <Table.Th style={{ textAlign: 'right' }}>Monto</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {entradas.map((m) => (
-                                            <Table.Tr key={m.id}>
-                                                <Table.Td fw={600}>#{m.id}</Table.Td>
-                                                <Table.Td>{m.concepto}</Table.Td>
-                                                <Table.Td style={{ textAlign: 'right' }}>
-                                                    <Text fw={700} c="green">+${Number(m.monto).toFixed(2)}</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ))}
-                                    </Table.Tbody>
-                                </Table>
-                            ) : (
-                                <Text size="xs" c="dimmed" ta="center">Sin entradas registradas.</Text>
-                            )}
-                        </Accordion.Panel>
-                    </Accordion.Item>
+                                    return (
+                                        <Paper key={m.metodoPagoId ?? m.nombre} p="xs" radius="md" withBorder style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
+                                            <Group justify="space-between" mb={4}>
+                                                <Group gap="xs">
+                                                    <ThemeIcon color={color} variant="light" radius="md" size="sm">
+                                                        {icon}
+                                                    </ThemeIcon>
+                                                    <Text fw={600} size="xs" c="#1E293B">{m.nombre}</Text>
+                                                </Group>
+                                                <Group gap="xs">
+                                                    <Badge color={color} variant="light" size="xs">{m.transacciones} ops</Badge>
+                                                    <Text fw={700} size="xs">$${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                </Group>
+                                            </Group>
+                                            <Progress value={Number(pct)} color={color} size="xs" radius="xl" />
+                                        </Paper>
+                                    );
+                                })}
+                            </Stack>
+                        ) : (
+                            <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', textAlign: 'center' }}>
+                                <ThemeIcon size={36} radius="xl" variant="light" color="gray" mx="auto" mb="xs">
+                                    <IconReceiptOff size={18} />
+                                </ThemeIcon>
+                                <Text size="xs" fw={600} c="#475569">Sin ventas registradas</Text>
+                                <Text size="xs" c="dimmed">No se han registrado ventas ni transacciones en esta apertura.</Text>
+                            </Paper>
+                        )}
+                    </Stack>
+                </SectionCard>
 
-                    <Accordion.Item value="salidas">
-                        <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={14} /></ThemeIcon>}>
-                            <Group justify="space-between" w="100%" pr="sm">
-                                <Text fw={600} size="xs">Egresos de Efectivo (-)</Text>
-                                <Badge color="red" variant="filled" size="xs">-${totalSalidas.toFixed(2)}</Badge>
-                            </Group>
-                        </Accordion.Control>
-                        <Accordion.Panel>
-                            {salidas.length > 0 ? (
-                                <Table striped highlightOnHover style={{ fontSize: 12 }}>
-                                    <Table.Thead>
-                                        <Table.Tr>
-                                            <Table.Th>#</Table.Th>
-                                            <Table.Th>Concepto</Table.Th>
-                                            <Table.Th style={{ textAlign: 'right' }}>Monto</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {salidas.map((m) => (
-                                            <Table.Tr key={m.id}>
-                                                <Table.Td fw={600}>#{m.id}</Table.Td>
-                                                <Table.Td>{m.concepto}</Table.Td>
-                                                <Table.Td style={{ textAlign: 'right' }}>
-                                                    <Text fw={700} c="red">-${Number(m.monto).toFixed(2)}</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ))}
-                                    </Table.Tbody>
-                                </Table>
-                            ) : (
-                                <Text size="xs" c="dimmed" ta="center">Sin salidas registradas.</Text>
-                            )}
-                        </Accordion.Panel>
-                    </Accordion.Item>
-                </Accordion>
+                {/* ─── Card 2: Movimientos Manuales del Turno ─── */}
+                <SectionCard
+                    icon={<IconArrowsExchange size={22} stroke={1.8} />}
+                    iconBg="#FFF4EC"
+                    iconColor="#FF6A00"
+                    title="Movimientos Manuales del Turno"
+                    subtitle="Entradas y salidas manuales de efectivo registradas"
+                    rightAmount={`${balanceMovimientos >= 0 ? '+' : ''}$${balanceMovimientos.toFixed(2)}`}
+                    rightAmountColor={balanceMovimientos >= 0 ? '#2B8A3E' : '#E03131'}
+                    collapsible={true}
+                    defaultOpen={true}
+                >
+                    <Stack gap="sm">
+                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
+                                <Text size="xs" c="#2B8A3E" fw={700} tt="uppercase">Total Entradas (+)</Text>
+                                <Text fw={800} size="md" c="#2B8A3E">+$${totalEntradas.toFixed(2)}</Text>
+                            </Paper>
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                <Text size="xs" c="#E03131" fw={700} tt="uppercase">Total Salidas (-)</Text>
+                                <Text fw={800} size="md" c="#E03131">-$${totalSalidas.toFixed(2)}</Text>
+                            </Paper>
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                                <Text size="xs" c="dimmed" fw={600} tt="uppercase">Balance Neto</Text>
+                                <Text fw={800} size="md" c={balanceMovimientos >= 0 ? '#2B8A3E' : '#E03131'}>
+                                    {balanceMovimientos >= 0 ? '+' : ''}$${balanceMovimientos.toFixed(2)}
+                                </Text>
+                            </Paper>
+                        </SimpleGrid>
 
-                <Group justify="flex-end" mt="xs">
-                    <Button variant="default" size="sm" radius="md" onClick={onClose}>
-                        Cerrar
+                        <Accordion variant="separated" radius="md" defaultValue={['entradas', 'salidas']} multiple>
+                            <Accordion.Item value="entradas" style={{ borderColor: '#E2E8F0' }}>
+                                <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={14} /></ThemeIcon>}>
+                                    <Group justify="space-between" w="100%" pr="sm">
+                                        <Text fw={600} size="xs" c="#1E293B">Ingresos de Efectivo (+)</Text>
+                                        <Badge color="green" variant="light" size="xs">+$${totalEntradas.toFixed(2)}</Badge>
+                                    </Group>
+                                </Accordion.Control>
+                                <Accordion.Panel>
+                                    {entradas.length > 0 ? (
+                                        <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                            <Table.Thead>
+                                                <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                    <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                    <Table.Th>Concepto</Table.Th>
+                                                    <Table.Th style={{ textAlign: 'right', width: 120 }}>Monto</Table.Th>
+                                                </Table.Tr>
+                                            </Table.Thead>
+                                            <Table.Tbody>
+                                                {entradas.map((m) => (
+                                                    <Table.Tr key={m.id}>
+                                                        <Table.Td fw={600}>#{m.id}</Table.Td>
+                                                        <Table.Td>{m.concepto}</Table.Td>
+                                                        <Table.Td style={{ textAlign: 'right' }}>
+                                                            <Text fw={700} size="xs" c="green">+$${Number(m.monto).toFixed(2)}</Text>
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                ))}
+                                            </Table.Tbody>
+                                        </Table>
+                                    ) : (
+                                        <Text size="xs" c="dimmed" ta="center" py="xs">Sin entradas registradas.</Text>
+                                    )}
+                                </Accordion.Panel>
+                            </Accordion.Item>
+
+                            <Accordion.Item value="salidas" style={{ borderColor: '#E2E8F0' }}>
+                                <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={14} /></ThemeIcon>}>
+                                    <Group justify="space-between" w="100%" pr="sm">
+                                        <Text fw={600} size="xs" c="#1E293B">Egresos de Efectivo (-)</Text>
+                                        <Badge color="red" variant="light" size="xs">-$${totalSalidas.toFixed(2)}</Badge>
+                                    </Group>
+                                </Accordion.Control>
+                                <Accordion.Panel>
+                                    {salidas.length > 0 ? (
+                                        <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                            <Table.Thead>
+                                                <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                    <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                    <Table.Th>Concepto</Table.Th>
+                                                    <Table.Th style={{ textAlign: 'right', width: 120 }}>Monto</Table.Th>
+                                                </Table.Tr>
+                                            </Table.Thead>
+                                            <Table.Tbody>
+                                                {salidas.map((m) => (
+                                                    <Table.Tr key={m.id}>
+                                                        <Table.Td fw={600}>#{m.id}</Table.Td>
+                                                        <Table.Td>{m.concepto}</Table.Td>
+                                                        <Table.Td style={{ textAlign: 'right' }}>
+                                                            <Text fw={700} size="xs" c="red">-$${Number(m.monto).toFixed(2)}</Text>
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                ))}
+                                            </Table.Tbody>
+                                        </Table>
+                                    ) : (
+                                        <Text size="xs" c="dimmed" ta="center" py="xs">Sin salidas registradas.</Text>
+                                    )}
+                                </Accordion.Panel>
+                            </Accordion.Item>
+                        </Accordion>
+                    </Stack>
+                </SectionCard>
+
+                {/* Footer inferior */}
+                <Group
+                    justify="flex-end"
+                    pt="md"
+                    style={{
+                        borderTop: '1px solid #E2E8F0',
+                        marginTop: 4,
+                    }}
+                >
+                    <Button
+                        variant="default"
+                        radius="md"
+                        leftSection={<IconArrowLeft size={16} />}
+                        onClick={onClose}
+                    >
+                        Volver al corte
                     </Button>
                 </Group>
             </Stack>
