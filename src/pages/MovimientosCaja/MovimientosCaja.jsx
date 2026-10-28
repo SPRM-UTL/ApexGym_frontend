@@ -2,22 +2,16 @@
  * Issue: [CAJA-04] Frontend: Pantalla e interfaz operativa de Movimientos de Caja #89
  * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
  *
- * Tareas:
- * - Formulario para capturar concepto desde catálogo, tipo (entrada/salida), monto y empleado responsable.
- * - Desglose físico de billetes y monedas para ingresos y egresos.
- * - Validación de apertura abierta para validar movimientos.
- * - Inclusión de número de apertura en tabla.
- * - Visualizacion del balance de movimientos del turno en tiempo real.
+ * Módulo rediseñado con Drawer moderno de creación y detalle según especificación visual.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionIcon,
     Alert,
     Badge,
-    Box,
     Button,
     Divider,
-    Modal,
+    Drawer,
     Group,
     NativeSelect,
     NumberInput,
@@ -25,6 +19,7 @@ import {
     SimpleGrid,
     Stack,
     Table,
+    Tabs,
     Text,
     Textarea,
     ThemeIcon,
@@ -33,12 +28,15 @@ import {
 } from '@mantine/core';
 import {
     IconAlertCircle,
+    IconArrowLeft,
     IconArrowsExchange,
+    IconCalendar,
     IconCash,
     IconCheck,
     IconCoins,
     IconEye,
     IconInfoCircle,
+    IconRefresh,
     IconShieldCheck,
     IconUser,
     IconWallet,
@@ -46,9 +44,10 @@ import {
 import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { SectionCard } from '../../components/SectionCard/SectionCard.jsx';
 import { DENOMINACIONES, desglosarMonto, formatearFechaHora } from '../../scripts/cajaUtils.js';
 
-/* ─── Catálogo oficial de tipos de concepto por movimiento ──────────────────── */
+/* ─── Catálogo oficial de tipos de concepto por movimiento ────────────────── */
 const CATALOGO_CONCEPTOS = {
     ENTRADA: [
         'Ingreso manual de efectivo',
@@ -70,9 +69,7 @@ const CATALOGO_CONCEPTOS = {
     ],
 };
 
-
-
-/* ─── Campos (para validación y payload) ────────────────────────────────────── */
+/* ─── Campos (para validación y payload) ─────────────────────────────────── */
 const CAMPOS = [
     {
         key: 'aperturaCajaId',
@@ -121,7 +118,7 @@ const CAMPOS = [
     { key: 'observaciones', label: 'Observaciones',    maxLength: 500 },
 ];
 
-/* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
+/* ─── Columnas de la tabla ───────────────────────────────────────────────── */
 const COLUMNAS = [
     { key: 'numero',    label: '#',         sortable: true, filterable: true },
     { key: 'apertura',  label: 'Apertura',  sortable: true, filterable: true },
@@ -142,24 +139,10 @@ const INICIAL = {
     observaciones: '',
 };
 
-/* ─── Estilos de sección ────────────────────────────────────────────────────── */
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
-};
-
-
 /**
  * Normaliza el objeto de desglose asegurando que todas las denominaciones
  * existan con valores numéricos limpios o cadena vacía, evitando undefined y NaN.
  */
-
-
-
 function normalizarDesglose(desglose) {
     const init = {};
     for (const d of DENOMINACIONES) {
@@ -173,7 +156,7 @@ function normalizarDesglose(desglose) {
     return init;
 }
 
-/* ─── Formulario personalizado ──────────────────────────────────────────────── */
+/* ─── Formulario de Registro (Drawer con SectionCards) ───────────────────── */
 function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const [resumen, setResumen] = useState(null);
 
@@ -221,15 +204,24 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     const montoUsuario = Number(form.monto || 0);
     const superaSaldo = esSalida && saldoDisponible !== null && montoUsuario > saldoDisponible;
 
-    // Total acumulado actual del desglose de efectivo
-    const totalDesglose = useMemo(() => {
+    // Totales calculados del desglose
+    const { totalDesglose, totalBilletes, totalMonedas } = useMemo(() => {
         let total = 0;
+        let billetes = 0;
+        let monedas = 0;
         for (const d of DENOMINACIONES) {
             const raw = conteoBilletes?.[d.valor];
             const cant = (raw === '' || raw === null || raw === undefined || isNaN(Number(raw))) ? 0 : Number(raw);
-            total += d.valor * cant;
+            const sub = d.valor * cant;
+            total += sub;
+            if (d.tipo === 'billete') billetes += sub;
+            else monedas += sub;
         }
-        return Math.round(total * 100) / 100;
+        return {
+            totalDesglose: Math.round(total * 100) / 100,
+            totalBilletes: Math.round(billetes * 100) / 100,
+            totalMonedas: Math.round(monedas * 100) / 100,
+        };
     }, [conteoBilletes]);
 
     const desgloseExcedeMonto = montoUsuario > 0 && totalDesglose > montoUsuario;
@@ -283,7 +275,6 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
         onChange('desglose', nuevoConteo);
 
         // Si el usuario NO había ingresado un monto previamente, el desglose llena el monto automáticamente.
-        // Si ya había ingresado un monto, NO se sobreescribe para respetar la cantidad que puso.
         if (montoUsuario <= 0 && (total > 0 || Object.values(nuevoConteo).some((v) => v !== '' && Number(v) > 0))) {
             onChange('monto', total);
         }
@@ -302,194 +293,204 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
 
     return (
         <Stack gap="md">
-            <Box>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
-                        <IconArrowsExchange size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>Detalle del movimiento</Title>
-                </div>
-
-                {/* Banner de Saldo Disponible en Tiempo Real */}
-                {resumen && (
-                    <Paper
-                        p="sm"
-                        radius="md"
-                        mb="md"
-                        withBorder
-                        style={{
-                            backgroundColor: superaSaldo ? '#fff5f5' : '#f8f9fa',
-                            borderColor: superaSaldo ? '#fa5252' : '#dee2e6',
-                        }}
-                    >
-                        <Group justify="space-between" align="center">
-                            <Group gap="xs">
-                                <ThemeIcon color={superaSaldo ? 'red' : 'blue'} variant="light" radius="md">
-                                    <IconWallet size={18} />
-                                </ThemeIcon>
-                                <div>
-                                    <Text size="xs" c="dimmed">Saldo disponible actual en caja</Text>
-                                    <Text fw={700} size="md" c={superaSaldo ? 'red' : 'dark'}>
-                                        ${saldoDisponible.toFixed(2)}
-                                    </Text>
-                                </div>
-                            </Group>
-                            <Group gap="xs">
-                                <Badge variant="outline" color="gray" size="sm">Fondo: ${Number(resumen.montoInicial).toFixed(2)}</Badge>
-                                <Badge variant="outline" color="green" size="sm">Entradas: +${Number(resumen.totalEntradas).toFixed(2)}</Badge>
-                                <Badge variant="outline" color="red" size="sm">Salidas: -${Number(resumen.totalSalidas).toFixed(2)}</Badge>
-                            </Group>
-                        </Group>
-                    </Paper>
-                )}
-
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                    {/* Col 1 */}
-                    <NativeSelect
-                        label="Apertura de Caja"
-                        withAsterisk
-                        value={form.aperturaCajaId ?? ''}
-                        error={errors.aperturaCajaId}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconCash size={16} stroke={1.5} />}
-                        data={[{ value: '', label: 'Selecciona una apertura' }, ...(fieldOptions.aperturaCajaId ?? [])]}
-                        onChange={(e) => onChange('aperturaCajaId', e.currentTarget.value)}
-                    />
-                    <NativeSelect
-                        label="Empleado"
-                        withAsterisk
-                        value={form.empleadoId ?? ''}
-                        error={errors.empleadoId}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconUser size={16} stroke={1.5} />}
-                        data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
-                        onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
-                    />
-
-                    {/* Col 2 */}
-                    <NativeSelect
-                        label="Tipo de Movimiento"
-                        withAsterisk
-                        value={form.tipo ?? 'ENTRADA'}
-                        error={errors.tipo}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconArrowsExchange size={16} stroke={1.5} />}
-                        data={[
-                            { value: 'ENTRADA', label: 'Entrada (Ingreso manual)' },
-                            { value: 'SALIDA',  label: 'Salida (Retiro / Gasto menor)'  },
-                        ]}
-                        onChange={(e) => {
-                            const nuevoTipo = e.currentTarget.value;
-                            onChange('tipo', nuevoTipo);
-                            onChange('concepto', '');
-                        }}
-                    />
-                    <NumberInput
-                        label="Monto"
-                        withAsterisk
-                        prefix="$"
-                        min={0.01}
-                        max={50000}
-                        decimalScale={2}
-                        clampBehavior="strict"
-                        placeholder="Ej. $500.00 (Máx. $50,000.00)"
-                        description="Límite máximo por movimiento: $50,000.00"
-                        value={form.monto ?? ''}
-                        error={
-                            superaSaldo
-                                ? `Supera el saldo disponible (${saldoDisponible.toFixed(2)})`
-                                : (desgloseExcedeMonto
-                                    ? `El total de billetes/monedas ($${totalDesglose.toFixed(2)}) supera este monto`
-                                    : errors.monto)
-                        }
-                        size="md"
-                        radius="md"
-                        leftSection={<IconCash size={16} stroke={1.5} />}
-                        onChange={(v) => onChange('monto', v)}
-                    />
-
-                    {/* Alerta de exceso de retiro */}
-                    {superaSaldo && (
-                        <Alert
-                            icon={<IconAlertCircle size={16} />}
-                            title="Operación no permitida"
-                            color="red"
+            {/* ─── Card 1: Detalle del movimiento ─── */}
+            <SectionCard
+                icon={<IconArrowsExchange size={22} stroke={1.8} />}
+                iconBg="#FFF4EC"
+                iconColor="#FF6A00"
+                title="Detalle del movimiento"
+                subtitle="Selecciona la apertura, empleado responsable, tipo de movimiento y monto."
+                collapsible={false}
+            >
+                <Stack gap="sm">
+                    {/* Banner de Saldo Disponible en Tiempo Real */}
+                    {resumen && (
+                        <Paper
+                            p="sm"
                             radius="md"
-                            style={{ gridColumn: '1 / -1' }}
+                            withBorder
+                            style={{
+                                backgroundColor: superaSaldo ? '#fff5f5' : '#f8f9fa',
+                                borderColor: superaSaldo ? '#fa5252' : '#dee2e6',
+                            }}
                         >
-                            No puedes retirar más dinero del que realmente hay en la caja. El saldo disponible es de <b>${saldoDisponible.toFixed(2)}</b>.
-                        </Alert>
+                            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+                                <Group gap="xs">
+                                    <ThemeIcon color={superaSaldo ? 'red' : 'blue'} variant="light" radius="md">
+                                        <IconWallet size={18} />
+                                    </ThemeIcon>
+                                    <div>
+                                        <Text size="xs" c="dimmed">Saldo disponible actual en caja</Text>
+                                        <Text fw={700} size="md" c={superaSaldo ? 'red' : 'dark'}>
+                                            ${saldoDisponible.toFixed(2)}
+                                        </Text>
+                                    </div>
+                                </Group>
+                                <Group gap="xs">
+                                    <Badge variant="outline" color="gray" size="sm">Fondo: ${Number(resumen.montoInicial).toFixed(2)}</Badge>
+                                    <Badge variant="outline" color="green" size="sm">Entradas: +${Number(resumen.totalEntradas).toFixed(2)}</Badge>
+                                    <Badge variant="outline" color="red" size="sm">Salidas: -${Number(resumen.totalSalidas).toFixed(2)}</Badge>
+                                </Group>
+                            </Group>
+                        </Paper>
                     )}
 
-                    {/* Full width — Concepto */}
-                    <NativeSelect
-                        label="Concepto"
-                        withAsterisk
-                        value={form.concepto ?? ''}
-                        error={errors.concepto}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconInfoCircle size={16} stroke={1.5} />}
-                        style={{ gridColumn: '1 / -1' }}
-                        data={[
-                            { value: '', label: 'Selecciona un concepto' },
-                            ...opcionesConceptos,
-                            ...(form.concepto && !opcionesConceptos.some((o) => o.value === form.concepto)
-                                ? [{ value: form.concepto, label: form.concepto }]
-                                : []),
-                        ]}
-                        onChange={(e) => onChange('concepto', e.currentTarget.value)}
-                    />
-                </SimpleGrid>
-            </Box>
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                        {/* Apertura de Caja */}
+                        <NativeSelect
+                            label="Apertura de Caja"
+                            withAsterisk
+                            value={form.aperturaCajaId ?? ''}
+                            error={errors.aperturaCajaId}
+                            size="md"
+                            radius="md"
+                            leftSection={<IconCash size={16} stroke={1.5} />}
+                            data={[{ value: '', label: 'Selecciona una apertura' }, ...(fieldOptions.aperturaCajaId ?? [])]}
+                            onChange={(e) => onChange('aperturaCajaId', e.currentTarget.value)}
+                        />
 
-            {/* ── Billetes de Ingreso / Egreso (Desglose de Efectivo) ── */}
-            <Box>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
-                        <IconCoins size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>
-                        Billetes y monedas de {form.tipo === 'ENTRADA' ? 'ingreso' : 'egreso'}
-                    </Title>
-                </div>
+                        {/* Empleado */}
+                        <NativeSelect
+                            label="Empleado"
+                            withAsterisk
+                            value={form.empleadoId ?? ''}
+                            error={errors.empleadoId}
+                            size="md"
+                            radius="md"
+                            leftSection={<IconUser size={16} stroke={1.5} />}
+                            data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
+                            onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
+                        />
 
-                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fffdfa' }}>
+                        {/* Tipo de Movimiento */}
+                        <NativeSelect
+                            label="Tipo de Movimiento"
+                            withAsterisk
+                            value={form.tipo ?? 'ENTRADA'}
+                            error={errors.tipo}
+                            size="md"
+                            radius="md"
+                            leftSection={<IconArrowsExchange size={16} stroke={1.5} />}
+                            data={[
+                                { value: 'ENTRADA', label: 'Entrada (Ingreso manual)' },
+                                { value: 'SALIDA',  label: 'Salida (Retiro / Gasto menor)' },
+                            ]}
+                            onChange={(e) => {
+                                const nuevoTipo = e.currentTarget.value;
+                                onChange('tipo', nuevoTipo);
+                                onChange('concepto', '');
+                            }}
+                        />
+
+                        {/* Monto */}
+                        <NumberInput
+                            label="Monto"
+                            withAsterisk
+                            prefix="$"
+                            min={0.01}
+                            max={50000}
+                            decimalScale={2}
+                            clampBehavior="strict"
+                            placeholder="Ej. $500.00 (Máx. $50,000.00)"
+                            description="Límite máximo por movimiento: $50,000.00"
+                            value={form.monto ?? ''}
+                            error={
+                                superaSaldo
+                                    ? `Supera el saldo disponible ($${saldoDisponible.toFixed(2)})`
+                                    : (desgloseExcedeMonto
+                                        ? `El total de billetes/monedas ($${totalDesglose.toFixed(2)}) supera este monto`
+                                        : errors.monto)
+                            }
+                            size="md"
+                            radius="md"
+                            leftSection={<IconCash size={16} stroke={1.5} />}
+                            onChange={(v) => onChange('monto', v)}
+                        />
+
+                        {/* Alerta de exceso de retiro */}
+                        {superaSaldo && (
+                            <Alert
+                                icon={<IconAlertCircle size={16} />}
+                                title="Operación no permitida"
+                                color="red"
+                                radius="md"
+                                style={{ gridColumn: '1 / -1' }}
+                            >
+                                No puedes retirar más dinero del que realmente hay en la caja. El saldo disponible es de <b>${saldoDisponible.toFixed(2)}</b>.
+                            </Alert>
+                        )}
+
+                        {/* Concepto */}
+                        <NativeSelect
+                            label="Concepto"
+                            withAsterisk
+                            value={form.concepto ?? ''}
+                            error={errors.concepto}
+                            size="md"
+                            radius="md"
+                            leftSection={<IconInfoCircle size={16} stroke={1.5} />}
+                            style={{ gridColumn: '1 / -1' }}
+                            data={[
+                                { value: '', label: 'Selecciona un concepto' },
+                                ...opcionesConceptos,
+                                ...(form.concepto && !opcionesConceptos.some((o) => o.value === form.concepto)
+                                    ? [{ value: form.concepto, label: form.concepto }]
+                                    : []),
+                            ]}
+                            onChange={(e) => onChange('concepto', e.currentTarget.value)}
+                        />
+
+                        {/* Observaciones */}
+                        <Textarea
+                            label="Observaciones"
+                            placeholder="Observaciones adicionales del movimiento"
+                            value={form.observaciones ?? ''}
+                            error={errors.observaciones}
+                            maxLength={500}
+                            description="Máximo 500 caracteres"
+                            size="md"
+                            radius="md"
+                            minRows={2}
+                            style={{ gridColumn: '1 / -1' }}
+                            onChange={(e) => onChange('observaciones', e.currentTarget.value)}
+                        />
+                    </SimpleGrid>
+                </Stack>
+            </SectionCard>
+
+            {/* ─── Card 2: Billetes y monedas de Ingreso / Egreso ─── */}
+            <SectionCard
+                icon={<IconCash size={22} stroke={1.8} />}
+                iconBg="#FFF4EC"
+                iconColor="#FF6A00"
+                title={`Billetes y monedas de ${esSalida ? 'egreso' : 'ingreso'}`}
+                subtitle="Desglose por denominación de billetes y monedas para este movimiento"
+                rightAmount={`$${totalDesglose.toFixed(2)}`}
+                rightAmountColor="#FF6A00"
+                collapsible={true}
+                defaultOpen={true}
+            >
+                <Stack gap="sm">
                     <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
                         <Text size="xs" c="dimmed">
                             {montoUsuario > 0
                                 ? `Desglose de efectivo para el monto de $${montoUsuario.toFixed(2)}. La suma no puede superar el monto.`
                                 : 'Captura la cantidad de billetes y monedas que componen este movimiento.'}
                         </Text>
-                        <Group gap="xs">
-                            {totalDesglose > 0 && (
-                                <Button
-                                    variant="subtle"
-                                    color="gray"
-                                    size="compact-xs"
-                                    onClick={limpiarDesglose}
-                                >
-                                    Limpiar desglose
-                                </Button>
-                            )}
-                            <Badge
-                                color={
-                                    desgloseExcedeMonto
-                                        ? 'red'
-                                        : montoUsuario > 0 && totalDesglose === montoUsuario
-                                        ? 'green'
-                                        : 'apex'
-                                }
-                                variant="light"
-                                size="md"
-                            >
-                                Total Desglose: ${totalDesglose.toFixed(2)}
-                                {montoUsuario > 0 && ` / $${montoUsuario.toFixed(2)}`}
-                            </Badge>
-                        </Group>
+                        <Badge
+                            color={
+                                desgloseExcedeMonto
+                                    ? 'red'
+                                    : montoUsuario > 0 && totalDesglose === montoUsuario
+                                    ? 'green'
+                                    : 'orange'
+                            }
+                            variant="light"
+                            size="md"
+                        >
+                            Total Desglose: ${totalDesglose.toFixed(2)}
+                            {montoUsuario > 0 && ` / $${montoUsuario.toFixed(2)}`}
+                        </Badge>
                     </Group>
 
                     {desgloseExcedeMonto && (
@@ -500,7 +501,6 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                             variant="light"
                             radius="sm"
                             p="xs"
-                            mb="xs"
                         >
                             <Text size="xs">
                                 El desglose (${totalDesglose.toFixed(2)}) supera el monto establecido (${montoUsuario.toFixed(2)}). Reduce las cantidades de billetes o limpia el desglose.
@@ -508,12 +508,12 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                         </Alert>
                     )}
 
-                    <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                    <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
                         <Table.Thead>
-                            <Table.Tr>
+                            <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
                                 <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ width: 130, textAlign: 'center' }}>Cantidad</Table.Th>
-                                <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                <Table.Th style={{ width: 120, textAlign: 'center' }}>Cantidad</Table.Th>
+                                <Table.Th style={{ textAlign: 'right', width: 140 }}>Subtotal</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -532,7 +532,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                                             opacity: noPermiteMas ? 0.6 : 1,
                                         }}
                                     >
-                                        <Table.Td fw={600}>
+                                        <Table.Td fw={600} style={{ color: '#1E293B' }}>
                                             <Group gap={6} wrap="nowrap">
                                                 <span>{d.label}</span>
                                                 {montoUsuario > 0 && (
@@ -558,7 +558,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                                                 value={cantStr}
                                                 disabled={noPermiteMas}
                                                 onChange={(v) => actualizarDenominacion(d.valor, v)}
-                                                styles={{ input: { textAlign: 'center' } }}
+                                                styles={{ input: { textAlign: 'center', fontWeight: 600 } }}
                                             />
                                         </Table.Td>
                                         <Table.Td style={{ textAlign: 'right', fontWeight: subtotal > 0 ? 700 : 400 }}>
@@ -569,22 +569,53 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                             })}
                         </Table.Tbody>
                     </Table>
-                </Paper>
-            </Box>
 
-            {/* Full width — observaciones */}
-            <Textarea
-                label="Observaciones"
-                placeholder="Observaciones adicionales"
-                value={form.observaciones ?? ''}
-                error={errors.observaciones}
-                maxLength={500}
-                description="Máximo 500 caracteres"
-                size="md"
-                radius="md"
-                minRows={2}
-                onChange={(e) => onChange('observaciones', e.currentTarget.value)}
-            />
+                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                        <Group justify="space-between" align="center">
+                            <Text fw={700} size="xs" c="#FF6A00">TOTAL DESGLOSE ({esSalida ? 'EGRESO' : 'INGRESO'}):</Text>
+                            <Text fw={800} size="md" c="#FF6A00">${totalDesglose.toFixed(2)}</Text>
+                        </Group>
+                    </Paper>
+                </Stack>
+            </SectionCard>
+
+            {/* ─── Card 3: Resumen del Desglose ─── */}
+            <SectionCard
+                icon={<IconCoins size={22} stroke={1.8} />}
+                iconBg="#E7F5FF"
+                iconColor="#1C7ED6"
+                title="Resumen del Desglose"
+                subtitle="Composición del efectivo registrado para este movimiento"
+                rightAmount={`$${totalDesglose.toFixed(2)}`}
+                rightAmountColor="#1C7ED6"
+                collapsible={true}
+                defaultOpen={true}
+            >
+                <Stack gap="xs">
+                    <Group justify="space-between">
+                        <Text size="xs" c="dimmed">Total en Billetes:</Text>
+                        <Text fw={700} size="xs">${totalBilletes.toFixed(2)}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                        <Text size="xs" c="dimmed">Total en Monedas:</Text>
+                        <Text fw={700} size="xs">${totalMonedas.toFixed(2)}</Text>
+                    </Group>
+                    {totalDesglose > 0 && (
+                        <Group justify="flex-end" mt="xs">
+                            <Button
+                                variant="light"
+                                color="red"
+                                size="xs"
+                                radius="md"
+                                leftSection={<IconRefresh size={14} />}
+                                onClick={limpiarDesglose}
+                            >
+                                Limpiar desglose
+                            </Button>
+                        </Group>
+                    )}
+                </Stack>
+            </SectionCard>
 
             {/* Aviso informativo de inmutabilidad */}
             <Alert
@@ -598,7 +629,7 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
                 </Text>
             </Alert>
 
-            {/* Banner de errores para evitar cualquier error invisible */}
+            {/* Banner de errores si los hay */}
             {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
                 <Alert
                     icon={<IconAlertCircle size={18} />}
@@ -622,9 +653,8 @@ function MovimientoForm({ form, errors, onChange, fieldOptions }) {
     );
 }
 
-
-/* ─── Modal para ver el detalle completo del movimiento (Idéntico a Apertura y Corte) ─── */
-function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
+/* ─── Drawer para Detalle de Movimiento de Caja (Idéntico a Apertura y Corte) ─── */
+function DrawerDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
     const montoTotal = Number(movimiento?.monto ?? 0);
     const esEntrada = movimiento?.tipo === 'ENTRADA';
     const esValidado = movimiento?.estado === 'VALIDADO';
@@ -664,231 +694,267 @@ function ModalDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
     }
 
     return (
-        <Modal
+        <Drawer
             opened={opened}
             onClose={onClose}
-            fullScreen
-            radius={0}
+            position="right"
+            size={740}
             zIndex={999999}
-            transitionProps={{ transition: 'slide-up', duration: 200 }}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="lg" radius="md" variant="outline" color="white" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff' }}>
+                <Group gap="sm">
+                    <ThemeIcon size={38} radius="md" variant="light" color="orange" style={{ backgroundColor: '#FFF4EC', color: '#FF6A00' }}>
                         <IconArrowsExchange size={22} stroke={1.8} />
                     </ThemeIcon>
                     <div>
-                        <Title order={4} style={{ color: '#ffffff' }}>
-                            Detalle de Movimiento de Caja #{movimiento.id}
-                        </Title>
-                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                            Información completa de la transacción y desglose de efectivo
-                        </Text>
+                        <Title order={4} fw={700} c="#1E293B">Detalle de Movimiento de Caja #{movimiento.id}</Title>
+                        <Text size="xs" c="dimmed">Información completa de la transacción y desglose de efectivo</Text>
                     </div>
                 </Group>
             }
+            styles={{
+                header: { borderBottom: '1px solid #E2E8F0', paddingBottom: 16, marginBottom: 0 },
+                body: { display: 'flex', flexDirection: 'column', padding: '16px 20px', minHeight: 'calc(100vh - 80px)' },
+            }}
         >
-            <Box maw={1200} mx="auto" mt="xl" pt="md">
-                <Stack gap="md">
-                    {/* Tarjeta de Información General del Movimiento */}
-                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
-                        <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="xs">
-                            <div>
-                                <Text size="xs" c="dimmed" fw={600}>Apertura de Caja</Text>
-                                <Text fw={600} size="sm">
-                                    {movimiento.aperturaCaja ? `#${movimiento.aperturaCaja.id} — ${movimiento.aperturaCaja.caja?.nombre ?? 'Caja'}` : '—'}
-                                </Text>
-                            </div>
-                            <div>
-                                <Text size="xs" c="dimmed" fw={600}>Empleado Responsable</Text>
-                                <Text fw={600} size="sm">
-                                    {movimiento.empleado ? `${movimiento.empleado.nombre} ${movimiento.empleado.apellidoPaterno}` : '—'}
-                                </Text>
-                            </div>
-                            <div>
-                                <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Registro</Text>
-                                <Text fw={600} size="sm">
-                                    {formatearFechaHora(movimiento.createdAt)}
-                                </Text>
-                            </div>
-                            <div>
-                                <Text size="xs" c="dimmed" fw={600}>Tipo de Movimiento</Text>
-                                <Badge color={esEntrada ? 'green' : 'red'} variant="light" size="sm">
-                                    {movimiento.tipo ?? '—'}
-                                </Badge>
-                            </div>
-                            <div>
-                                <Text size="xs" c="dimmed" fw={600}>Estado de Auditoría</Text>
-                                <Badge color={esValidado ? 'green' : 'yellow'} variant="light" size="sm">
-                                    {movimiento.estado ?? 'PENDIENTE'}
-                                </Badge>
-                            </div>
-                        </SimpleGrid>
-                        <Divider my="xs" />
-                        <Group justify="space-between" align="center" wrap="wrap">
-                            <div>
-                                <Text size="xs" c="dimmed" fw={600}>Concepto del Movimiento</Text>
-                                <Text fw={700} size="sm" c="dark">{movimiento.concepto ?? '—'}</Text>
-                            </div>
-                            <Group gap="xs">
-                                <Text size="xs" c="dimmed" fw={600}>Monto Total:</Text>
-                                <Text fw={800} size="lg" c={esEntrada ? 'green' : 'red'}>
-                                    {esEntrada ? '+' : '-'}${montoTotal.toFixed(2)}
-                                </Text>
-                            </Group>
-                        </Group>
-                    </Paper>
+            <div style={{ flex: 1, paddingBottom: 16 }}>
+                {/* Header chips */}
+                <Group gap="xs" wrap="wrap" mb="md">
+                    <Badge variant="light" color="gray" leftSection={<IconCalendar size={13} />} size="md" radius="sm">
+                        Fecha: {formatearFechaHora(movimiento.createdAt)}
+                    </Badge>
+                    <Badge variant="light" color="gray" leftSection={<IconUser size={13} />} size="md" radius="sm">
+                        Empleado: {movimiento.empleado ? `${movimiento.empleado.nombre} ${movimiento.empleado.apellidoPaterno}` : '—'}
+                    </Badge>
+                    <Badge variant="light" color="gray" leftSection={<IconCash size={13} />} size="md" radius="sm">
+                        Apertura: {movimiento.aperturaCaja ? `#${movimiento.aperturaCaja.id} — ${movimiento.aperturaCaja.caja?.nombre ?? 'Caja'}` : '—'}
+                    </Badge>
+                    <Badge color={esEntrada ? 'green' : 'red'} variant="light" size="md" radius="sm">
+                        {movimiento.tipo ?? '—'}
+                    </Badge>
+                    <Badge color={esValidado ? 'green' : 'yellow'} variant="light" size="md" radius="sm">
+                        {movimiento.estado ?? 'PENDIENTE'}
+                    </Badge>
+                </Group>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                        {/* ── Columna 1: Billetes y Monedas ── */}
-                        <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
-                            <Group justify="space-between" mb="xs">
-                                <Group gap="xs">
-                                    <ThemeIcon size="sm" radius="md" variant="light" color={esEntrada ? 'green' : 'red'}>
-                                        <IconCoins size={14} />
-                                    </ThemeIcon>
-                                    <Text fw={700} size="sm" c="dimmed">
-                                        Billetes y monedas de {esEntrada ? 'ingreso' : 'egreso'}
-                                    </Text>
-                                </Group>
-                                <Badge color={esEntrada ? 'green' : 'red'} variant="light">
-                                    Monto: ${montoTotal.toFixed(2)}
-                                </Badge>
-                            </Group>
-                            <Text size="xs" c="dimmed" mb="md">
-                                Desglose físico registrado para este movimiento.
-                            </Text>
+                {/* Tabs de navegación */}
+                <Tabs defaultValue="resumen" color="orange">
+                    <Tabs.List mb="md">
+                        <Tabs.Tab value="resumen">Resumen</Tabs.Tab>
+                        <Tabs.Tab value="billetes">Billetes y Monedas</Tabs.Tab>
+                    </Tabs.List>
 
-                            <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>Denominación</Table.Th>
-                                        <Table.Th style={{ textAlign: 'center', width: 100 }}>Cantidad</Table.Th>
-                                        <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {DENOMINACIONES.map((d) => {
-                                        const cant = Number(desgloseFinal[d.valor] ?? 0);
-                                        return (
-                                            <Table.Tr key={d.valor}>
-                                                <Table.Td fw={600}>{d.label}</Table.Td>
-                                                <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
-                                                <Table.Td style={{ textAlign: 'right' }}>
-                                                    ${(d.valor * cant).toFixed(2)}
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        );
-                                    })}
-                                </Table.Tbody>
-                            </Table>
+                    {/* ─── Tab: Resumen ─── */}
+                    <Tabs.Panel value="resumen">
+                        <Stack gap="md">
+                            {/* Card 1: Monto y Concepto */}
+                            <SectionCard
+                                icon={<IconArrowsExchange size={22} stroke={1.8} />}
+                                iconBg={esEntrada ? '#EBFBEE' : '#FFF5F5'}
+                                iconColor={esEntrada ? '#2B8A3E' : '#E03131'}
+                                title={movimiento.concepto ?? 'Concepto no especificado'}
+                                subtitle={`Movimiento de ${esEntrada ? 'ingreso' : 'egreso'} registrado`}
+                                rightAmount={`${esEntrada ? '+' : '-'}$${montoTotal.toFixed(2)}`}
+                                rightAmountColor={esEntrada ? '#2B8A3E' : '#E03131'}
+                                collapsible={false}
+                            />
 
-                            <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: esEntrada ? '#edfbf2' : '#fdf3f2', borderColor: esEntrada ? '#b7ebd0' : '#fad1ce' }}>
-                                <Group justify="space-between">
-                                    <Text fw={700} size="xs" c={esEntrada ? 'green' : 'red'}>TOTAL DEL MOVIMIENTO</Text>
-                                    <Text fw={800} size="sm" c={esEntrada ? 'green' : 'red'}>${montoTotal.toFixed(2)}</Text>
-                                </Group>
-                            </Paper>
-                        </Paper>
+                            {/* Card 2: Conteo de efectivo registrado */}
+                            <SectionCard
+                                icon={<IconCash size={22} stroke={1.8} />}
+                                iconBg="#FFF4EC"
+                                iconColor="#FF6A00"
+                                title={`Conteo de efectivo (${esEntrada ? 'ingreso' : 'egreso'})`}
+                                subtitle="Desglose físico registrado en este movimiento"
+                                rightAmount={`$${montoTotal.toFixed(2)}`}
+                                rightAmountColor="#FF6A00"
+                                collapsible={true}
+                                defaultOpen={true}
+                            >
+                                <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                                    <Table.Thead>
+                                        <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                            <Table.Th>Denominación</Table.Th>
+                                            <Table.Th style={{ textAlign: 'center', width: 100 }}>Cantidad</Table.Th>
+                                            <Table.Th style={{ textAlign: 'right', width: 120 }}>Subtotal</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {DENOMINACIONES.map((d) => {
+                                            const cant = Number(desgloseFinal[d.valor] ?? 0);
+                                            if (cant === 0) return null;
+                                            return (
+                                                <Table.Tr key={d.valor}>
+                                                    <Table.Td fw={600}>{d.label}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                                        ${(d.valor * cant).toFixed(2)}
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            );
+                                        })}
+                                    </Table.Tbody>
+                                </Table>
+                            </SectionCard>
 
-                        {/* ── Columna 2: Resumen y Observaciones ── */}
-                        <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
-                            <Group justify="space-between" mb="xs">
-                                <Group gap="xs">
-                                    <ThemeIcon size="sm" radius="md" variant="light" color="apex">
-                                        <IconWallet size={14} />
-                                    </ThemeIcon>
-                                    <Text fw={700} size="sm" c="dimmed">
-                                        Resumen del Movimiento
-                                    </Text>
-                                </Group>
-                            </Group>
-                            <Text size="xs" c="dimmed" mb="md">
-                                Composición del efectivo y observaciones de auditoría.
-                            </Text>
-
-                            <Stack gap="sm">
-                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
-                                    <Group justify="space-between" mb="xs">
+                            {/* Card 3: Resumen de Composición */}
+                            <SectionCard
+                                icon={<IconCoins size={22} stroke={1.8} />}
+                                iconBg="#E7F5FF"
+                                iconColor="#1C7ED6"
+                                title="Resumen del Movimiento"
+                                subtitle="Composición del efectivo y piezas físicas"
+                                collapsible={true}
+                                defaultOpen={true}
+                            >
+                                <Stack gap="xs">
+                                    <Group justify="space-between">
                                         <Text size="xs" c="dimmed">Total en Billetes:</Text>
-                                        <Text size="sm" fw={700}>${totalBilletes.toFixed(2)}</Text>
+                                        <Text fw={700} size="xs">${totalBilletes.toFixed(2)}</Text>
                                     </Group>
-                                    <Divider my="xs" />
-                                    <Group justify="space-between" mb="xs">
+                                    <Divider my={2} />
+                                    <Group justify="space-between">
                                         <Text size="xs" c="dimmed">Total en Monedas:</Text>
-                                        <Text size="sm" fw={700}>${totalMonedas.toFixed(2)}</Text>
+                                        <Text fw={700} size="xs">${totalMonedas.toFixed(2)}</Text>
                                     </Group>
-                                    <Divider my="xs" />
+                                    <Divider my={2} />
                                     <Group justify="space-between">
                                         <Text size="xs" c="dimmed">Piezas físicas totales:</Text>
-                                        <Text size="sm" fw={700}>{totalPiezas} piezas</Text>
+                                        <Text fw={700} size="xs">{totalPiezas} piezas</Text>
                                     </Group>
+                                </Stack>
+                            </SectionCard>
+
+                            {/* Observaciones registradas */}
+                            {movimiento.observaciones && (
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC' }}>
+                                    <Text size="xs" c="dimmed" fw={600} mb={2}>Observaciones registradas:</Text>
+                                    <Text size="sm">{movimiento.observaciones}</Text>
                                 </Paper>
-
-                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
-                                    <Text size="xs" c="dimmed" fw={600} mb={4}>Observaciones registradas:</Text>
-                                    <Text size="sm" c={movimiento.observaciones ? 'dark' : 'dimmed'}>
-                                        {movimiento.observaciones || 'Sin observaciones registradas'}
-                                    </Text>
-                                </Paper>
-
-                                <Paper p="sm" radius="md" mt="auto" withBorder style={{ backgroundColor: esEntrada ? '#edfbf2' : '#fdf3f2', borderColor: esEntrada ? '#b7ebd0' : '#fad1ce' }}>
-                                    <Group justify="space-between" align="center">
-                                        <div>
-                                            <Text fw={700} size="xs" c={esEntrada ? 'green' : 'red'}>TOTAL {esEntrada ? 'INGRESADO' : 'RETIRADO'}</Text>
-                                            <Text size="10px" c="dimmed">Efectivo {esEntrada ? 'ingresado a' : 'retirado de'} la caja</Text>
-                                        </div>
-                                        <Text fw={800} size="lg" c={esEntrada ? 'green' : 'red'}>${montoTotal.toFixed(2)}</Text>
-                                    </Group>
-                                </Paper>
-                            </Stack>
-                        </Paper>
-                    </SimpleGrid>
-
-                    {/* Aviso de Corrección y Auditoría */}
-                    <Alert
-                        icon={<IconInfoCircle size={20} />}
-                        title="¿Hubo alguna equivocación en este movimiento?"
-                        color="blue"
-                        variant="light"
-                        radius="md"
-                    >
-                        <Text size="sm">
-                            Por control de auditoría contable, los movimientos registrados no se pueden editar ni eliminar. <b>En caso de haberse equivocado, debes abrir otro movimiento</b> y corregir ese movimiento en ese nuevo registro especificando el motivo en las observaciones.
-                        </Text>
-                    </Alert>
-
-                    {/* Acciones inferiores del modal */}
-                    <Group justify="space-between" mt="md">
-                        <div>
-                            {puedeValidar && (
-                                <Button
-                                    color="green"
-                                    size="md"
-                                    radius="md"
-                                    leftSection={<IconShieldCheck size={18} />}
-                                    onClick={() => {
-                                        onValidar?.(movimiento);
-                                        onClose();
-                                    }}
-                                >
-                                    Validar Movimiento
-                                </Button>
                             )}
-                        </div>
-                        <Button variant="default" onClick={onClose} size="md" radius="md">
-                            Cerrar
-                        </Button>
-                    </Group>
-                </Stack>
-            </Box>
-        </Modal>
+
+                            {/* Alerta de Auditoría */}
+                            <Alert
+                                icon={<IconInfoCircle size={18} />}
+                                color="blue"
+                                variant="light"
+                                radius="md"
+                            >
+                                <Text size="xs">
+                                    Por control de auditoría contable, los movimientos registrados no se pueden editar ni eliminar. <b>En caso de haberse equivocado, debes abrir otro movimiento</b> y corregir ese movimiento en ese nuevo registro especificando el motivo en las observaciones.
+                                </Text>
+                            </Alert>
+                        </Stack>
+                    </Tabs.Panel>
+
+                    {/* ─── Tab: Billetes y Monedas ─── */}
+                    <Tabs.Panel value="billetes">
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                            {/* Billetes */}
+                            <Paper p="sm" radius="md" withBorder>
+                                <Group justify="space-between" mb="xs">
+                                    <Text fw={700} size="xs" c="blue" tt="uppercase">Billetes</Text>
+                                    <Badge color="blue" variant="light" size="xs">${totalBilletes.toFixed(2)}</Badge>
+                                </Group>
+                                <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>Denom.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'center' }}>Cant.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {DENOMINACIONES.filter((d) => d.tipo === 'billete').map((d) => {
+                                            const cant = Number(desgloseFinal[d.valor] ?? 0);
+                                            return (
+                                                <Table.Tr key={d.valor}>
+                                                    <Table.Td fw={600}>{d.label}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>${(d.valor * cant).toFixed(2)}</Table.Td>
+                                                </Table.Tr>
+                                            );
+                                        })}
+                                    </Table.Tbody>
+                                </Table>
+                            </Paper>
+
+                            {/* Monedas */}
+                            <Paper p="sm" radius="md" withBorder>
+                                <Group justify="space-between" mb="xs">
+                                    <Text fw={700} size="xs" c="#FF6A00" tt="uppercase">Monedas</Text>
+                                    <Badge color="orange" variant="light" size="xs">${totalMonedas.toFixed(2)}</Badge>
+                                </Group>
+                                <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>Denom.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'center' }}>Cant.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {DENOMINACIONES.filter((d) => d.tipo === 'moneda').map((d) => {
+                                            const cant = Number(desgloseFinal[d.valor] ?? 0);
+                                            return (
+                                                <Table.Tr key={d.valor}>
+                                                    <Table.Td fw={600}>{d.label}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>${(d.valor * cant).toFixed(2)}</Table.Td>
+                                                </Table.Tr>
+                                            );
+                                        })}
+                                    </Table.Tbody>
+                                </Table>
+                            </Paper>
+                        </SimpleGrid>
+                    </Tabs.Panel>
+                </Tabs>
+            </div>
+
+            {/* Footer sticky del Drawer */}
+            <Group
+                justify="space-between"
+                pt="md"
+                style={{
+                    borderTop: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--ag-color-surface, #ffffff)',
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 10,
+                }}
+            >
+                <Button
+                    variant="default"
+                    radius="md"
+                    leftSection={<IconArrowLeft size={16} />}
+                    onClick={onClose}
+                >
+                    Volver
+                </Button>
+
+                {puedeValidar && (
+                    <Button
+                        color="green"
+                        radius="md"
+                        leftSection={<IconShieldCheck size={18} />}
+                        onClick={() => {
+                            onValidar?.(movimiento);
+                            onClose();
+                        }}
+                    >
+                        Validar Movimiento
+                    </Button>
+                )}
+            </Group>
+        </Drawer>
     );
 }
 
-/* ─── Componente principal ──────────────────────────────────────────────────── */
+/* ─── Componente principal ───────────────────────────────────────────────── */
 export function MovimientosCaja() {
     const [movimientoDetalle, setMovimientoDetalle] = useState(null);
     const recargarTablaRef = useRef(null);
+
     const mapRecordToForm = useMemo(() => (record) => {
         let desglose = null;
         let obsLimpia = record.observaciones ? String(record.observaciones).trim() : '';
@@ -1087,6 +1153,8 @@ export function MovimientosCaja() {
                 icon={IconArrowsExchange}
                 headerVariant="unified"
                 tableHeaderVariant="neutral"
+                formMode="drawer"
+                drawerSize={740}
                 servicio={api.movimientoCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
@@ -1151,7 +1219,7 @@ export function MovimientosCaja() {
                 }}
             />
 
-            <ModalDetalleMovimiento
+            <DrawerDetalleMovimiento
                 movimiento={movimientoDetalle}
                 opened={Boolean(movimientoDetalle)}
                 onClose={() => setMovimientoDetalle(null)}
