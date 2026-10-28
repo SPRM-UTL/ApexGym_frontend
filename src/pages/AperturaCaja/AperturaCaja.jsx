@@ -4,7 +4,7 @@
  *
  * Módulo rediseñado con Drawer moderno de creación y detalle según especificación visual.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
     ActionIcon,
     Alert,
@@ -126,23 +126,12 @@ const INICIAL = {
 
 /* ─── Formulario de Apertura (Drawer con Cards) ────────────────────────────── */
 function AperturaForm({ form, errors, onChange, fieldOptions }) {
-    const [conteoInicio, setConteoInicio] = useState(() => {
+    // Conteo directamente ligado a form.desgloseInicio como única fuente de la verdad
+    const conteo = useMemo(() => {
         if (form.desgloseInicio && typeof form.desgloseInicio === 'object') {
             return form.desgloseInicio;
         }
-        const init = {};
-        for (const d of DENOMINACIONES) init[d.valor] = '';
-        return init;
-    });
-
-    useEffect(() => {
-        if (form.desgloseInicio && typeof form.desgloseInicio === 'object') {
-            setConteoInicio(form.desgloseInicio);
-        } else if (!form.desgloseInicio) {
-            const init = {};
-            for (const d of DENOMINACIONES) init[d.valor] = '';
-            setConteoInicio(init);
-        }
+        return {};
     }, [form.desgloseInicio]);
 
     // Totales calculados en tiempo real
@@ -152,7 +141,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
         let monedas = 0;
 
         for (const d of DENOMINACIONES) {
-            const raw = conteoInicio[d.valor];
+            const raw = conteo[d.valor];
             const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             const sub = d.valor * c;
             fondo += sub;
@@ -165,7 +154,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
             totalBilletes: Math.round(billetes * 100) / 100,
             totalMonedas: Math.round(monedas * 100) / 100,
         };
-    }, [conteoInicio]);
+    }, [conteo]);
 
     const actualizarConteoInicio = (valor, cantidad) => {
         let cant = 0;
@@ -173,8 +162,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
             cant = Math.max(0, Math.min(1000, Math.floor(Number(cantidad))));
         }
         const valToStore = cantidad === '' ? '' : cant;
-        const nuevoConteo = { ...conteoInicio, [valor]: valToStore };
-        setConteoInicio(nuevoConteo);
+        const nuevoConteo = { ...conteo, [valor]: valToStore };
 
         let total = 0;
         for (const d of DENOMINACIONES) {
@@ -185,16 +173,15 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
         total = Math.round(total * 100) / 100;
         total = Math.min(total, 200000);
 
-        onChange('montoInicial', total);
         onChange('desgloseInicio', nuevoConteo);
+        onChange('montoInicial', total);
     };
 
     const limpiarConteo = () => {
         const init = {};
         for (const d of DENOMINACIONES) init[d.valor] = '';
-        setConteoInicio(init);
+        onChange('desgloseInicio', init);
         onChange('montoInicial', 0);
-        onChange('desgloseInicio', null);
     };
 
     return (
@@ -278,7 +265,7 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         </Table.Thead>
                         <Table.Tbody>
                             {DENOMINACIONES.map((d) => {
-                                const cantStr = conteoInicio[d.valor] ?? '';
+                                const cantStr = conteo[d.valor] ?? '';
                                 const cantNum = cantStr === '' ? 0 : Number(cantStr);
                                 const subtotal = d.valor * cantNum;
 

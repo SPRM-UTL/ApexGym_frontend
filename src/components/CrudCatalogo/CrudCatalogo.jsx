@@ -367,16 +367,16 @@ export function CrudCatalogo({
                                 <Title order={4} fw={700} c="#1E293B">
                                     {editingId
                                         ? `Editar ${singular.toLowerCase()}`
-                                        : ['caja', 'membresía', 'área de trabajo', 'configuración'].some((w) => singular.toLowerCase().includes(w))
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
                                             ? `Nueva ${singular.toLowerCase()}`
                                             : `Nuevo ${singular.toLowerCase()}`}
                                 </Title>
                                 <Text size="xs" c="dimmed">
                                     {editingId
-                                        ? ['caja', 'membresía', 'área de trabajo', 'configuración'].some((w) => singular.toLowerCase().includes(w))
+                                        ? ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
                                             ? `Modifica los datos de la ${singular.toLowerCase()} y guarda los cambios.`
                                             : `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
-                                        : ['caja', 'membresía', 'área de trabajo', 'configuración'].some((w) => singular.toLowerCase().includes(w))
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
                                             ? `Completa los campos para registrar una nueva ${singular.toLowerCase()}.`
                                             : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
                                 </Text>

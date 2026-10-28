@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
     ActionIcon,
     Box,
-    Collapse,
     Group,
     Paper,
     Text,
@@ -92,10 +91,7 @@ export function SectionCard({
                             color="gray"
                             size="md"
                             radius="md"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setOpen((prev) => !prev);
-                            }}
+                            style={{ pointerEvents: 'none' }}
                             aria-label={open ? 'Colapsar sección' : 'Expandir sección'}
                         >
                             {open ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
@@ -105,13 +101,14 @@ export function SectionCard({
             </Group>
 
             {children && (
-                collapsible ? (
-                    <Collapse in={open}>
-                        <Box p="md">{children}</Box>
-                    </Collapse>
-                ) : (
-                    <Box p="md">{children}</Box>
-                )
+                <Box
+                    p="md"
+                    style={{
+                        display: !collapsible || open ? 'block' : 'none',
+                    }}
+                >
+                    {children}
+                </Box>
             )}
         </Paper>
     );
