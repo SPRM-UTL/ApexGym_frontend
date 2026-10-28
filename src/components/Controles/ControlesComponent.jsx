@@ -5,7 +5,9 @@ import {
     Group,
     NativeSelect,
     Text,
-    Textarea
+    Textarea,
+    Checkbox,
+    Stack
 } from '@mantine/core';
 import {
     IconLetterCase,
@@ -93,6 +95,22 @@ export function FTextarea({ label, placeholder, value, error, onChange }) {
             minRows={3}
             onChange={(e) => onChange(e.currentTarget.value)}
         />
+    );
+}
+
+export function FCheckbox({ label, checked, onChange }) {
+    return (
+        <Stack gap={3}>
+            <Text size="md" fw={500}>
+                {label}
+            </Text>
+
+            <Checkbox
+                size="md"
+                checked={checked}
+                onChange={(e) => onChange(e.target.checked)}
+            />
+        </Stack>
     );
 }
 
