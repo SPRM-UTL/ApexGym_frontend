@@ -19,6 +19,7 @@ import {
     Stack,
     Tabs,
     Text,
+    TextInput,
     Title,
 } from '@mantine/core';
 
@@ -33,71 +34,9 @@ import {
     IconClock,
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { obtenerUsuarioActual } from '../../../scripts/constantes.js';
 
-const [catalogoProductos, setCatalogoProductos] = useState([]);
-const [aperturasAbiertas, setAperturasAbiertas] = useState([]);
-const [clientes, setClientes] = useState([]);
-const [metodosPago, setMetodosPago] = useState([]);
-
-const [aperturaCajaId, setAperturaCajaId] = useState('');
-const [clienteId, setClienteId] = useState('');
-const [metodoPago, setMetodoPago] = useState('');
-const [cobrando, setCobrando] = useState(false);
-
-
-const servicios = [
-    {
-        id: 1,
-        nombre: 'Servicio 1',
-        categoria: 'Servicio',
-        precio: 200,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 2,
-        nombre: 'Servicio 2',
-        categoria: 'Servicio',
-        precio: 350,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 3,
-        nombre: 'Servicio 3',
-        categoria: 'Servicio',
-        precio: 500,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-];
-
-const membresias = [
-    {
-        id: 1,
-        nombre: 'Membresias 1',
-        categoria: 'Membresias',
-        precio: 200,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 2,
-        nombre: 'Membresias 2',
-        categoria: 'Membresias',
-        precio: 350,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-    {
-        id: 3,
-        nombre: 'Membresias 3',
-        categoria: 'Membresias',
-        precio: 500,
-        imagen:
-            'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png',
-    },
-];
 
 const channel = new BroadcastChannel('app_sync_channel');
 
@@ -108,7 +47,28 @@ function triggerUpdate(data) {
     });
 }
 
-function TarjetaProducto({ producto, agregarProducto }) {
+const normalizar = (lista) =>
+    (lista ?? []).map((x) => ({ ...x, precio: Number(x.precioVenta ?? x.precio) }));
+
+const obtenerLista = (respuesta) => {
+    if (Array.isArray(respuesta)) return respuesta;
+    if (Array.isArray(respuesta?.data)) return respuesta.data;
+    throw new Error('El servidor devolvió un formato de catálogo no válido.');
+};
+
+
+    const redondear = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+function calcularMontos(items) {
+    const subtotal = redondear(
+        items.reduce((acc, p) => acc + redondear(p.precio * p.cantidad), 0)
+    );
+    const iva = redondear(subtotal * 0.16);
+    const total = redondear(subtotal + iva);
+    return { subtotal, iva, total };
+}
+
+function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
     return (
         <Card
             shadow="sm"
@@ -116,7 +76,7 @@ function TarjetaProducto({ producto, agregarProducto }) {
             radius="md"
             withBorder
             className={classes.producto}
-            onClick={() => agregarProducto(producto)}
+            onClick={() => agregarProducto({ ...producto, tipoItem })}
         >
             <Card.Section>
                 <Image
@@ -127,6 +87,7 @@ function TarjetaProducto({ producto, agregarProducto }) {
             </Card.Section>
 
             <Stack gap={5} mt="sm">
+
                 <Group justify="space-between" align="flex-start">
                     <Text fw={650} size="md"
                         variant='gradient' gradient={{ from: 'orange', to: 'orange', deg: 0 }}
@@ -149,7 +110,7 @@ function TarjetaProducto({ producto, agregarProducto }) {
     );
 }
 
-function ListaProductos({ productos, agregarProducto }) {
+function ListaProductos({ productos, tipoItem, agregarProducto }) {
     return (
         <ScrollArea h="calc(100vh - 230px)" offsetScrollbars>
             <SimpleGrid
@@ -163,59 +124,19 @@ function ListaProductos({ productos, agregarProducto }) {
                 pr="sm"
             >
                 {productos.map((producto) => (
-                    <TarjetaProducto
-                        key={producto.id}
-                        producto={producto}
-                        agregarProducto={agregarProducto}
-                    />
+                          <TarjetaProducto key={producto.id} producto={producto} tipoItem={tipoItem} agregarProducto={agregarProducto} />
                 ))}
             </SimpleGrid>
         </ScrollArea>
     );
 }
-const cobrar = async () => {
-    if (!aperturaCajaId || !clienteId || !metodoPago || listaProductos.length === 0) {
-        notifications.show({
-            color: 'yellow',
-            message: 'Selecciona apertura, cliente y método de pago; agrega productos al ticket.',
-        });
-        return;
-    }
 
-    setCobrando(true);
-
-    try {
-        await api.venta.crearVenta({
-            aperturaCajaId: Number(aperturaCajaId),
-            metodoPago,
-            clienteId: Number(clienteId),
-            descuento: 0,
-            detalleVenta: listaProductos.map((producto) => ({
-                productoId: producto.id,
-                cantidad: producto.cantidad,
-            })),
-        });
-
-        notifications.show({ color: 'green', message: 'Venta creada correctamente.' });
-        setListaProductos([]);
-    } catch (error) {
-        notifications.show({
-            color: 'red',
-            message: error.message || 'No se pudo crear la venta.',
-        });
-    } finally {
-        setCobrando(false);
-    }
-};
-function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
-
-    let subtotal = 0;
-    let iva = 0;
-    productos.forEach(p => {
-        subtotal += (p.precio * p.cantidad);
-    });
-    iva = parseFloat((subtotal * 0.16).toFixed(2));
-    let total = parseFloat((subtotal + iva).toFixed(2));
+function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar, cobrando,
+    clientes, metodosPago, aperturaAsignada,
+    aperturaCajaId, clienteId, setClienteId, metodoPago, setMetodoPago,
+    modoEdicion, cargandoVenta, cargaFallida}) {
+    const { subtotal, iva, total } = calcularMontos(productos);
+   
     return (
         <Paper
             withBorder
@@ -263,6 +184,7 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
 
                         {productos.map((producto) => (
                             <Paper
+                            key={producto.id +producto.tipoItem}
                                 p="sm"
                                 radius="sm"
                                 withBorder
@@ -308,6 +230,38 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
                 <Divider />
 
                 <Stack p="md" gap="xs">
+
+                    {!modoEdicion && (
+                        <>
+                            <TextInput
+                                label="Caja de apertura asignada"
+                                value={aperturaAsignada?.label ?? 'No hay caja abierta asignada a tu usuario'}
+                                readOnly
+                            />
+                            <Select
+                                label="Cliente"
+                                placeholder="Selecciona cliente"
+                                searchable
+                                disabled={clientes.length === 0}
+                                value={clienteId}
+                                onChange={setClienteId}
+                                comboboxProps={{ zIndex: 1000 }}
+                                data={clientes.map((c) => ({
+                                    value: String(c.id),
+                                    label: [c.nombre, c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(' '),
+                                }))}
+                            />
+                        </>
+                    )}
+                    <Select
+                        label="Método de pago"
+                        placeholder="Selecciona método de pago"
+                        disabled={metodosPago.length === 0}
+                        value={metodoPago}
+                        onChange={setMetodoPago}
+                        comboboxProps={{ zIndex: 1000 }}
+                        data={metodosPago.map((m) => ({ value: String(m.id), label: m.nombre }))}
+                    />
                     <Group justify="space-between">
                         <Text size="sm" c="dimmed">
                             Subtotal
@@ -359,16 +313,21 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
                     </Group>
 
                     <Button
-                        size="md"
-                        fullWidth
-                        mt="xs"
-                         onLoad={cobrando} 
-                         onClick={onCobrar} 
-                         disabled={productos.length === 0}
-                        leftSection={<IconCash size={19} />}
-                    >
-                        Cobrar
-                    </Button>
+    size="md"
+    fullWidth
+    mt="xs"
+    loading={cobrando || cargandoVenta}
+    onClick={onCobrar}
+    disabled={
+        productos.length === 0
+        || cargandoVenta
+        || cargaFallida
+        || (!modoEdicion && (!aperturaCajaId || !clienteId || !metodoPago))
+    }
+    leftSection={<IconCash size={19} />}
+>
+    {modoEdicion ? 'Guardar cambios' : 'Cobrar'}
+</Button>
                 </Stack>
             </Stack>
         </Paper>
@@ -377,13 +336,182 @@ function Ticket({ productos, sumar, restar, eliminarTicket, cambiarCaja }) {
 
 
 
-export function Nueva() {
+export function Nueva({ modoEdicion = false }) {
 
+    const { ventaId } = useParams();
+    const navigate = useNavigate();
     const [hora, setHora] = useState('');
     const [listaProductos, setListaProductos] = useState([]);
     const [listaCaja1, setCaja1] = useState([]);
     const [listaCaja2, setCaja2] = useState([]);
 
+    const [aperturaAsignada, setAperturaAsignada] = useState(null);
+    const [clientes, setClientes] = useState([]);
+    const [metodosPago, setMetodosPago] = useState([]);
+    const [aperturaCajaId, setAperturaCajaId] = useState(null);
+    const [clienteId, setClienteId] = useState(null);
+    const [metodoPago, setMetodoPago] = useState(null);
+    const [cobrando, setCobrando] = useState(false);
+    const [cargandoVenta, setCargandoVenta] = useState(modoEdicion);
+    const [cargaFallida, setCargaFallida] = useState(false);
+
+    const [productos, setProductos] = useState([]);
+    const [servicios, setServicios] = useState([]);
+    const [membresias, setMembresias] = useState([]);
+    
+  
+    useEffect(() => {
+        const cargar = async () => {
+            const usuarioActual = obtenerUsuarioActual();
+            const resultados = await Promise.allSettled([
+                api.aperturaCaja.obtenerTodos(),
+                api.empleado.obtenerTodos(),
+                api.cliente.obtenerTodos(),
+                api.metodosPago.obtenerTodos(),
+                api.producto.obtenerTodos(),
+                api.servicio.obtenerTodos(),
+                api.tipoMembresia.obtenerTodos(),
+            ]);
+
+            const etiquetasCatalogos = [
+                'Aperturas de caja',
+                'Empleados',
+                'Clientes',
+                'Métodos de pago',
+                'Productos',
+                'Servicios',
+                'Membresías',
+            ];
+            const listas = resultados.map((resultado, indice) => {
+                if (resultado.status === 'rejected') {
+                    const error = resultado.reason;
+                    notifications.show({
+                        color: 'red',
+                        message: `${etiquetasCatalogos[indice]}: ${error.message || 'No se pudo cargar'}${error.statusCode ? ` (HTTP ${error.statusCode})` : ''}`,
+                    });
+                    return null;
+                }
+
+                try {
+                    return obtenerLista(resultado.value);
+                } catch (error) {
+                    notifications.show({ color: 'red', message: `${etiquetasCatalogos[indice]}: ${error.message}` });
+                    return null;
+                }
+            });
+
+            const [aperturas, empleados, listaDeClientes, listaDeMetodos, listaDeProductos, listaDeServicios, listaDeMembresias] = listas;
+            if (listaDeClientes) setClientes(listaDeClientes);
+            if (listaDeMetodos) setMetodosPago(listaDeMetodos);
+            if (listaDeProductos) setProductos(normalizar(listaDeProductos));
+            if (listaDeServicios) setServicios(normalizar(listaDeServicios));
+            if (listaDeMembresias) setMembresias(normalizar(listaDeMembresias));
+
+            if (aperturas && empleados && !modoEdicion) {
+                const usuarioIdActual =
+                    usuarioActual?.id ?? usuarioActual?.usuarioId ?? usuarioActual?.usuario?.id;
+                const usuarioId = Number(usuarioIdActual);
+                const empleado = usuarioActual?.empleado
+                    ?? (usuarioIdActual != null
+                        ? empleados.find((registro) =>
+                            Number(registro.usuarioId ?? registro.usuario?.id) === usuarioId
+                        )
+                        : null);
+
+                if (!empleado?.id) {
+                    notifications.show({
+                        color: 'red',
+                        message: 'Tu usuario no está asociado a un empleado; no se puede asignar una caja.',
+                    });
+                } else {
+                    const aperturasEmpleado = aperturas.filter((apertura) =>
+                        apertura.estado === 'ABIERTA'
+                        && Number(apertura.empleadoId ?? apertura.empleado?.id) === Number(empleado.id)
+                    );
+
+                    if (aperturasEmpleado.length === 1) {
+                        const apertura = aperturasEmpleado[0];
+                        setAperturaAsignada({
+                            label: `Apertura ${apertura.id}${apertura.caja?.nombre ? ` - ${apertura.caja.nombre}` : ''}`,
+                        });
+                        setAperturaCajaId(String(apertura.id));
+                    } else {
+                        notifications.show({
+                            color: 'red',
+                            message: aperturasEmpleado.length === 0
+                                ? 'No tienes una caja abierta asignada a tu usuario.'
+                                : 'Tienes varias cajas abiertas asignadas. Contacta al administrador.',
+                        });
+                    }
+                }
+            }
+
+            try {
+                if (modoEdicion) {
+                    const respuestaVenta = await api.venta.obtenerPorId(ventaId);
+                    const venta = respuestaVenta?.data?.venta ?? respuestaVenta?.data ?? respuestaVenta;
+                    const detalles = venta.detalleVenta ?? venta.detalles;
+
+                    if (!Array.isArray(detalles)) {
+                        throw new Error('La venta no contiene un detalle válido.');
+                    }
+
+                    const catalogosPorTipo = {
+                        PRODUCTO: normalizar(listaDeProductos ?? []),
+                        SERVICIO: normalizar(listaDeServicios ?? []),
+                        MEMBRESIA: normalizar(listaDeMembresias ?? []),
+                    };
+                    const detalleCargado = detalles.map((detalle) => {
+                        const tipoItem = String(detalle.tipoItem ?? '').toUpperCase();
+                        const entidad = tipoItem === 'PRODUCTO'
+                            ? detalle.producto
+                            : tipoItem === 'SERVICIO'
+                                ? detalle.servicio
+                                : detalle.tipoMembresia ?? detalle.membresia;
+                        const id = detalle.productoId
+                            ?? detalle.servicioId
+                            ?? detalle.tipoMembresiaId
+                            ?? entidad?.id;
+                        const catalogo = catalogosPorTipo[tipoItem];
+                        const item = catalogo?.find((producto) => Number(producto.id) === Number(id));
+
+                        if (!tipoItem || !id || !item) {
+                            throw new Error('No se pudo identificar un artículo del detalle de la venta.');
+                        }
+
+                        return {
+                            ...item,
+                            tipoItem,
+                            cantidad: Number(detalle.cantidad),
+                            precio: Number(detalle.precioUnitario ?? detalle.precio ?? item.precio),
+                        };
+                    });
+
+                    setListaProductos(detalleCargado);
+                    setMetodoPago(
+                        venta.metodoPagoId != null
+                            ? String(venta.metodoPagoId)
+                            : venta.metodoPago?.id != null
+                                ? String(venta.metodoPago.id)
+                                : null
+                    );
+                }
+            } catch (error) {
+                if (modoEdicion) setCargaFallida(true);
+                notifications.show({
+                    color: 'red',
+                    message: [
+                        error.message || 'No se pudieron cargar los catálogos.',
+                        error.statusCode ? `(HTTP ${error.statusCode})` : null,
+                    ].filter(Boolean).join(' '),
+                });
+            } finally {
+                setCargandoVenta(false);
+            }
+        };
+
+        cargar();
+    }, [modoEdicion, ventaId]);
     const cambiarCaja = (caja) => {
         if (caja < 2) {
             console.log("Caja 1")
@@ -415,11 +543,11 @@ export function Nueva() {
 
     const agregarProducto = (producto) => {
         setListaProductos(listaAnterior => {
-            const existe = listaAnterior.find(p => p.id === producto.id && p.categoria === producto.categoria);
+            const existe = listaAnterior.find(p => p.id === producto.id &&   p.tipoItem === producto.tipoItem);
 
             if (existe) {
                 return listaAnterior.map(p =>
-                    p.id === producto.id && p.categoria === producto.categoria
+                    p.id === producto.id &&   p.tipoItem === producto.tipoItem
                         ? { ...p, cantidad: p.cantidad + 1 }
                         : p
                 );
@@ -435,25 +563,88 @@ export function Nueva() {
     const sumar = (producto) => {
         setListaProductos(listaAnterior => {
             return listaAnterior.map(p =>
-                p.id === producto.id && p.categoria === producto.categoria
+                p.id === producto.id &&   p.tipoItem === producto.tipoItem
                     ? { ...p, cantidad: p.cantidad + 1 }
                     : p
             );
         })
     }
 
+    const cobrar = async () => {
+    if ((!modoEdicion && (!aperturaCajaId || !clienteId)) || !metodoPago || listaProductos.length === 0) {
+        notifications.show({
+            color: 'yellow',
+            message: modoEdicion
+                ? 'Selecciona un método de pago y agrega artículos al ticket.'
+                : 'Selecciona apertura, cliente y método de pago; agrega productos al ticket.',
+        });
+        return;
+    }
+    const {subtotal, total } = calcularMontos(listaProductos);
+    const detalleVenta = listaProductos.map((item) => {
+        const precioUnitario = Number(item.precio);
+        const linea = {
+            tipoItem: item.tipoItem,
+            cantidad: item.cantidad,
+            precioUnitario,
+            subtotal: redondear(precioUnitario * item.cantidad),
+        };
+
+        if (item.tipoItem === 'PRODUCTO') linea.productoId = item.id;
+        if (item.tipoItem === 'SERVICIO') linea.servicioId = item.id;
+        if (item.tipoItem === 'MEMBRESIA') linea.tipoMembresiaId = item.id;
+
+        return linea;
+    });
+    setCobrando(true);
+
+    try {
+        if (modoEdicion) {
+            await api.venta.actualizarVenta(Number(ventaId), Number(metodoPago), subtotal, total, detalleVenta);
+        } else {
+            await api.venta.crearVenta({
+                aperturaCajaId: Number(aperturaCajaId),
+                clienteId: Number(clienteId),
+                metodoPagoId: Number(metodoPago),
+                subtotal,
+                total,
+                detalleVenta
+            });
+        }
+
+        notifications.show({
+            color: 'green',
+            message: modoEdicion ? 'Venta actualizada correctamente.' : 'Venta creada correctamente.',
+        });
+        if (modoEdicion) {
+            navigate('/registro-de-ventas');
+        } else {
+            setListaProductos([]);
+        }
+    } catch (error) {
+        notifications.show({
+            color: 'red',
+            message: error.message || 'No se pudo crear la venta.',
+        });
+    } finally {
+        setCobrando(false);
+    }
+};
+
+
+
     const restar = (producto) => {
         setListaProductos(listaAnterior => {
 
             if (producto.cantidad > 1) {
                 return listaAnterior.map(p =>
-                    p.id === producto.id && p.categoria === producto.categoria
+                    p.id === producto.id &&   p.tipoItem === producto.tipoItem
                         ? { ...p, cantidad: p.cantidad - 1 }
                         : p
                 );
             }
             return listaAnterior.filter(p =>
-                !(p.id === producto.id && p.categoria === producto.categoria)
+                !(p.id === producto.id &&   p.tipoItem === producto.tipoItem)
             );
         })
     }
@@ -472,9 +663,7 @@ export function Nueva() {
                     className={classes.header}
                 >
                     <div>
-                        <Title order={2}>
-                            ApexGym
-                        </Title>
+                        <Title order={2}>{modoEdicion ? `Editar venta #${ventaId}` : 'ApexGym'}</Title>
                     </div>
                     <div>
                         <Title order={2}>
@@ -531,31 +720,39 @@ export function Nueva() {
                                 </Tabs.Tab>
                             </Tabs.List>
 
-                            <Tabs.Panel value="productos">
-                                <ListaProductos
-                                    productos={productos}
-                                    agregarProducto={agregarProducto}
-                                />
+                           <Tabs.Panel value="productos">
+                                <ListaProductos tipoItem="PRODUCTO" productos={productos} agregarProducto={agregarProducto} />
                             </Tabs.Panel>
 
                             <Tabs.Panel value="servicios">
-                                <ListaProductos
-                                    productos={servicios}
-                                    agregarProducto={agregarProducto}
-                                />
+                                <ListaProductos tipoItem="SERVICIO" productos={servicios} agregarProducto={agregarProducto} />
                             </Tabs.Panel>
 
                             <Tabs.Panel value="membresias">
-                                <ListaProductos
-                                    productos={membresias}
-                                    agregarProducto={agregarProducto}
-                                />
+                                <ListaProductos tipoItem="MEMBRESIA" productos={membresias} agregarProducto={agregarProducto} />
                             </Tabs.Panel>
                         </Tabs>
                     </Paper>
                 </div>
             </div>
-            <Ticket productos={listaProductos} sumar={sumar} restar={restar} eliminarTicket={eliminarTicket} cambiarCaja={cambiarCaja}></Ticket>
+            <Ticket  productos={listaProductos}
+    sumar={sumar}
+    restar={restar}
+    eliminarTicket={eliminarTicket}
+    cambiarCaja={cambiarCaja}
+    onCobrar={cobrar}
+    cobrando={cobrando}
+    aperturaAsignada={aperturaAsignada}
+    clientes={clientes}
+    metodosPago={metodosPago}
+    aperturaCajaId={aperturaCajaId}
+    clienteId={clienteId} setClienteId={setClienteId}
+    metodoPago={metodoPago} setMetodoPago={setMetodoPago}
+    modoEdicion={modoEdicion}
+    cargandoVenta={cargandoVenta}
+    cargaFallida={cargaFallida}></Ticket>
         </div>
     );
+
+    
 }

@@ -49,20 +49,21 @@ async crearVenta(datosVenta) {
         }
     }
 
-    async actualizarVenta(id, metodoPago, descuento, detalleVenta) {
+    async actualizarVenta(id, metodoPagoId, subtotal, total, detalleVenta) {
+
+        
         try {
             const datos = {};
 
-            if (metodoPago !== undefined) {
-                datos.metodoPago = metodoPago;
+            if (metodoPagoId !== undefined) {
+                datos.metodoPagoId = metodoPagoId;
             }
 
-            if (descuento !== undefined) {
-                datos.descuento = descuento;
-            }
 
             if (detalleVenta !== undefined) {
                 datos.detalleVenta = detalleVenta;
+                datos.subtotal = subtotal;
+                datos.total = total;
             }
 
             const response = await httpClient.put(

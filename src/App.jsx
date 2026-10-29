@@ -167,6 +167,7 @@ function App() {
             <Route path="/registro-de-ventas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Ventas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/registro-de-ventas/nueva" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Nueva /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
           <Route path="/registro-de-ventas/cliente" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ClienteVenta /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+          <Route path="/registro-de-ventas/:ventaId" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Nueva modoEdicion /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
 
             {/* Ruta raíz: muestra el grid de secciones (sin children) */}
             <Route

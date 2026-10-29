@@ -1,11 +1,11 @@
 import { Group, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { TablaRegistros } from '../../../components/TablaRegistros/TablaRegistros.jsx';
 import { BarraAcciones } from '../../../components/BarraAcciones/BarraAcciones.jsx';
 import classes from './Ventas.module.css';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../../scripts/services/api.js';
 
 
@@ -23,7 +23,8 @@ export function Ventas() {
     const navigate = useNavigate();
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
-    
+    const [ventas, setVentas] = useState([]);
+
     const cargarVentas = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -34,9 +35,9 @@ export function Ventas() {
             setVentas(
                 lista.map((v) => ({
                     id: v.id,
-                    folio: v.folio,
+                    folio: v.folioVentaId,
                     cliente: v.cliente?.nombre ?? v.cliente ?? 'Público general',
-                    fecha: v.fecha ? new Date(v.fecha).toLocaleString('es-MX') : '',
+                    fecha: v.createdAt,
                     subtotal: v.subtotal,
                     total: v.total,
                 }))
@@ -70,42 +71,9 @@ export function Ventas() {
         }
     };
 
-useEffect(() => {
-    const cargarCatalogos = async () => {
-        try {
-            const [productosRes, aperturasRes, clientesRes, metodosRes] =
-                await Promise.all([
-                    api.producto.obtenerTodos(),
-                    api.aperturaCaja.obtenerTodos(),
-                    api.cliente.obtenerTodos(),
-                    api.metodosPago.obtenerTodos(),
-                ]);
-
-            setCatalogoProductos(
-                productosRes.data.map((p) => ({
-                    id: p.id,
-                    nombre: p.nombre,
-                    precio: p.precioVenta,
-                    categoria: 'Producto',
-                }))
-            );
-
-            setAperturasAbiertas(
-                aperturasRes.data.filter((a) => a.estado === 'ABIERTA')
-            );
-
-            setClientes(clientesRes.data);
-            setMetodosPago(metodosRes.data);
-        } catch (error) {
-            notifications.show({
-                color: 'red',
-                message: error.message || 'No se pudieron cargar los datos para la venta.',
-            });
-        }
-    };
-
-    cargarCatalogos();
-}, []);
+    useEffect(() => {
+        cargarVentas();
+    }, [cargarVentas]);
 
         return (
             <>
@@ -114,7 +82,7 @@ useEffect(() => {
     
                     {error && <div className={classes.errorBanner}>{error}</div>}
     
-                    {loading && datosPrueba.length === 0 ? (
+                    {loading && ventas.length === 0 ? (
                         <div className={classes.loadingBanner}>
                             <Group justify="center" gap="sm">
                                 <Loader size="sm" color="apex" />
@@ -123,7 +91,7 @@ useEffect(() => {
                         </div>
                     ) : (
                         <TablaRegistros
-                            data={datosPrueba}
+                            data={ventas}
                             columns={COLUMNAS}
                             onEditar={handleEditar}
                             onEliminar={solicitarEliminacion}
