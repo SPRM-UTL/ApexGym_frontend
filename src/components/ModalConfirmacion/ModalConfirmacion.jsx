@@ -1,4 +1,3 @@
-
 import { Alert, Button, Group, Modal, Stack, Text, ThemeIcon } from '@mantine/core';
 import {
     IconAlertTriangle,
@@ -15,6 +14,7 @@ export function ModalConfirmacion({
     title = 'Eliminar registro',
     message,
     loading = false,
+    confirmText = 'Eliminar',
 }) {
     return (
         <Modal
@@ -109,7 +109,7 @@ export function ModalConfirmacion({
                             radius="md"
                             className={classes.confirmButton}
                         >
-                            Eliminar
+                            {confirmText}
                         </Button>
                     </Group>
                 </div>
@@ -117,3 +117,5 @@ export function ModalConfirmacion({
         </Modal>
     );
 }
+
+export default ModalConfirmacion;

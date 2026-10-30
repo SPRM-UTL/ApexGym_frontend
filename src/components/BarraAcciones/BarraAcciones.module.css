@@ -23,9 +23,9 @@
     justify-content: center;
     width: 38px;
     height: 38px;
-    background-color: var(--ag-color-primary-light);
+    background-color: var(--ag-color-primary-light, #ffe0cc);
     border-radius: 8px;
-    color: var(--ag-color-primary, var(--ag-color-tertiary));
+    color: var(--ag-color-primary, #FF6A00);
 }
 
 .addButton {
