@@ -1,13 +1,13 @@
-import { Group, Loader } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { notifications } from '@mantine/notifications';
+import {
+    IconShoppingCart,
+} from '@tabler/icons-react';
 
-import { TablaRegistros } from '../../../components/TablaRegistros/TablaRegistros.jsx';
-import { BarraAcciones } from '../../../components/BarraAcciones/BarraAcciones.jsx';
-import classes from './Ventas.module.css';
+import { cambioNombreWeb } from '../../../scripts/globales.js';
 import { api } from '../../../scripts/services/api.js';
-
+import { CrudCatalogo } from '../../../components/CrudCatalogo/CrudCatalogo.jsx';
 
 const COLUMNAS = [
     { key: 'folio', label: 'Folio', sortable: true, filterable: true },
@@ -15,92 +15,143 @@ const COLUMNAS = [
     { key: 'fecha', label: 'Fecha', sortable: true, filterable: true },
     { key: 'subtotal', label: 'Subtotal', sortable: false, filterable: true },
     { key: 'total', label: 'Total', sortable: false, filterable: true },
-]
+];
+
+const CAMPOS = [
+    {
+        key: 'clienteId',
+        label: 'Cliente',
+        type: 'select',
+        required: true,
+        loadOptions: async () => {
+            const response = await api.cliente.obtenerTodos();
+
+            return (response.data ?? []).map((cliente) => ({
+                value: String(cliente.id),
+                label: `${cliente.nombre} ${cliente.apellidoPaterno ?? ''} ${cliente.apellidoMaterno ?? ''}`.trim(),
+            }));
+        },
+    },
+    {
+        key: 'metodoPagoId',
+        label: 'Método de pago',
+        type: 'select',
+        required: true,
+        loadOptions: async () => {
+            const response = await api.metodosPago.obtenerTodos();
+
+            return (response.data ?? []).map((metodo) => ({
+                value: String(metodo.id),
+                label: metodo.nombre,
+            }));
+        },
+    },
+];
+
+const INICIAL = {
+    clienteId: '',
+    metodoPagoId: '',
+};
+
 
 
 export function Ventas() {
+    cambioNombreWeb('Ventas');
 
     const navigate = useNavigate();
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
     const [ventas, setVentas] = useState([]);
 
     const cargarVentas = useCallback(async () => {
-        setLoading(true);
-        setError(null);
         try {
             const respuesta = await api.venta.obtenerTodos();
-            const lista = Array.isArray(respuesta) ? respuesta : respuesta?.data ?? [];
+            const lista = Array.isArray(respuesta)
+                ? respuesta
+                : respuesta?.data ?? [];
 
-            setVentas(
-                lista.map((v) => ({
-                    id: v.id,
-                    folio: v.folioVentaId,
-                    cliente: v.cliente?.nombre ?? v.cliente ?? 'Público general',
-                    fecha: v.createdAt,
-                    subtotal: v.subtotal,
-                    total: v.total,
-                }))
-            );
+            setVentas(lista);
         } catch (e) {
-            setError(e.message || 'No se pudieron cargar las ventas');
-        } finally {
-            setLoading(false);
+            notifications.show({
+                color: 'red',
+                message: e.message || 'No se pudieron cargar las ventas',
+            });
         }
     }, []);
-
-    const abrirAgregar = () => {
-        navigate('/registro-de-ventas/nueva');
-    };
-
-    const handleReload = () => {
-        cargarVentas();
-    };
-
-    const handleEditar = useCallback(
-        (venta) => navigate(`/registro-de-ventas/${venta.id}`), [navigate]
-    );
-
-    const solicitarEliminacion = async (venta) =>{
-        try {
-            await api.venta.cancelarVenta(venta.id);
-            notifications.show({ color: 'green', message: 'Venta cancelada' });
-            cargarVentas();
-        } catch (e) {
-            notifications.show({ color: 'red', message: e.message || 'No se pudo cancelar la venta' });
-        }
-    };
 
     useEffect(() => {
         cargarVentas();
     }, [cargarVentas]);
 
-        return (
-            <>
-                <div className={classes.crudLayout}>
-                    <BarraAcciones onAdd={abrirAgregar} onReload={handleReload} />
+const handleEditar =  (form) => {
+    navigate(`/registro-de-ventas/${form.editingId}`, {
+        state: { 
+            metodoPago: form.metodoPago 
+        }
+    });
+};
+
+const abrirAgregar =  ({form}) => {
+    navigate('/registro-de-ventas/nueva', {
+        state: { 
+            clienteId: form.clienteId,
+            metodoPagoId: form.metodoPagoId,
+        }
+    });
+};
+
+    const mapRecordToForm = (venta) => ({
+        clienteId: venta.cliente?.id
+            ? String(venta.cliente.id)
+            : '',
+        metodoPagoId: venta.metodoPago?.id
+            ? String(venta.metodoPago.id)
+            : '',
+    });
+
+    const mapFormToPayload = (form) => ({
+        clienteId: form.clienteId || null,
+        metodoPagoId: form.metodoPagoId || null,
+    });
+    const mapRecordToRow = (v) => ({
+        id: v.id,
+        folio: v.folioVentaId ?? '—',
+        cliente: v.cliente?.nombre ?? v.cliente ?? 'Público general',
+        fecha: v.createdAt
+            ? new Date(v.createdAt).toLocaleDateString('es-MX')
+            : '—',
+        subtotal: v.subtotal,
+        total: v.total,
+    });
     
-                    {error && <div className={classes.errorBanner}>{error}</div>}
     
-                    {loading && ventas.length === 0 ? (
-                        <div className={classes.loadingBanner}>
-                            <Group justify="center" gap="sm">
-                                <Loader size="sm" color="apex" />
-                                Cargando usuarios…
-                            </Group>
-                        </div>
-                    ) : (
-                        <TablaRegistros
-                            data={ventas}
-                            columns={COLUMNAS}
-                            onEditar={handleEditar}
-                            onEliminar={solicitarEliminacion}
-                            entityLabel="venta"
-                            pageSizeOptions={[10, 25, 50, 100]}
-                            loading={loading}
-                        />
-                    )}
-                </div>
-            </>
-        );
+
+
+    return (
+        <CrudCatalogo
+            titulo="Registro de Ventas"
+            singular="Venta"
+            icon={IconShoppingCart}
+            servicio={api.venta}
+            columnas={COLUMNAS}
+            campos={CAMPOS}
+            valoresIniciales={INICIAL}
+            mapRecordToForm={mapRecordToForm}
+            mapFormToPayload={mapFormToPayload}
+            mapRecordToRow={mapRecordToRow}
+            permitirAgregar = {false}
+            permitirEditar={true}
+            permitirEliminar={true}
+            formMode="drawer"
+            drawerSize={620}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
+            persistencia={{
+                clave: 'ventas.formulario',
+                campos: ['clienteId', 'metodoPagoId'],
+            }}
+            createPersonalized = {abrirAgregar}
+            updatePersonalized = {handleEditar}
+        />
+    );
 }
+
+export default Ventas;

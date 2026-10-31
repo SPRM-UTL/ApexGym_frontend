@@ -1,6 +1,42 @@
-import { Skeleton } from '@mantine/core';
+import { ActionIcon, Divider, Group, Skeleton, Title } from '@mantine/core';
+import { IconPlus } from '@tabler/icons-react';
 import { TableSort } from '../TableSort/TableSort.jsx';
 import classes from './TablaRegistros.module.css';
+
+export function EncabezadoTabla({ title, icon: Icono, onAdd, addLabel = 'registro' }) {
+    return (
+        <div className={classes.unifiedHeader}>
+            <Group gap="sm" align="center">
+                {Icono && (
+                    <>
+                        <Icono
+                            size={38}
+                            stroke={1.8}
+                            color="var(--mantine-color-secondary-6)"
+                        />
+                        <Divider orientation="vertical" color="secondary.9" size="2" />
+                    </>
+                )}
+                <Title order={2} className={classes.unifiedTitle}>
+                    {title}
+                </Title>
+            </Group>
+            {onAdd && (
+                <ActionIcon
+                    className={classes.addButtonUnified}
+                    onClick={onAdd}
+                    aria-label={`Agregar ${addLabel}`}
+                    size={42}
+                    radius="xl"
+                    color="apex"
+                    variant="filled"
+                >
+                    <IconPlus size={20} stroke={2.5} />
+                </ActionIcon>
+            )}
+        </div>
+    );
+}
 
 function TablaSkeleton({ columnCount }) {
     return (
@@ -38,24 +74,32 @@ export function TablaRegistros({
     initialSortBy,
     initialSortDirection,
     headerVariant = 'classic',
+    title,
+    icon,
+    onAdd,
+    addLabel,
 }) {
     return (
         <div className={classes.frame} aria-busy={loading}>
-            <TableSort
-                data={data}
-                columns={columns}
-                onEditar={onEditar}
-                onEliminar={onEliminar}
-                renderAcciones={renderAcciones}
-                enableSelection={false}
-                pageSizeOptions={pageSizeOptions}
-                entityLabel={entityLabel}
-                onReload={onReload}
-                initialSortBy={initialSortBy}
-                initialSortDirection={initialSortDirection}
-                headerVariant={headerVariant}
-            />
-            {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />}
+            {title && <EncabezadoTabla title={title} icon={icon} onAdd={onAdd} addLabel={addLabel} />}
+            {loading ? (
+                <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />
+            ) : (
+                <TableSort
+                    data={data}
+                    columns={columns}
+                    onEditar={onEditar}
+                    onEliminar={onEliminar}
+                    renderAcciones={renderAcciones}
+                    enableSelection={false}
+                    pageSizeOptions={pageSizeOptions}
+                    entityLabel={entityLabel}
+                    onReload={onReload}
+                    initialSortBy={initialSortBy}
+                    initialSortDirection={initialSortDirection}
+                    headerVariant={headerVariant}
+                />
+            )}
         </div>
     );
 }

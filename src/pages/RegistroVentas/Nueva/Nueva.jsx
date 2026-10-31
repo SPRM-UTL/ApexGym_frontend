@@ -34,7 +34,7 @@ import {
     IconClock,
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { obtenerUsuarioActual } from '../../../scripts/constantes.js';
 
 
@@ -349,8 +349,9 @@ export function Nueva({ modoEdicion = false }) {
     const [clientes, setClientes] = useState([]);
     const [metodosPago, setMetodosPago] = useState([]);
     const [aperturaCajaId, setAperturaCajaId] = useState(null);
-    const [clienteId, setClienteId] = useState(null);
-    const [metodoPago, setMetodoPago] = useState(null);
+    const { state } = useLocation();
+    const [clienteId, setClienteId] = useState(state?.clienteId != null ? String(state.clienteId) : null);
+    const [metodoPago, setMetodoPago] = useState(state?.clienteId != null ? String(state.metodoPagoId) : null);
     const [cobrando, setCobrando] = useState(false);
     const [cargandoVenta, setCargandoVenta] = useState(modoEdicion);
     const [cargaFallida, setCargaFallida] = useState(false);
@@ -358,8 +359,7 @@ export function Nueva({ modoEdicion = false }) {
     const [productos, setProductos] = useState([]);
     const [servicios, setServicios] = useState([]);
     const [membresias, setMembresias] = useState([]);
-    
-  
+
     useEffect(() => {
         const cargar = async () => {
             const usuarioActual = obtenerUsuarioActual();

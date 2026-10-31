@@ -82,10 +82,10 @@ async crearVenta(datosVenta) {
         }
     }
 
-    async cancelarVenta(id) {
+    async eliminar(id) {
         try {
-            const response = await httpClient.patch(
-                `${this.urlApi}/${id}/cancelar`
+            const response = await httpClient.delete(
+                `${this.urlApi}/${id}`
             );
 
             return response.data;
@@ -98,4 +98,6 @@ async crearVenta(datosVenta) {
             );
         }
     }
+
+    
 }

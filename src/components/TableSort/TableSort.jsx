@@ -77,6 +77,64 @@ function getCellString(val) {
     return '';
 }
 
+function renderCellValue(value, column) {
+    if (value === null || value === undefined || value === '') return '—';
+
+    switch (column.format) {
+        case 'folio':
+            return (
+                <Badge variant="light" color="gray" size="sm" radius="sm">
+                    #{value}
+                </Badge>
+            );
+        case 'number': {
+            const number = Number(value);
+            return Number.isFinite(number)
+                ? new Intl.NumberFormat('es-MX').format(number)
+                : String(value);
+        }
+        case 'currency': {
+            const amount = Number(value);
+            return Number.isFinite(amount)
+                ? new Intl.NumberFormat('es-MX', {
+                    style: 'currency',
+                    currency: column.currency ?? 'MXN',
+                }).format(amount)
+                : String(value);
+        }
+        case 'date': {
+            const date = value instanceof Date ? value : new Date(value);
+            return Number.isNaN(date.getTime())
+                ? String(value)
+                : new Intl.DateTimeFormat('es-MX', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                }).format(date);
+        }
+        case 'status': {
+            const label = String(value);
+            const color = column.colorByValue?.[label]
+                ?? (['ABIERTA', 'ACTIVO', 'ACTIVA', 'VALIDADO', 'PAGADO', 'COMPLETADO'].includes(label.toUpperCase())
+                    ? 'green'
+                    : ['CERRADA', 'INACTIVO', 'INACTIVA', 'CANCELADO', 'CANCELADA', 'RECHAZADO'].includes(label.toUpperCase())
+                        ? 'red'
+                        : 'gray');
+            return (
+                <Badge color={color} variant="light" size="sm">
+                    {label}
+                </Badge>
+            );
+        }
+        default:
+            return typeof value === 'object' && value !== null
+                ? value
+                : String(value);
+    }
+}
+
 function filterRows(data, columns, globalSearch, columnFilters) {
     const query = globalSearch.toLowerCase().trim();
 
@@ -541,9 +599,7 @@ export function TableSort({
                                         )}
                                         {columns.map((col) => (
                                             <Table.Td key={col.key} className={classes.bodyCell}>
-                                                {typeof fila[col.key] === 'object' && fila[col.key] !== null
-                                                    ? fila[col.key]
-                                                    : String(fila[col.key] ?? '')}
+                                                {renderCellValue(fila[col.key], col)}
                                             </Table.Td>
                                         ))}
                                         {(onEditar || onEliminar || renderAcciones) && (
@@ -555,11 +611,11 @@ export function TableSort({
                                                             <ActionIcon
                                                                 variant="light"
                                                                 size="lg"
+                                                                color="blue"
                                                                 aria-label={`Editar ${entityLabel}`}
-                                                                className={classes.editAction}
                                                                 onClick={() => onEditar(fila)}
                                                             >
-                                                                <IconEdit size={20} stroke={1.8} />
+                                                                <IconEdit size={18} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}
@@ -568,11 +624,11 @@ export function TableSort({
                                                             <ActionIcon
                                                                 variant="light"
                                                                 size="lg"
+                                                                color="red"
                                                                 aria-label={`Eliminar ${entityLabel}`}
-                                                                className={classes.deleteAction}
                                                                 onClick={() => onEliminar(fila)}
                                                             >
-                                                                <IconTrash size={20} stroke={1.8} />
+                                                                <IconTrash size={18} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}

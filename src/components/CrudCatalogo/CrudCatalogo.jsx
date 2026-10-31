@@ -20,6 +20,7 @@ import {
     ActionIcon,
     Title,
 } from '@mantine/core';
+import { guardarValor, eliminarValor, obtenerValor } from '../../scripts/globales.js';
 import {
     IconPlus, IconUpload,
     IconX,
@@ -148,6 +149,7 @@ export function CrudCatalogo({
     renderForm,
     validateForm,
     formLayout = 'stack',
+    permitirAgregar = true,
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
@@ -160,6 +162,9 @@ export function CrudCatalogo({
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
     pageSizeOptions,
+    persistencia= null,
+    createPersonalized = null,
+    updatePersonalized = null
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -212,7 +217,9 @@ export function CrudCatalogo({
     };
 
     const openCreate = () => {
+
         resetForm();
+
         setModalOpen(true);
     };
 
@@ -224,14 +231,17 @@ export function CrudCatalogo({
     };
 
     const updateField = (key, value) => {
-        setForm((previous) => ({ ...previous, [key]: value }));
+        setForm((previous) => ({...previous, [key]: value }) );
         setErrors((previous) => ({ ...previous, [key]: null }));
     };
 
     const save = async () => {
+
         const nextErrors = {};
+
         for (const campo of campos) {
             const value = form[campo.key];
+            
             if (campo.required && (value === undefined || value === null || String(value).trim() === '')) {
                 nextErrors[campo.key] = `${campo.label} es requerido`;
                 continue;
@@ -251,10 +261,14 @@ export function CrudCatalogo({
                 }
             }
         }
+
         const customErrors = (await validateForm?.(form, { editingId })) ?? {};
+
         Object.assign(nextErrors, customErrors);
+
         if (Object.keys(nextErrors).length) {
             setErrors(nextErrors);
+
             const errorList = Object.values(nextErrors).filter(Boolean);
             const msg = errorList.length === 1 ? errorList[0] : errorList.join(' — ');
             notifications.show({ title: 'Formulario incompleto', message: msg, color: 'red', autoClose: 7000 });
@@ -263,10 +277,27 @@ export function CrudCatalogo({
 
         try {
             setLoading(true);
+
             const payload = mapFormToPayload(form);
-            const response = editingId ? await servicio.actualizar(editingId, payload) : await servicio.crear(payload);
+            const callback = editingId ? updatePersonalized : createPersonalized
+
+            if (typeof callback === 'function'){
+                await callback ({
+                    form, 
+                    payload,
+                    editingId,
+                });
+                setModalOpen(false);
+                return;
+            }
+            
+            const response = editingId ? await servicio.actualizar(editingId,payload) : await servicio.create(payload)
             if (response.responseFlag !== 0) throw new Error(response.message);
+
+            if (response.responseFlag !== 0) throw new Error(response.message);
+            
             notifications.show({ title: editingId ? 'Actualizado' : 'Agregado', message: `${singular} guardado correctamente.`, color: 'green' });
+
             await fetchData();
             setModalOpen(false);
             resetForm();

@@ -21,7 +21,7 @@ import {
     IconLogout,
     IconUsers,
 } from '@tabler/icons-react';
-import { isSession, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
