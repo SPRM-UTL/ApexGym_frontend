@@ -3,13 +3,9 @@ import {
     ActionIcon,
     Badge,
     Box,
-    Divider,
     Group,
-    NativeSelect,
     SimpleGrid,
     Stack,
-    Text,
-    Textarea,
     Tooltip,
 } from '@mantine/core';
 import {
@@ -20,7 +16,7 @@ import {
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { SectionTitle, FInput, FSelect, FTextarea } from '../../components/Controles/ControlesComponent.jsx';
+import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
@@ -44,6 +40,7 @@ const CAMPOS = [
     { key: 'stockActual', label: 'Stock Actual', required: true, type: 'number', min: 0 },
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'disponibleCompra', label: 'Disponible' },
 ];
 
 const INICIAL = {
@@ -55,6 +52,7 @@ const INICIAL = {
     precioCompra: '',
     stockActual: '',
     stockMinimo: '',
+    disponibleCompra: true
 };
 
 const COLUMNAS_PRODUCTOS = [
@@ -66,6 +64,7 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'precioCompraTexto', label: 'Precio Compra', sortable: true, filterable: false },
     { key: 'stockActual', label: 'Stock Actual', sortable: true, filterable: false },
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
+    { key: 'disponibleCompra', label: 'Disponible', sortable: true, filterable: false },
 ];
 
 
@@ -108,6 +107,13 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         value={form.descripcion}
                         error={errors.descripcion}
                         onChange={(v) => onChange('descripcion', v)}
+                    />
+                    <FCheckbox
+                        label="Producto Disponible"
+                        mt="xl"
+                        size="md"
+                        checked={form.disponibleCompra}
+                        onChange={(v) => onChange('disponibleCompra', v)}
                     />
                 </Stack>
             </Box>
@@ -173,6 +179,7 @@ export function Productos() {
         precioCompra: record.precioCompra ?? '',
         stockActual: record.stockActual ?? '',
         stockMinimo: record.stockMinimo ?? '',
+        disponibleCompra: record.disponibleCompra
     }), []);
 
     const mapFormToPayload = (form) => ({
@@ -184,6 +191,7 @@ export function Productos() {
         precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
+        disponibleCompra: form.disponibleCompra
     });
 
     const colorStock = (actual, minimo) => {
@@ -197,6 +205,7 @@ export function Productos() {
     const mapRecordToRow = (record) => {
         const stockActualNum = Number(record.stockActual ?? 0);
         const stockMinimoNum = Number(record.stockMinimo ?? 0);
+        const disponible = record.disponibleCompra;
         return {
             id: record.id,
             nombre: record.nombre ?? '',
@@ -217,6 +226,30 @@ export function Productos() {
                 </Badge>
             ),
             stockMinimo: stockMinimoNum,
+            disponibleCompra: (<>
+                {disponible 
+                    ? 
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color="green"
+                    radius="sm"
+                    fw={700}
+                >
+                    Disponible
+                </Badge> 
+                : 
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color="red"
+                    radius="sm"
+                    fw={700}
+                >
+                    No Disponible
+                </Badge>}
+            </>
+            )
         };
     };
 
