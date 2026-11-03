@@ -20,7 +20,8 @@ const RUTAS_POR_MODULO = {
     'Tipos de Membresía': '/tipos-membresia',
     'Tipos de Visita': '/tipos-visita',
     'Metodos de Pago': '/metodos-pago',
-    'Servicios': '/servicios'
+    'Servicios': '/servicios',
+    'Accesos y Visitas': '/accesos-y-visitas'
 };
 
 /**

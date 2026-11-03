@@ -45,7 +45,7 @@ export function CategoriaProducto() {
         descripcion: record.descripcion ?? '—'
     });
 
-    // 🛡️ Validación contra desbordamiento de texto antes de guardar
+    //  Validación contra desbordamiento de texto antes de guardar
     const validateForm = (form) => {
         const errores = {};
         if (form.nombre && form.nombre.trim().length > 100) {
