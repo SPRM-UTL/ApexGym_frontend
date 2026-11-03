@@ -22,6 +22,7 @@ import { TipoVisitaService } from './TipoVisitaService.js';
 import { ClienteMembresiaService } from './ClienteMembresiaService.js';
 import { MetodosPagoService } from './MetodosPagoService.js';
 import { ServicioService } from './ServicioService.js';
+import { EmpresaService } from './EmpresaService.js';
 
 export class ApiService {
     constructor() {
@@ -48,8 +49,9 @@ export class ApiService {
         this.movimientoCaja = new MovimientoCajaService(this.urlBase);
         this.corteCaja = new CorteCajaService(this.urlBase);
         this.clienteMembresia = new ClienteMembresiaService(this.urlBase);
-        this.metodosPago=  new MetodosPagoService(this.urlBase);
+        this.metodosPago = new MetodosPagoService(this.urlBase);
         this.servicio = new ServicioService(this.urlBase);
+        this.empresa = new EmpresaService(this.urlBase);
     }
 }
 
