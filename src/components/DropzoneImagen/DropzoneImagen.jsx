@@ -1,12 +1,66 @@
-import { Avatar, Box, Stack, Text } from '@mantine/core';
+import { Avatar, Box, Group, Stack, Text } from '@mantine/core';
 import { Dropzone, IMAGE_MIME_TYPE } from '@mantine/dropzone';
 import '@mantine/dropzone/styles.css';
-import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
+import { IconPhoto, IconUpload, IconUser, IconX } from '@tabler/icons-react';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
 import classes from './DropzoneImagen.module.css';
 
-export function DropzoneImagen({ archivo, preview, onDrop, onReject, h: height }) {
+export function DropzoneImagen({ archivo, preview, onDrop, onReject, h: height, variant = 'default' }) {
     const urlFinal = resolverUrlImagen(preview);
+
+    if (variant === 'compact') {
+        return (
+            <Dropzone
+                onDrop={onDrop}
+                onReject={onReject}
+                accept={IMAGE_MIME_TYPE}
+                maxSize={5 * 1024 ** 2}
+                maxFiles={1}
+                radius="md"
+                className={classes.dropzoneCompact}
+            >
+                <Group wrap="nowrap" gap="md" align="center" style={{ width: '100%' }}>
+                    <Avatar
+                        src={urlFinal || null}
+                        alt="Fotografía de perfil"
+                        size={68}
+                        radius="100%"
+                        className={urlFinal ? classes.avatarActive : classes.avatarIdle}
+                    >
+                        <IconUser size={30} stroke={1.6} color="#64748B" />
+                    </Avatar>
+
+                    <Stack gap={3} style={{ flex: 1, minWidth: 0 }}>
+                        <Dropzone.Accept>
+                            <Text size="sm" fw={600} c="var(--ag-color-primary)">
+                                Suelta la imagen aquí para cargarla
+                            </Text>
+                        </Dropzone.Accept>
+                        <Dropzone.Reject>
+                            <Text size="sm" fw={600} c="red.7">
+                                El archivo no es válido (máximo 5 MB)
+                            </Text>
+                        </Dropzone.Reject>
+                        <Dropzone.Idle>
+                            <Text size="sm" fw={600} c="#1E293B" truncate>
+                                {archivo?.name
+                                    ? archivo.name
+                                    : urlFinal
+                                        ? 'Fotografía de perfil cargada'
+                                        : 'Haz clic o arrastra una imagen aquí'}
+                            </Text>
+                        </Dropzone.Idle>
+
+                        <Text size="xs" c="dimmed">
+                            {urlFinal
+                                ? 'Arrastra otra imagen o haz clic para reemplazarla'
+                                : 'Formatos JPG, PNG o GIF · Máximo 5 MB'}
+                        </Text>
+                    </Stack>
+                </Group>
+            </Dropzone>
+        );
+    }
 
     return (
         <Dropzone

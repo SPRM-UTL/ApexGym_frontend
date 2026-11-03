@@ -39,3 +39,52 @@
 .error {
     color: #c92a2a;
 }
+
+.unifiedHeader {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mantine-spacing-md);
+    padding: var(--mantine-spacing-xs) 0 14px 0;
+    margin-bottom: 6px;
+    border-bottom: 2px solid #E2E8F0;
+}
+
+.unifiedHeader::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 72px;
+    height: 2px;
+    background-color: var(--ag-color-primary);
+    border-radius: 2px;
+}
+
+.unifiedTitle {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1E293B;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.addButtonUnified {
+    background-color: var(--ag-color-primary) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    border-radius: 20%;
+    min-width: 52px;
+    border: none;
+    padding: 0;
+    transition: background-color 150ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        background-color: #d95800 !important;
+        transform: none !important;
+    }
+}
