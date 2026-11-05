@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
@@ -34,6 +34,7 @@ import PantallaCarga from './components/PantallaCarga.jsx';
 import { Productos } from './pages/Productos/Productos.jsx';
 import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
+import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
 
@@ -221,6 +222,18 @@ function App() {
                 estaLogeadoEn ? (
                   <Dashboard onLogout={accionLogout}>
                     <Servicios />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
+              path="/accesos-y-visitas"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <ControlAcceso />
                   </Dashboard>
                 ) : (
                   <Login onLoginAceptado={accionLogin} />
