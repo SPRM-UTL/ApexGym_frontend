@@ -23,7 +23,8 @@ const RUTAS_POR_MODULO = {
     'Metodos de Pago': '/metodos-pago',
     'Servicios': '/servicios',
     'Pagos': '/pagos-experimentacion',
-    'Simulador de Pagos': '/pagos-experimentacion'
+    'Simulador de Pagos': '/pagos-experimentacion',
+    'Accesos y Visitas': '/accesos-y-visitas'
 };
 
 /**
