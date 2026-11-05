@@ -16,6 +16,7 @@
     "@mantine/hooks": "^9.6.2",
     "@mantine/modals": "^9.6.2",
     "@mantine/notifications": "^9.6.2",
+    "@react-pdf/renderer": "^4.9.0",
     "@tabler/icons-react": "^3.48.0",
     "axios": "^1.20.0",
     "react": "^19.2.0",

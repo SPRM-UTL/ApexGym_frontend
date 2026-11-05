@@ -1,6 +1,23 @@
 import { ResponseModel } from './models/ResponseModel.js';
 import { httpClient } from './httpClient.js';
 
+function convertirImagenADataUrl(archivo) {
+    return new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(typeof lector.result === 'string' ? lector.result : null);
+        lector.onerror = () => reject(new Error('No se pudo leer la imagen seleccionada.'));
+        lector.readAsDataURL(archivo);
+    });
+}
+
+async function prepararDatosProducto(datos) {
+    const { imagen, ...resto } = datos;
+    if (typeof File !== 'undefined' && imagen instanceof File) {
+        resto.imagenUrl = await convertirImagenADataUrl(imagen);
+    }
+    return resto;
+}
+
 export class ProductoService {
     constructor(urlBase) {
         this.urlBase = urlBase;
@@ -28,7 +45,11 @@ export class ProductoService {
 
     async crear(datos) {
         try {
-            const response = await httpClient.post(`${this.urlApi}/`, datos);
+            const datosProducto = await prepararDatosProducto(datos);
+            const response = await httpClient.post(
+                `${this.urlApi}/`,
+                datosProducto
+            );
             return response.data;
         } catch (error) {
             throw new ResponseModel(
@@ -42,10 +63,9 @@ export class ProductoService {
 
     async actualizar(productoId, datos) {
         try {
-            const response = await httpClient.put(`${this.urlApi}/`, {
-                productoId,
-                ...datos,
-            });
+            const datosProducto = await prepararDatosProducto(datos);
+            datosProducto.productoId = Number(productoId);
+            const response = await httpClient.put(`${this.urlApi}/`, datosProducto);
             return response.data;
         } catch (error) {
             throw new ResponseModel(

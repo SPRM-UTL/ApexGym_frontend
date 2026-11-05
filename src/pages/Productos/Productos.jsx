@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     ActionIcon,
     Badge,
@@ -8,6 +8,7 @@ import {
     Stack,
     Tooltip,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
     IconEdit,
     IconPackage,
@@ -15,11 +16,14 @@ import {
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
+import { resolverUrlImagen } from '../../scripts/constantes.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
+    { key: 'imagen', label: 'Imagen del producto', type: 'image' },
     { key: 'codigoBarras', label: 'Código de barras', required: true },
     {
         key: 'categoriaProductoId',
@@ -45,6 +49,7 @@ const CAMPOS = [
 
 const INICIAL = {
     nombre: '',
+    imagen: null,
     descripcion: '',
     codigoBarras: '',
     categoriaProductoId: '',
@@ -68,6 +73,39 @@ const COLUMNAS_PRODUCTOS = [
 ];
 
 
+function CampoImagenProducto({ imagen, onChange }) {
+    const [previewUrl, setPreviewUrl] = useState(null);
+
+    useEffect(() => {
+        if (imagen instanceof File) {
+            const url = URL.createObjectURL(imagen);
+            setPreviewUrl(url);
+            return () => URL.revokeObjectURL(url);
+        }
+
+        setPreviewUrl(imagen || null);
+        return undefined;
+    }, [imagen]);
+
+    return (
+        <Box>
+            <SectionTitle>Imagen del producto</SectionTitle>
+            <DropzoneImagen
+                archivo={imagen instanceof File ? imagen : null}
+                preview={previewUrl}
+                h={180}
+                onDrop={(archivos) => onChange(archivos[0] ?? null)}
+                onReject={() => notifications.show({
+                    title: 'Imagen no válida',
+                    message: 'Selecciona una imagen válida de máximo 5 MB.',
+                    color: 'red',
+                })}
+            />
+        </Box>
+    );
+}
+
+
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
     return (
         <Stack gap="md" style={{ width: '100%' }}>
@@ -81,6 +119,10 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         value={form.nombre}
                         error={errors.nombre}
                         onChange={(v) => onChange('nombre', v)}
+                    />
+                    <CampoImagenProducto
+                        imagen={form.imagen}
+                        onChange={(imagen) => onChange('imagen', imagen)}
                     />
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
                         <FInput
@@ -168,6 +210,7 @@ export function Productos() {
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
+        imagen: resolverUrlImagen(record.imagenUrl ?? record.imagen) || null,
         descripcion: record.descripcion ?? '',
         codigoBarras: record.codigoBarras ?? '',
         categoriaProductoId: record.categoriaProductoId
@@ -184,6 +227,7 @@ export function Productos() {
 
     const mapFormToPayload = (form) => ({
         nombre: form.nombre ?? '',
+        imagen: form.imagen instanceof File ? form.imagen : null,
         descripcion: form.descripcion || null,
         codigoBarras: form.codigoBarras ? String(form.codigoBarras) : null,
         categoriaProductoId: Number(form.categoriaProductoId),

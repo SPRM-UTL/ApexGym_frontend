@@ -1,0 +1,114 @@
+.modal {
+    display: flex;
+    max-height: calc(100dvh - 32px);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--ag-color-border);
+    box-shadow: 0 24px 70px color-mix(in srgb, var(--ag-color-shadow) 22%, transparent);
+}
+
+.header {
+    flex: 0 0 auto;
+    min-height: 88px;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--ag-color-border);
+    background: var(--ag-color-secondary);
+}
+
+.modalTitle { flex: 1; min-width: 0; }
+.tituloGrupo { min-width: 0; }
+.tituloIcono { display: flex; flex: 0 0 auto; color: var(--ag-color-primary); }
+.titulo { color: var(--ag-color-surface-elevated) !important; font-size: 21px; font-weight: 750; line-height: 1.35; }
+.closeButton { color: var(--ag-color-surface-elevated); border-radius: 8px; transition: background-color 150ms ease; }
+.closeButton:hover { color: var(--ag-color-surface-elevated); background: var(--ag-color-overlay-on-dark-hover); }
+.body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0;
+    background: var(--ag-color-surface-elevated);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    width: 100%;
+    padding: 26px 30px;
+}
+
+.dato { display: flex; min-width: 0; align-items: center; gap: 11px; }
+.datoIcono {
+    display: flex;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: var(--ag-color-primary);
+    background: var(--ag-color-primary-soft);
+}
+.datoContenido { min-width: 0; }
+.datoContenido :global(.mantine-Text-root:last-child) { color: var(--ag-color-secondary); }
+.iconoNaranja { flex: 0 0 auto; color: var(--ag-color-primary); }
+
+.tabla {
+    max-height: min(38vh, 340px);
+    overflow: auto;
+    border: 1px solid var(--ag-color-primary-border);
+    border-radius: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ag-color-primary-border) transparent;
+}
+.tabla::-webkit-scrollbar { width: 8px; height: 8px; }
+.tabla::-webkit-scrollbar-track { background: transparent; }
+.tabla::-webkit-scrollbar-thumb {
+    border: 2px solid var(--ag-color-surface-elevated);
+    border-radius: 999px;
+    background: var(--ag-color-primary-border);
+}
+.tabla::-webkit-scrollbar-thumb:hover { background: var(--ag-color-primary); }
+.tabla :global(.mantine-Table-thead) { position: sticky; top: 0; z-index: 1; }
+.tabla :global(.mantine-Table-thead) { background: var(--ag-color-surface); }
+.tabla :global(.mantine-Table-th) { color: var(--ag-color-secondary); font-size: 14px; }
+.tabla :global(.mantine-Table-td) { color: var(--ag-color-secondary); }
+
+.resumen {
+    width: min(100%, 360px);
+    align-self: flex-end;
+    overflow: hidden;
+    border: 1px solid var(--ag-color-primary-light);
+    border-radius: 12px;
+    background: var(--ag-color-primary-soft);
+}
+.resumenFila { min-height: 40px; padding: 7px 14px; color: var(--ag-color-secondary); }
+.resumenFila:first-child :global(.mantine-Text-root) { color: var(--ag-color-secondary) !important; }
+.iva { color: var(--ag-color-secondary); background: transparent; border-top: 0; }
+.iva :global(.mantine-Text-root) { color: var(--ag-color-secondary) !important; }
+.total {
+    min-height: 55px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--ag-color-primary-light);
+    color: var(--ag-color-black);
+    background: transparent;
+}
+.total :global(.mantine-Text-root:first-child) { color: var(--ag-color-black) !important; }
+.total :global(.mantine-Text-root:last-child) { color: var(--ag-color-primary) !important; }
+
+.footer {
+    width: 100%;
+    padding: 20px 30px 24px;
+    border-top: 1px solid var(--ag-color-border);
+    background: var(--ag-color-surface-elevated);
+}
+.closeAction { min-width: 125px; color: var(--ag-color-secondary); border-color: var(--ag-color-border); background: var(--ag-color-surface-elevated); font-weight: 600; }
+.closeAction:hover { border-color: var(--ag-color-secondary-light); background: var(--ag-color-surface); }
+
+@media (max-width: 576px) {
+    .header { min-height: 76px; padding: 18px; }
+    .titulo { font-size: 18px; }
+    .content { gap: 18px; padding: 22px 18px; }
+    .footer { padding: 18px; }
+    .datoIcono { width: 42px; height: 42px; flex-basis: 42px; }
+}

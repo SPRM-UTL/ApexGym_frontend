@@ -1,156 +1,365 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import {
+    ActionIcon,
+    Group,
+    Tooltip,
+} from '@mantine/core';
+import {
+    IconEye,
     IconShoppingCart,
+    IconTrash,
 } from '@tabler/icons-react';
 
 import { cambioNombreWeb } from '../../../scripts/globales.js';
 import { api } from '../../../scripts/services/api.js';
 import { CrudCatalogo } from '../../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { CancelarVentaModal } from '../../../components/CancelarVentaModal/CancelarVentaModal.jsx';
+import { DetalleVentaModal } from '../../../components/DetalleVentaModal/DetalleVentaModal.jsx';
+import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
+import {
+    obtenerEmpleadoIdApertura,
+    obtenerNombreCliente,
+    obtenerNombreEmpleado,
+    obtenerRegistros,
+    obtenerVenta,
+} from '../../../utils/ventaHelper/ventaHelpers.js';
 
 const COLUMNAS = [
     { key: 'folio', label: 'Folio', sortable: true, filterable: true },
-    { key: 'cliente', label: 'Cliente', sortable: true, filterable: true },
-    { key: 'fecha', label: 'Fecha', sortable: true, filterable: true },
-    { key: 'subtotal', label: 'Subtotal', sortable: false, filterable: true },
-    { key: 'total', label: 'Total', sortable: false, filterable: true },
+    { key: 'cliente', label: 'Cliente', sortable: true, filterable: false },
+    { key: 'fecha', label: 'Fecha', sortable: true, filterable: false, format: 'date' },
+    { key: 'estado', label: 'Estado', sortable: true, filterable: false, format: 'status' },
+    { key: 'subtotal', label: 'Subtotal', sortable: false, filterable: true, format: 'currency' },
+    { key: 'total', label: 'Total', sortable: false, filterable: true, format: 'currency' },
 ];
 
-const CAMPOS = [
+const normalizarEstadoVenta = (estado) => {
+    const valor = String(estado ?? '').trim().toLocaleLowerCase();
+    if (['cancelada', 'cancelado'].includes(valor)) return 'cancelada';
+    if (['completada', 'completado', 'completa'].includes(valor)) return 'completada';
+    return valor;
+};
+
+const etiquetaEstadoVenta = (estado) => {
+    const normalizado = normalizarEstadoVenta(estado);
+    if (normalizado === 'cancelada') return 'Cancelada';
+    if (normalizado === 'completada') return 'Completada';
+    return normalizado ? normalizado[0].toLocaleUpperCase() + normalizado.slice(1) : '';
+};
+
+const FILTROS = [
     {
         key: 'clienteId',
         label: 'Cliente',
         type: 'select',
-        required: true,
-        loadOptions: async () => {
-            const response = await api.cliente.obtenerTodos();
-
-            return (response.data ?? []).map((cliente) => ({
+        placeholder: 'Todos los clientes',
+        getValue: (venta) => venta.cliente?.id ?? venta.clientId ?? venta.clienteId,
+        optionsFromRecords: (ventas) => [...new Map(ventas
+            .map((venta) => venta.cliente ?? venta.client)
+            .filter((cliente) => cliente?.id != null)
+            .map((cliente) => [String(cliente.id), {
                 value: String(cliente.id),
-                label: `${cliente.nombre} ${cliente.apellidoPaterno ?? ''} ${cliente.apellidoMaterno ?? ''}`.trim(),
-            }));
-        },
+                label: obtenerNombreCliente(cliente),
+            }])).values()],
     },
     {
-        key: 'metodoPagoId',
-        label: 'Método de pago',
+        key: 'fechaVenta',
+        label: 'Fecha de venta',
+        type: 'dateRange',
+        from: 'fechaDesde',
+        to: 'fechaHasta',
+        getValue: (venta) => venta.createdAt ?? venta.fecha,
+    },
+    {
+        key: 'estadoVenta',
+        label: 'Estado',
+        type: 'select',
+        placeholder: 'Todos los estados',
+        options: [
+            { value: 'completada', label: 'Completada' },
+            { value: 'cancelada', label: 'Cancelada' },
+        ],
+        optionsFromRecords: (ventas) => [...new Set(ventas
+            .map((venta) => normalizarEstadoVenta(venta.estado))
+            .filter(Boolean))]
+            .map((estado) => ({ value: estado, label: etiquetaEstadoVenta(estado) })),
+        getValue: (venta) => venta.estado,
+        normalizeValue: normalizarEstadoVenta,
+    },
+];
+
+let empleadosYAperturasRequest;
+
+const cargarEmpleadosYAperturas = () => {
+    if (!empleadosYAperturasRequest) {
+        empleadosYAperturasRequest = Promise.all([
+            api.empleado.obtenerTodos(),
+            api.aperturaCaja.obtenerTodos(),
+        ]).then(([respuestaEmpleados, respuestaAperturas]) => ({
+            empleados: obtenerRegistros(respuestaEmpleados, 'empleados'),
+            aperturas: obtenerRegistros(respuestaAperturas, 'aperturas de caja')
+                .filter((apertura) => String(apertura.estado ?? '').trim().toUpperCase() === 'ABIERTA'),
+        })).finally(() => {
+            empleadosYAperturasRequest = null;
+        });
+    }
+
+    return empleadosYAperturasRequest;
+};
+
+const CAMPOS = [
+    {
+        key: 'empleadoId',
+        label: 'Empleado',
         type: 'select',
         required: true,
         loadOptions: async () => {
-            const response = await api.metodosPago.obtenerTodos();
+            const { empleados, aperturas } = await cargarEmpleadosYAperturas();
+            const empleadosConCajaAbierta = new Set(
+                aperturas.map(obtenerEmpleadoIdApertura).filter((id) => id != null).map(String)
+            );
 
-            return (response.data ?? []).map((metodo) => ({
-                value: String(metodo.id),
-                label: metodo.nombre,
-            }));
+            return empleados
+                .filter((empleado) => empleadosConCajaAbierta.has(String(empleado.id)))
+                .map((empleado) => ({
+                    value: String(empleado.id),
+                    label: obtenerNombreEmpleado(empleado),
+                }));
+        },
+    },
+    {
+        key: 'aperturaCajaId',
+        label: 'Caja abierta',
+        type: 'select',
+        required: true,
+        dependsOn: 'empleadoId',
+        filterOptions: (apertura, form) =>
+            Boolean(form.empleadoId) && String(apertura.empleadoId) === String(form.empleadoId),
+        loadOptions: async () => {
+            const { empleados, aperturas } = await cargarEmpleadosYAperturas();
+            const empleadosPorId = new Map(empleados.map((empleado) => [String(empleado.id), empleado]));
+
+            return aperturas.map((apertura) => {
+                const empleadoId = obtenerEmpleadoIdApertura(apertura);
+                const empleado = empleadosPorId.get(String(empleadoId)) ?? apertura.empleado;
+
+                return {
+                    value: String(apertura.id),
+                    empleadoId: empleadoId != null ? String(empleadoId) : '',
+                    label: `${apertura.caja?.nombre ?? `Caja #${apertura.cajaId ?? '—'}`} — ${obtenerNombreEmpleado(empleado)} — Apertura #${apertura.id}`,
+                };
+            });
         },
     },
 ];
 
 const INICIAL = {
-    clienteId: '',
-    metodoPagoId: '',
+    empleadoId: '',
+    aperturaCajaId: '',
 };
-
-
 
 export function Ventas() {
     cambioNombreWeb('Ventas');
 
     const navigate = useNavigate();
-    const [ventas, setVentas] = useState([]);
+    const [detalleVenta, setDetalleVenta] = useState(null);
+    const [cargandoDetalle, setCargandoDetalle] = useState(false);
+    const [cancelacionPendiente, setCancelacionPendiente] = useState(null);
+    const [motivoCancelacion, setMotivoCancelacion] = useState('');
+    const [cancelando, setCancelando] = useState(false);
 
-    const cargarVentas = useCallback(async () => {
+    const abrirAgregar = ({ form }) => {
+        navigate('/registro-de-ventas/nueva', {
+            state: {
+                empleadoId: form.empleadoId,
+                aperturaCajaId: form.aperturaCajaId,
+            },
+        });
+    };
+
+    const validateForm = (form, { editingId, fieldOptions }) => {
+        if (editingId) return {};
+
+        const errors = {};
+        if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
+        if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una caja abierta';
+
+        if (form.empleadoId && form.aperturaCajaId) {
+            const apertura = fieldOptions.aperturaCajaId?.find(
+                (opcion) => String(opcion.value) === String(form.aperturaCajaId)
+            );
+            if (!apertura || apertura.empleadoId !== String(form.empleadoId)) {
+                errors.aperturaCajaId = 'La caja abierta debe corresponder al empleado seleccionado';
+            }
+        }
+
+        return errors;
+    };
+
+    const cargarVentaCompleta = async (venta) => {
+        const respuesta = await api.venta.obtenerPorId(venta.id);
+        const registro = obtenerVenta(respuesta);
+        if (!Array.isArray(registro.detalleVenta)) {
+            throw new Error('La venta no contiene un detalle válido.');
+        }
+
+        return {
+            ...venta,
+            ...registro,
+            createdAt: registro.createdAt ?? venta.createdAt,
+            fecha: registro.fecha ?? venta.fecha,
+        };
+    };
+
+    const abrirDetalle = async (venta) => {
+        setCargandoDetalle(true);
+        setDetalleVenta({ ...venta, detalleVenta: [] });
         try {
-            const respuesta = await api.venta.obtenerTodos();
-            const lista = Array.isArray(respuesta)
-                ? respuesta
-                : respuesta?.data ?? [];
-
-            setVentas(lista);
-        } catch (e) {
+            setDetalleVenta(await cargarVentaCompleta(venta));
+        } catch (error) {
+            setDetalleVenta(null);
             notifications.show({
                 color: 'red',
-                message: e.message || 'No se pudieron cargar las ventas',
+                message: error.message || 'No se pudo cargar el detalle de la venta.',
             });
+        } finally {
+            setCargandoDetalle(false);
         }
-    }, []);
+    };
 
-    useEffect(() => {
-        cargarVentas();
-    }, [cargarVentas]);
-
-const handleEditar =  (form) => {
-    navigate(`/registro-de-ventas/${form.editingId}`, {
-        state: { 
-            metodoPago: form.metodoPago 
+    const confirmarCancelacion = async () => {
+        const motivo = motivoCancelacion.trim();
+        if (!motivo) {
+            notifications.show({ color: 'yellow', message: 'Escribe el motivo de cancelación.' });
+            return;
         }
-    });
-};
 
-const abrirAgregar =  ({form}) => {
-    navigate('/registro-de-ventas/nueva', {
-        state: { 
-            clienteId: form.clienteId,
-            metodoPagoId: form.metodoPagoId,
+        setCancelando(true);
+        try {
+            await api.venta.eliminar(cancelacionPendiente.venta.id, motivo);
+            await cancelacionPendiente.reload();
+            setCancelacionPendiente(null);
+            setMotivoCancelacion('');
+            notifications.show({ color: 'green', message: 'Venta cancelada correctamente.' });
+        } catch (error) {
+            notifications.show({
+                color: 'red',
+                message: error.message || 'No se pudo cancelar la venta.',
+            });
+        } finally {
+            setCancelando(false);
         }
-    });
-};
+    };
 
-    const mapRecordToForm = (venta) => ({
-        clienteId: venta.cliente?.id
-            ? String(venta.cliente.id)
-            : '',
-        metodoPagoId: venta.metodoPago?.id
-            ? String(venta.metodoPago.id)
-            : '',
+    const mapRecordToForm = (venta) => {
+        const empleadoId = venta.empleadoId ?? venta.empleado?.id;
+        const aperturaCajaId = venta.aperturaCajaId ?? venta.aperturaCaja?.id;
+
+        return {
+            empleadoId: empleadoId != null ? String(empleadoId) : '',
+            aperturaCajaId: aperturaCajaId != null ? String(aperturaCajaId) : '',
+        };
+    };
+
+    const mapFormToPayload = () => ({});
+
+    const mapRecordToRow = (venta) => ({
+        id: venta.id,
+        folio: venta.folioVentaId ?? '—',
+        cliente: obtenerNombreCliente(venta.cliente ?? venta.client),
+        fecha: venta.createdAt ?? null,
+        estado: venta.estado ?? 'completada',
+        subtotal: venta.subtotal,
+        total: venta.total,
     });
 
-    const mapFormToPayload = (form) => ({
-        clienteId: form.clienteId || null,
-        metodoPagoId: form.metodoPagoId || null,
-    });
-    const mapRecordToRow = (v) => ({
-        id: v.id,
-        folio: v.folioVentaId ?? '—',
-        cliente: v.cliente?.nombre ?? v.cliente ?? 'Público general',
-        fecha: v.createdAt
-            ? new Date(v.createdAt).toLocaleDateString('es-MX')
-            : '—',
-        subtotal: v.subtotal,
-        total: v.total,
-    });
-    
-    
-
+    const renderAcciones = (_fila, venta, { reload }) => (
+        <Group gap={6} wrap="nowrap">
+            <Tooltip label="Ver detalle del ticket">
+                <ActionIcon
+                    variant="light"
+                    color="blue"
+                    aria-label="Ver detalle del ticket"
+                    onClick={() => abrirDetalle(venta)}
+                >
+                    <IconEye size={18} />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Descargar ticket PDF">
+                <span>
+                    <ExportarDocumento
+                        crearDocumento={async () => {
+                            const ventaTicket = await cargarVentaCompleta(venta);
+                            const { default: DocumentoTicketVenta } = await import(
+                                '../../../documents/DocumentoTicketVenta.jsx'
+                            );
+                            return <DocumentoTicketVenta venta={ventaTicket} />;
+                        }}
+                        nombreArchivo={`ticket-${venta.folioVentaId ?? venta.id}.pdf`}
+                        soloDescargar
+                    />
+                </span>
+            </Tooltip>
+            {String(venta.estado ?? 'completada').toLowerCase() !== 'cancelada' && (
+                <Tooltip label="Cancelar venta">
+                    <ActionIcon
+                        variant="light"
+                        color="red"
+                        aria-label="Cancelar venta"
+                        onClick={() => {
+                            setMotivoCancelacion('');
+                            setCancelacionPendiente({ venta, reload });
+                        }}
+                    >
+                        <IconTrash size={18} />
+                    </ActionIcon>
+                </Tooltip>
+            )}
+        </Group>
+    );
 
     return (
-        <CrudCatalogo
-            titulo="Registro de Ventas"
-            singular="Venta"
-            icon={IconShoppingCart}
-            servicio={api.venta}
-            columnas={COLUMNAS}
-            campos={CAMPOS}
-            valoresIniciales={INICIAL}
-            mapRecordToForm={mapRecordToForm}
-            mapFormToPayload={mapFormToPayload}
-            mapRecordToRow={mapRecordToRow}
-            permitirAgregar = {false}
-            permitirEditar={true}
-            permitirEliminar={true}
-            formMode="drawer"
-            drawerSize={620}
-            headerVariant="unified"
-            tableHeaderVariant="neutral"
-            persistencia={{
-                clave: 'ventas.formulario',
-                campos: ['clienteId', 'metodoPagoId'],
-            }}
-            createPersonalized = {abrirAgregar}
-            updatePersonalized = {handleEditar}
-        />
+        <>
+            <CrudCatalogo
+                titulo="Registro de Ventas"
+                singular="Venta"
+                icon={IconShoppingCart}
+                servicio={api.venta}
+                columnas={COLUMNAS}
+                campos={CAMPOS}
+                valoresIniciales={INICIAL}
+                mapRecordToForm={mapRecordToForm}
+                mapFormToPayload={mapFormToPayload}
+                mapRecordToRow={mapRecordToRow}
+                renderAccionesFila={renderAcciones}
+                filters={FILTROS}
+                initialSortBy="fecha"
+                initialSortDirection="desc"
+                permitirEditar={false}
+                permitirEliminar={false}
+                formMode="drawer"
+                drawerSize={620}
+                headerVariant="unified"
+                tableHeaderVariant="neutral"
+                validateForm={validateForm}
+                createPersonalized={abrirAgregar}
+            />
+            <DetalleVentaModal
+                venta={detalleVenta}
+                cargando={cargandoDetalle}
+                onClose={() => setDetalleVenta(null)}
+            />
+            <CancelarVentaModal
+                venta={cancelacionPendiente?.venta}
+                motivo={motivoCancelacion}
+                cancelando={cancelando}
+                onMotivoChange={setMotivoCancelacion}
+                onClose={() => setCancelacionPendiente(null)}
+                onConfirm={confirmarCancelacion}
+            />
+        </>
     );
 }
 

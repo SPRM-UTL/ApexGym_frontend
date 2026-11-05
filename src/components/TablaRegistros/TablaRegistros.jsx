@@ -1,9 +1,17 @@
 import { ActionIcon, Divider, Group, Skeleton, Title } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { IconArrowLeft, IconPlus } from '@tabler/icons-react';
 import { TableSort } from '../TableSort/TableSort.jsx';
 import classes from './TablaRegistros.module.css';
 
-export function EncabezadoTabla({ title, icon: Icono, onAdd, addLabel = 'registro' }) {
+export function EncabezadoTabla({
+    title,
+    icon: Icono,
+    onAdd,
+    addLabel = 'registro',
+    onBack,
+    backLabel = 'Regresar',
+    rightContent,
+}) {
     return (
         <div className={classes.unifiedHeader}>
             <Group gap="sm" align="center">
@@ -21,19 +29,25 @@ export function EncabezadoTabla({ title, icon: Icono, onAdd, addLabel = 'registr
                     {title}
                 </Title>
             </Group>
-            {onAdd && (
-                <ActionIcon
-                    className={classes.addButtonUnified}
-                    onClick={onAdd}
-                    aria-label={`Agregar ${addLabel}`}
-                    size={42}
-                    radius="xl"
-                    color="apex"
-                    variant="filled"
-                >
-                    <IconPlus size={20} stroke={2.5} />
-                </ActionIcon>
-            )}
+            <Group gap="sm" align="center">
+                {rightContent}
+                {(onAdd || onBack) && (
+                    <ActionIcon
+                        className={classes.addButtonUnified}
+                        onClick={onBack ?? onAdd}
+                        aria-label={onBack ? backLabel : `Agregar ${addLabel}`}
+                        title={onBack ? backLabel : `Agregar ${addLabel}`}
+                        size={42}
+                        radius="xl"
+                        color="apex"
+                        variant="filled"
+                    >
+                        {onBack
+                            ? <IconArrowLeft size={20} stroke={2.5} />
+                            : <IconPlus size={20} stroke={2.5} />}
+                    </ActionIcon>
+                )}
+            </Group>
         </div>
     );
 }
@@ -74,6 +88,7 @@ export function TablaRegistros({
     initialSortBy,
     initialSortDirection,
     headerVariant = 'classic',
+    filters = [],
     title,
     icon,
     onAdd,
@@ -98,6 +113,7 @@ export function TablaRegistros({
                     initialSortBy={initialSortBy}
                     initialSortDirection={initialSortDirection}
                     headerVariant={headerVariant}
+                    filters={filters}
                 />
             )}
         </div>

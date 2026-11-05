@@ -20,7 +20,6 @@ import {
     ActionIcon,
     Title,
 } from '@mantine/core';
-import { guardarValor, eliminarValor, obtenerValor } from '../../scripts/globales.js';
 import {
     IconPlus, IconUpload,
     IconX,
@@ -31,6 +30,9 @@ import { ModalConfirmacion } from '../ModalConfirmacion/ModalConfirmacion.jsx';
 import { TablaRegistros } from '../TablaRegistros/TablaRegistros.jsx';
 import { BarraAcciones } from '../BarraAcciones/BarraAcciones.jsx';
 import classes from './CrudCatalogo.module.css';
+
+const identityFilter = (records) => records;
+const EMPTY_FILTERS = [];
 
 function Field({ campo, value, options, error, onChange, form }) {
     const tipo = typeof campo.type === 'function' ? campo.type(form) : campo.type;
@@ -114,9 +116,13 @@ function Field({ campo, value, options, error, onChange, form }) {
     }
 
     if (tipo === 'select') {
+        const optionsForForm = options ?? campo.options ?? [];
+        const filteredOptions = campo.filterOptions
+            ? optionsForForm.filter((option) => campo.filterOptions(option, form))
+            : optionsForForm;
         const data = [
             { value: '', label: campo.placeholder ?? `Selecciona ${campo.label.toLowerCase()}` },
-            ...(options ?? campo.options ?? []),
+            ...filteredOptions,
         ];
         return <NativeSelect {...common} data={data} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
     }
@@ -153,6 +159,8 @@ export function CrudCatalogo({
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
+    filterRecords = identityFilter,
+    filters = EMPTY_FILTERS,
     initialSortBy,
     initialSortDirection,
     modalFullScreen = true,
@@ -162,7 +170,6 @@ export function CrudCatalogo({
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
     pageSizeOptions,
-    persistencia= null,
     createPersonalized = null,
     updatePersonalized = null
 }) {
@@ -176,6 +183,7 @@ export function CrudCatalogo({
     const [pendingDelete, setPendingDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [fieldOptions, setFieldOptions] = useState({});
+    const [loadedFilterOptions, setLoadedFilterOptions] = useState({});
 
     const fieldsWithLoader = useMemo(() => campos.filter((campo) => campo.loadOptions), [campos]);
 
@@ -198,7 +206,12 @@ export function CrudCatalogo({
         const loaded = await Promise.all(fieldsWithLoader.map(async (campo) => {
             try {
                 return [campo.key, await campo.loadOptions()];
-            } catch {
+            } catch (err) {
+                notifications.show({
+                    title: `No se pudo cargar ${campo.label.toLowerCase()}`,
+                    message: err.message || `Error al cargar las opciones de ${campo.label.toLowerCase()}.`,
+                    color: 'red',
+                });
                 return [campo.key, []];
             }
         }));
@@ -209,6 +222,37 @@ export function CrudCatalogo({
         fetchData();
         fetchOptions();
     }, []);
+
+    useEffect(() => {
+        let activo = true;
+        const cargarOpcionesFiltros = async () => {
+            const filtrosConCarga = filters.filter((filtro) => filtro.loadOptions);
+            if (filtrosConCarga.length === 0) {
+                setLoadedFilterOptions({});
+                return;
+            }
+
+            const opciones = await Promise.all(filtrosConCarga.map(async (filtro) => {
+                try {
+                    return [filtro.key, await filtro.loadOptions()];
+                } catch (err) {
+                    notifications.show({
+                        title: `No se pudo cargar ${filtro.label.toLowerCase()}`,
+                        message: err.message || `Error al cargar opciones para el filtro ${filtro.label.toLowerCase()}.`,
+                        color: 'red',
+                    });
+                    return [filtro.key, []];
+                }
+            }));
+
+            if (activo) setLoadedFilterOptions(Object.fromEntries(opciones));
+        };
+
+        cargarOpcionesFiltros();
+        return () => {
+            activo = false;
+        };
+    }, [filters]);
 
     const resetForm = () => {
         setForm(valoresIniciales);
@@ -231,8 +275,17 @@ export function CrudCatalogo({
     };
 
     const updateField = (key, value) => {
-        setForm((previous) => ({...previous, [key]: value }) );
-        setErrors((previous) => ({ ...previous, [key]: null }));
+        const dependentFields = campos.filter((campo) => campo.dependsOn === key);
+        setForm((previous) => ({
+            ...previous,
+            [key]: value,
+            ...Object.fromEntries(dependentFields.map((campo) => [campo.key, ''])),
+        }));
+        setErrors((previous) => ({
+            ...previous,
+            [key]: null,
+            ...Object.fromEntries(dependentFields.map((campo) => [campo.key, null])),
+        }));
     };
 
     const save = async () => {
@@ -262,7 +315,7 @@ export function CrudCatalogo({
             }
         }
 
-        const customErrors = (await validateForm?.(form, { editingId })) ?? {};
+        const customErrors = (await validateForm?.(form, { editingId, fieldOptions })) ?? {};
 
         Object.assign(nextErrors, customErrors);
 
@@ -291,7 +344,9 @@ export function CrudCatalogo({
                 return;
             }
             
-            const response = editingId ? await servicio.actualizar(editingId,payload) : await servicio.create(payload)
+            const response = editingId
+                ? await servicio.actualizar(editingId, payload)
+                : await servicio.crear(payload);
             if (response.responseFlag !== 0) throw new Error(response.message);
 
             if (response.responseFlag !== 0) throw new Error(response.message);
@@ -324,23 +379,33 @@ export function CrudCatalogo({
         }
     };
 
-    const tableData = useMemo(() => records.map((record) => {
+    const tableData = useMemo(() => filterRecords(records).map((record) => {
         const row = mapRecordToRow(record);
         return {
             ...row,
             _recordOriginal: record,
         };
-    }), [records, mapRecordToRow]);
+    }), [records, mapRecordToRow, filterRecords]);
+
+    const filtrosTabla = useMemo(() => filters.map((filtro) => {
+        const opcionesPorRegistro = filtro.optionsFromRecords?.(records) ?? [];
+        const opciones = [
+            ...(filtro.options ?? []),
+            ...(loadedFilterOptions[filtro.key] ?? []),
+            ...opcionesPorRegistro,
+        ];
+        const opcionesUnicas = [...new Map(
+            opciones.map((opcion) => [String(opcion.value), opcion])
+        ).values()];
+        return { ...filtro, options: opcionesUnicas };
+    }), [filters, records, loadedFilterOptions]);
 
     const handleRenderAcciones = useMemo(() => {
         if (!renderAccionesFila) return undefined;
         return (fila) => {
             const recordOriginal = fila?._recordOriginal ?? records.find((r) => r.id === fila?.id) ?? fila;
             const helpers = {
-                reload: () => {
-                    fetchData();
-                    fetchOptions();
-                },
+                reload: () => Promise.all([fetchData(), fetchOptions()]),
                 openEdit: (rec = recordOriginal) => openEdit(rec),
                 setPendingDelete: (rec = recordOriginal) => setPendingDelete(rec),
                 deleteRecord: (rec = recordOriginal) => setPendingDelete(rec),
@@ -565,26 +630,25 @@ export function CrudCatalogo({
                                 {titulo}
                             </Title>
                         </Group>
-                        <ActionIcon
-                            className={classes.addButtonUnified}
-                            onClick={openCreate}
-                            aria-label={`Agregar ${singular.toLowerCase()}`}
-                            size={42}
-                            radius="xl"
-                            color="apex"
-                            variant="filled"
-                        >
-                            <IconPlus size={20} stroke={2.5} />
-                        </ActionIcon>
+                        {permitirAgregar && (
+                            <ActionIcon
+                                className={classes.addButtonUnified}
+                                onClick={openCreate}
+                                aria-label={`Agregar ${singular.toLowerCase()}`}
+                                size={42}
+                                radius="xl"
+                                color="apex"
+                                variant="filled"
+                            >
+                                <IconPlus size={20} stroke={2.5} />
+                            </ActionIcon>
+                        )}
                     </div>
                 ) : (
                     <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
                 )}
                 {error && <div className={classes.error}>{error}</div>}
-                {loading && records.length === 0 ? (
-                    <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
-                ) : (
-                    <TablaRegistros
+                <TablaRegistros
                         data={tableData}
                         columns={columnas}
                         onEditar={permitirEditar ? openEdit : undefined}
@@ -600,8 +664,8 @@ export function CrudCatalogo({
                         initialSortDirection={initialSortDirection}
                         headerVariant={tableHeaderVariant}
                         pageSizeOptions={pageSizeOptions}
-                    />
-                )}
+                        filters={filtrosTabla}
+                />
             </div>
         </>
     );

@@ -2,10 +2,12 @@
 import classes from './Nueva.module.css';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../../scripts/services/api.js';
+import { resolverUrlImagen } from '../../../scripts/constantes.js';
 
 import {
     ActionIcon,
     Badge,
+    Box,
     Button,
     Card,
     Divider,
@@ -30,12 +32,18 @@ import {
     IconMinus,
     IconPlus,
     IconShoppingCart,
+    IconSearch,
     IconTrash,
     IconClock,
+    IconUser,
+    IconCreditCard,
+    IconPackage,
 } from '@tabler/icons-react';
+import { EncabezadoTabla } from '../../../components/TablaRegistros/TablaRegistros.jsx';
+import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { obtenerUsuarioActual } from '../../../scripts/constantes.js';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { obtenerVenta } from '../../../utils/ventaHelper/ventaHelpers.js';
 
 
 const channel = new BroadcastChannel('app_sync_channel');
@@ -48,14 +56,20 @@ function triggerUpdate(data) {
 }
 
 const normalizar = (lista) =>
-    (lista ?? []).map((x) => ({ ...x, precio: Number(x.precioVenta ?? x.precio) }));
+    (lista ?? []).map((x) => ({
+        ...x,
+        imagen: resolverUrlImagen(x.imagenUrl ?? x.imagen),
+        precio: Number(x.precioVenta ?? x.precio),
+    }));
 
 const obtenerLista = (respuesta) => {
-    if (Array.isArray(respuesta)) return respuesta;
-    if (Array.isArray(respuesta?.data)) return respuesta.data;
+    let contenido = respuesta;
+    while (!Array.isArray(contenido) && contenido?.data != null) {
+        contenido = contenido.data;
+    }
+    if (Array.isArray(contenido)) return contenido;
     throw new Error('El servidor devolvió un formato de catálogo no válido.');
 };
-
 
     const redondear = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
@@ -78,31 +92,35 @@ function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
             className={classes.producto}
             onClick={() => agregarProducto({ ...producto, tipoItem })}
         >
-            <Card.Section>
-                <Image
-                    src={producto.imagen}
-                    height={130}
-                    alt={producto.nombre}
-                />
+            <Card.Section className={!producto.imagen ? classes.productoImagenFallback : undefined}>
+                {producto.imagen && (
+                    <Image
+                        src={producto.imagen}
+                        height={170}
+                        alt={producto.nombre}
+                        className={classes.productoImagen}
+                    />
+                )}
             </Card.Section>
 
             <Stack gap={5} mt="sm">
 
                 <Group justify="space-between" align="flex-start">
-                    <Text fw={650} size="md"
+                    <Text fw={650} size="md" lineClamp={2} className={classes.productoNombre}
                         variant='gradient' gradient={{ from: 'orange', to: 'orange', deg: 0 }}
                     >
                         {producto.nombre}
                     </Text>
                 </Group>
 
-                <Text variant="gradient"
+                <Text className={classes.productoPrecio} variant="gradient"
                     gradient={{ from: 'green', to: 'green', deg: 0 }} fw={700} size="md">
                     <NumberFormatter
                         prefix="$"
                         value={producto.precio}
                         thousandSeparator
                         decimalScale={2}
+                        fixedDecimalScale
                     />
                 </Text>
             </Stack>
@@ -110,31 +128,76 @@ function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
     );
 }
 
-function ListaProductos({ productos, tipoItem, agregarProducto }) {
+function normalizarTextoBusqueda(valor) {
+    return String(valor ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase()
+        .trim();
+}
+
+function ListaProductos({
+    productos,
+    tipoItem,
+    agregarProducto,
+    busqueda,
+    ordenCatalogo,
+}) {
+    const termino = normalizarTextoBusqueda(busqueda);
+    const productosFiltrados = productos
+        .filter((producto) => {
+            const coincideBusqueda = !termino
+                || [producto.nombre, producto.codigoBarras]
+                    .some((valor) => normalizarTextoBusqueda(valor).includes(termino));
+            return coincideBusqueda;
+        })
+        .sort((a, b) => {
+            if (ordenCatalogo === 'nombre-asc') {
+                return normalizarTextoBusqueda(a.nombre).localeCompare(normalizarTextoBusqueda(b.nombre));
+            }
+            if (ordenCatalogo === 'nombre-desc') {
+                return normalizarTextoBusqueda(b.nombre).localeCompare(normalizarTextoBusqueda(a.nombre));
+            }
+            if (ordenCatalogo === 'precio-asc') return a.precio - b.precio;
+            if (ordenCatalogo === 'precio-desc') return b.precio - a.precio;
+            return 0;
+        });
+
     return (
-        <ScrollArea h="calc(100vh - 230px)" offsetScrollbars>
-            <SimpleGrid
-                cols={{
-                    base: 1,
-                    sm: 2,
-                    md: 3,
-                    lg: 5,
-                }}
-                spacing="md"
-                pr="sm"
-            >
-                {productos.map((producto) => (
-                          <TarjetaProducto key={producto.id} producto={producto} tipoItem={tipoItem} agregarProducto={agregarProducto} />
-                ))}
-            </SimpleGrid>
+        <ScrollArea className={classes.listaProductos} h="100%" offsetScrollbars>
+            {productosFiltrados.length > 0 ? (
+                <SimpleGrid
+                    cols={{
+                        base: 1,
+                        sm: 2,
+                        md: 3,
+                        lg: 5,
+                    }}
+                    spacing="md"
+                    pr="sm"
+                >
+                    {productosFiltrados.map((producto) => (
+                        <TarjetaProducto key={producto.id} producto={producto} tipoItem={tipoItem} agregarProducto={agregarProducto} />
+                    ))}
+                </SimpleGrid>
+            ) : (
+                <div className={classes.catalogoVacio}>
+                    <IconPackage size={88} stroke={1.35} aria-hidden="true" />
+                    <Text fw={700}>
+                    {termino
+                        ? 'No se encontraron artículos con esos filtros.'
+                        : 'No hay artículos disponibles.'}
+                    </Text>
+                </div>
+            )}
         </ScrollArea>
     );
 }
 
-function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar, cobrando,
+function Ticket({productos, sumar, restar, eliminarProducto, eliminarTicket, cambiarCaja, cajaActual, onCobrar, cobrando,
     clientes, metodosPago, aperturaAsignada,
-    aperturaCajaId, clienteId, setClienteId, metodoPago, setMetodoPago,
-    modoEdicion, cargandoVenta, cargaFallida}) {
+    clienteId, setClienteId, metodoPago, setMetodoPago,
+    asignacionValida}) {
     const { subtotal, iva, total } = calcularMontos(productos);
    
     return (
@@ -151,22 +214,31 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
                     className={classes.ticketHeader}
                 >
                     <Group gap="sm">
-                        <IconShoppingCart size={22} />
+                        <IconShoppingCart size={22} className={classes.ticketIcono} />
 
                         <div>
-                            <Title order={4}>
+                            <Title order={4} className={classes.ticketTitulo}>
                                 Ticket actual
                             </Title>
 
-                            <Text size="xs" c="dimmed">
+                            <Text size="xs" className={classes.ticketConteo}>
                                 Productos ({productos.length})
                             </Text>
                         </div>
                     </Group>
-                    <select onChange={(e) => cambiarCaja(Number(e.target.value))}>
-                        <option value={1}>Canal 1</option>
-                        <option value={2}>Canal 2</option>
-                    </select>
+                    <Select
+                        aria-label="Canal de venta"
+                        className={classes.selectorCaja}
+                        size="xs"
+                        value={String(cajaActual)}
+                        onChange={(value) => value && cambiarCaja(Number(value))}
+                        data={[
+                            { value: '1', label: 'Canal 1' },
+                            { value: '2', label: 'Canal 2' },
+                        ]}
+                        comboboxProps={{ zIndex: 1100 }}
+                        allowDeselect={false}
+                    />
                     <ActionIcon
                         variant="subtle"
                         color="red"
@@ -184,23 +256,38 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
 
                         {productos.map((producto) => (
                             <Paper
-                            key={producto.id +producto.tipoItem}
+                                key={producto.id + producto.tipoItem}
                                 p="sm"
                                 radius="sm"
                                 withBorder
+                                className={classes.ticketProducto}
                             >
                                 <Group justify="space-between">
-                                    <div>
-                                        <Text size="sm" fw={600}>
-                                            {producto.nombre}
-                                        </Text>
+                                    <Group gap="sm" wrap="nowrap" className={classes.ticketProductoInfo}>
+                                        <Box className={classes.ticketImagen}>
+                                            {producto.imagen ? (
+                                                <Image
+                                                    src={producto.imagen}
+                                                    alt={producto.nombre}
+                                                    w={60}
+                                                    h={60}
+                                                    fit="cover"
+                                                />
+                                            ) : (
+                                                <IconBottle size={22} />
+                                            )}
+                                        </Box>
+                                        <Box className={classes.ticketProductoTexto}>
+                                            <Text size="md" fw={650} lineClamp={2}>
+                                                {producto.nombre}
+                                            </Text>
+                                            <Text size="sm" c="dimmed">
+                                                ${producto.precio} c/u
+                                            </Text>
+                                        </Box>
+                                    </Group>
 
-                                        <Text size="xs" c="dimmed">
-                                            ${producto.precio} c/u
-                                        </Text>
-                                    </div>
-
-                                    <Group gap={4}>
+                                    <Group gap={4} wrap="nowrap">
                                         <ActionIcon
                                             size="sm"
                                             variant="light"
@@ -209,7 +296,7 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
                                             <IconMinus size={14} />
                                         </ActionIcon>
 
-                                        <Text size="sm" fw={600}>
+                                        <Text className={classes.cantidadProducto} size="sm" fw={600}>
                                             {producto.cantidad}
                                         </Text>
 
@@ -220,6 +307,16 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
                                         >
                                             <IconPlus size={14} />
                                         </ActionIcon>
+                                        <ActionIcon
+                                            size="sm"
+                                            variant="subtle"
+                                            color="red"
+                                            aria-label={`Eliminar ${producto.nombre} del ticket`}
+                                            title="Eliminar del ticket"
+                                            onClick={() => eliminarProducto(producto)}
+                                        >
+                                            <IconTrash size={15} />
+                                        </ActionIcon>
                                     </Group>
                                 </Group>
                             </Paper>
@@ -229,32 +326,23 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
 
                 <Divider />
 
-                <Stack p="md" gap="xs">
+                <Stack p="md" gap="xs" className={classes.ticketFooter}>
 
-                    {!modoEdicion && (
-                        <>
-                            <TextInput
-                                label="Caja de apertura asignada"
-                                value={aperturaAsignada?.label ?? 'No hay caja abierta asignada a tu usuario'}
-                                readOnly
-                            />
-                            <Select
-                                label="Cliente"
-                                placeholder="Selecciona cliente"
-                                searchable
-                                disabled={clientes.length === 0}
-                                value={clienteId}
-                                onChange={setClienteId}
-                                comboboxProps={{ zIndex: 1000 }}
-                                data={clientes.map((c) => ({
-                                    value: String(c.id),
-                                    label: [c.nombre, c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(' '),
-                                }))}
-                            />
-                        </>
-                    )}
                     <Select
-                        label="Método de pago"
+                        label={<span className={classes.selectLabel}><IconUser size={18} />Cliente</span>}
+                        placeholder="Selecciona cliente"
+                        searchable
+                        disabled={clientes.length === 0}
+                        value={clienteId}
+                        onChange={setClienteId}
+                        comboboxProps={{ zIndex: 1000 }}
+                        data={clientes.map((c) => ({
+                            value: String(c.id),
+                            label: [c.nombre, c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(' '),
+                        }))}
+                    />
+                    <Select
+                        label={<span className={classes.selectLabel}><IconCreditCard size={18} />Método de pago</span>}
                         placeholder="Selecciona método de pago"
                         disabled={metodosPago.length === 0}
                         value={metodoPago}
@@ -262,71 +350,43 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
                         comboboxProps={{ zIndex: 1000 }}
                         data={metodosPago.map((m) => ({ value: String(m.id), label: m.nombre }))}
                     />
-                    <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                            Subtotal
-                        </Text>
-
-                        <Text fw={500}>
-                            <NumberFormatter
-                                prefix="$"
-                                thousandSeparator=","
-                                decimalScale={2}
-                                fixedDecimalScale
-                                value={subtotal}
-                            />
-                        </Text>
-                    </Group>
-
-                    <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                            IVA
-                        </Text>
-
-                        <Text fw={500}>
-                            <NumberFormatter
-                                prefix="$"
-                                thousandSeparator=","
-                                decimalScale={2}
-                                fixedDecimalScale
-                                value={iva}
-                            />
-                        </Text>
-                    </Group>
-
-                    <Divider my="xs" />
-
-                    <Group justify="space-between">
-                        <Text fw={700} size="lg">
-                            Total
-                        </Text>
-
-                        <Text fw={800} size="xl">
-                            <NumberFormatter
-                                prefix="$"
-                                thousandSeparator=","
-                                decimalScale={2}
-                                fixedDecimalScale
-                                value={total}
-                            />
-                        </Text>
-                    </Group>
+                    <div className={classes.resumenMontos}>
+                        <Group justify="space-between" className={classes.resumenFila}>
+                            <Text size="sm">Subtotal</Text>
+                            <Text fw={600}>
+                                <NumberFormatter prefix="$" thousandSeparator="," decimalScale={2} fixedDecimalScale value={subtotal} />
+                            </Text>
+                        </Group>
+                        <Group justify="space-between" className={classes.resumenFila}>
+                            <Text size="sm">IVA (16%)</Text>
+                            <Text fw={600}>
+                                <NumberFormatter prefix="$" thousandSeparator="," decimalScale={2} fixedDecimalScale value={iva} />
+                            </Text>
+                        </Group>
+                        <Group justify="space-between" className={classes.ticketTotal}>
+                            <Text fw={750} size="lg">Total</Text>
+                            <Text fw={800} size="xl">
+                                <NumberFormatter prefix="$" thousandSeparator="," decimalScale={2} fixedDecimalScale value={total} />
+                            </Text>
+                        </Group>
+                    </div>
 
                     <Button
-    size="md"
+                    className={classes.botonCobrar}
+                    size="md"
     fullWidth
     mt="xs"
-    loading={cobrando || cargandoVenta}
+    loading={cobrando}
     onClick={onCobrar}
     disabled={
         productos.length === 0
-        || cargandoVenta
-        || cargaFallida
-        || (!modoEdicion && (!aperturaCajaId || !clienteId || !metodoPago))
+        || !asignacionValida
+        || !clienteId
+        || !metodoPago
     }
     leftSection={<IconCash size={19} />}
 >
-    {modoEdicion ? 'Guardar cambios' : 'Cobrar'}
+    Cobrar
 </Button>
                 </Stack>
             </Stack>
@@ -336,25 +396,28 @@ function Ticket({productos, sumar, restar, eliminarTicket, cambiarCaja, onCobrar
 
 
 
-export function Nueva({ modoEdicion = false }) {
-
-    const { ventaId } = useParams();
+export function Nueva() {
     const navigate = useNavigate();
     const [hora, setHora] = useState('');
+    const [ventaCreada, setVentaCreada] = useState(null);
     const [listaProductos, setListaProductos] = useState([]);
     const [listaCaja1, setCaja1] = useState([]);
     const [listaCaja2, setCaja2] = useState([]);
+    const [cajaActual, setCajaActual] = useState(1);
+    const [tabCatalogo, setTabCatalogo] = useState('productos');
+    const [busquedaCatalogo, setBusquedaCatalogo] = useState('');
+    const [ordenCatalogo, setOrdenCatalogo] = useState(null);
 
-    const [aperturaAsignada, setAperturaAsignada] = useState(null);
     const [clientes, setClientes] = useState([]);
     const [metodosPago, setMetodosPago] = useState([]);
-    const [aperturaCajaId, setAperturaCajaId] = useState(null);
     const { state } = useLocation();
-    const [clienteId, setClienteId] = useState(state?.clienteId != null ? String(state.clienteId) : null);
-    const [metodoPago, setMetodoPago] = useState(state?.clienteId != null ? String(state.metodoPagoId) : null);
+    const empleadoId = state?.empleadoId != null ? String(state.empleadoId) : null;
+    const [aperturaAsignada, setAperturaAsignada] = useState(null);
+    const aperturaCajaId = state?.aperturaCajaId != null ? String(state.aperturaCajaId) : null;
+    const [asignacionValida, setAsignacionValida] = useState(false);
+    const [clienteId, setClienteId] = useState(null);
+    const [metodoPago, setMetodoPago] = useState(null);
     const [cobrando, setCobrando] = useState(false);
-    const [cargandoVenta, setCargandoVenta] = useState(modoEdicion);
-    const [cargaFallida, setCargaFallida] = useState(false);
 
     const [productos, setProductos] = useState([]);
     const [servicios, setServicios] = useState([]);
@@ -362,7 +425,6 @@ export function Nueva({ modoEdicion = false }) {
 
     useEffect(() => {
         const cargar = async () => {
-            const usuarioActual = obtenerUsuarioActual();
             const resultados = await Promise.allSettled([
                 api.aperturaCaja.obtenerTodos(),
                 api.empleado.obtenerTodos(),
@@ -400,130 +462,69 @@ export function Nueva({ modoEdicion = false }) {
                 }
             });
 
-            const [aperturas, empleados, listaDeClientes, listaDeMetodos, listaDeProductos, listaDeServicios, listaDeMembresias] = listas;
+            const [
+                aperturas,
+                empleados,
+                listaDeClientes,
+                listaDeMetodos,
+                listaDeProductos,
+                listaDeServicios,
+                listaDeMembresias,
+            ] = listas;
             if (listaDeClientes) setClientes(listaDeClientes);
             if (listaDeMetodos) setMetodosPago(listaDeMetodos);
             if (listaDeProductos) setProductos(normalizar(listaDeProductos));
             if (listaDeServicios) setServicios(normalizar(listaDeServicios));
             if (listaDeMembresias) setMembresias(normalizar(listaDeMembresias));
 
-            if (aperturas && empleados && !modoEdicion) {
-                const usuarioIdActual =
-                    usuarioActual?.id ?? usuarioActual?.usuarioId ?? usuarioActual?.usuario?.id;
-                const usuarioId = Number(usuarioIdActual);
-                const empleado = usuarioActual?.empleado
-                    ?? (usuarioIdActual != null
-                        ? empleados.find((registro) =>
-                            Number(registro.usuarioId ?? registro.usuario?.id) === usuarioId
-                        )
-                        : null);
+            if (aperturas && empleados && empleadoId && aperturaCajaId) {
+                const apertura = aperturas.find(
+                    (registro) => String(registro.id) === String(aperturaCajaId)
+                );
+                const empleado = empleados.find(
+                    (registro) => String(registro.id) === String(empleadoId)
+                );
+                const aperturaEmpleadoId = apertura?.empleadoId ?? apertura?.empleado?.id;
 
-                if (!empleado?.id) {
-                    notifications.show({
-                        color: 'red',
-                        message: 'Tu usuario no está asociado a un empleado; no se puede asignar una caja.',
+                if (
+                    String(apertura?.estado).toUpperCase() === 'ABIERTA'
+                    && empleado
+                    && String(aperturaEmpleadoId) === String(empleado.id)
+                ) {
+                    const nombreEmpleado = [
+                        empleado.nombre,
+                        empleado.apellidoPaterno,
+                        empleado.apellidoMaterno,
+                    ].filter(Boolean).join(' ');
+                    setAsignacionValida(true);
+                    setAperturaAsignada({
+                        label: `${apertura.caja?.nombre ?? `Caja #${apertura.cajaId ?? '—'}`} — ${nombreEmpleado} — Apertura #${apertura.id}`,
                     });
                 } else {
-                    const aperturasEmpleado = aperturas.filter((apertura) =>
-                        apertura.estado === 'ABIERTA'
-                        && Number(apertura.empleadoId ?? apertura.empleado?.id) === Number(empleado.id)
-                    );
-
-                    if (aperturasEmpleado.length === 1) {
-                        const apertura = aperturasEmpleado[0];
-                        setAperturaAsignada({
-                            label: `Apertura ${apertura.id}${apertura.caja?.nombre ? ` - ${apertura.caja.nombre}` : ''}`,
-                        });
-                        setAperturaCajaId(String(apertura.id));
-                    } else {
-                        notifications.show({
-                            color: 'red',
-                            message: aperturasEmpleado.length === 0
-                                ? 'No tienes una caja abierta asignada a tu usuario.'
-                                : 'Tienes varias cajas abiertas asignadas. Contacta al administrador.',
-                        });
-                    }
-                }
-            }
-
-            try {
-                if (modoEdicion) {
-                    const respuestaVenta = await api.venta.obtenerPorId(ventaId);
-                    const venta = respuestaVenta?.data?.venta ?? respuestaVenta?.data ?? respuestaVenta;
-                    const detalles = venta.detalleVenta ?? venta.detalles;
-
-                    if (!Array.isArray(detalles)) {
-                        throw new Error('La venta no contiene un detalle válido.');
-                    }
-
-                    const catalogosPorTipo = {
-                        PRODUCTO: normalizar(listaDeProductos ?? []),
-                        SERVICIO: normalizar(listaDeServicios ?? []),
-                        MEMBRESIA: normalizar(listaDeMembresias ?? []),
-                    };
-                    const detalleCargado = detalles.map((detalle) => {
-                        const tipoItem = String(detalle.tipoItem ?? '').toUpperCase();
-                        const entidad = tipoItem === 'PRODUCTO'
-                            ? detalle.producto
-                            : tipoItem === 'SERVICIO'
-                                ? detalle.servicio
-                                : detalle.tipoMembresia ?? detalle.membresia;
-                        const id = detalle.productoId
-                            ?? detalle.servicioId
-                            ?? detalle.tipoMembresiaId
-                            ?? entidad?.id;
-                        const catalogo = catalogosPorTipo[tipoItem];
-                        const item = catalogo?.find((producto) => Number(producto.id) === Number(id));
-
-                        if (!tipoItem || !id || !item) {
-                            throw new Error('No se pudo identificar un artículo del detalle de la venta.');
-                        }
-
-                        return {
-                            ...item,
-                            tipoItem,
-                            cantidad: Number(detalle.cantidad),
-                            precio: Number(detalle.precioUnitario ?? detalle.precio ?? item.precio),
-                        };
+                    setAsignacionValida(false);
+                    notifications.show({
+                        color: 'red',
+                        message: 'La caja abierta ya no está disponible o no corresponde al empleado seleccionado.',
                     });
-
-                    setListaProductos(detalleCargado);
-                    setMetodoPago(
-                        venta.metodoPagoId != null
-                            ? String(venta.metodoPagoId)
-                            : venta.metodoPago?.id != null
-                                ? String(venta.metodoPago.id)
-                                : null
-                    );
                 }
-            } catch (error) {
-                if (modoEdicion) setCargaFallida(true);
-                notifications.show({
-                    color: 'red',
-                    message: [
-                        error.message || 'No se pudieron cargar los catálogos.',
-                        error.statusCode ? `(HTTP ${error.statusCode})` : null,
-                    ].filter(Boolean).join(' '),
-                });
-            } finally {
-                setCargandoVenta(false);
             }
+
         };
 
         cargar();
-    }, [modoEdicion, ventaId]);
+    }, [empleadoId, aperturaCajaId]);
     const cambiarCaja = (caja) => {
-        if (caja < 2) {
-            console.log("Caja 1")
-            setCaja1(listaProductos)
-            setListaProductos(listaCaja2)
+        if (caja === cajaActual) return;
+
+        if (cajaActual === 1) {
+            setCaja1(listaProductos);
+        } else {
+            setCaja2(listaProductos);
         }
-        else {
-            console.log("Caja 2")
-            setCaja2(listaProductos)
-            setListaProductos(listaCaja1)
-        }
-    }
+
+        setListaProductos(caja === 1 ? listaCaja1 : listaCaja2);
+        setCajaActual(caja);
+    };
 
     useEffect(() => {
         triggerUpdate(listaProductos);
@@ -570,13 +571,15 @@ export function Nueva({ modoEdicion = false }) {
         })
     }
 
-    const cobrar = async () => {
-    if ((!modoEdicion && (!aperturaCajaId || !clienteId)) || !metodoPago || listaProductos.length === 0) {
-        notifications.show({
-            color: 'yellow',
-            message: modoEdicion
-                ? 'Selecciona un método de pago y agrega artículos al ticket.'
-                : 'Selecciona apertura, cliente y método de pago; agrega productos al ticket.',
+        const cobrar = async () => {
+        if (
+            (!asignacionValida || !empleadoId || !aperturaCajaId || !clienteId)
+            || !metodoPago
+            || listaProductos.length === 0
+        ) {
+            notifications.show({
+                color: 'yellow',
+                message: 'Se requiere una caja abierta, cliente y método de pago.',
         });
         return;
     }
@@ -599,28 +602,59 @@ export function Nueva({ modoEdicion = false }) {
     setCobrando(true);
 
     try {
-        if (modoEdicion) {
-            await api.venta.actualizarVenta(Number(ventaId), Number(metodoPago), subtotal, total, detalleVenta);
-        } else {
-            await api.venta.crearVenta({
-                aperturaCajaId: Number(aperturaCajaId),
-                clienteId: Number(clienteId),
-                metodoPagoId: Number(metodoPago),
-                subtotal,
-                total,
-                detalleVenta
-            });
-        }
+        const respuesta = await api.venta.crearVenta({
+            empleadoId: Number(empleadoId),
+            aperturaCajaId: Number(aperturaCajaId),
+            clienteId: Number(clienteId),
+            metodoPagoId: Number(metodoPago),
+            subtotal,
+            total,
+            detalleVenta
+        });
 
+        const registro = obtenerVenta(respuesta) ?? {};
+        const detalleRegistrado = Array.isArray(registro.detalleVenta)
+            ? registro.detalleVenta
+            : listaProductos.map((item) => {
+                const detalle = detalleVenta.find((linea) =>
+                    String(linea.tipoItem ?? '').toUpperCase() === item.tipoItem &&
+                    String(linea.productoId ?? linea.servicioId ?? linea.tipoMembresiaId) === String(item.id)
+                );
+                return {
+                    ...detalle,
+                    articuloNombre: item.nombre,
+                    cantidad: item.cantidad,
+                    precioUnitario: Number(item.precio),
+                    subtotal: redondear(Number(item.precio) * item.cantidad),
+                    tipoItem: item.tipoItem,
+                };
+            });
+        setVentaCreada({
+            ...registro,
+            cliente: registro.cliente ?? clientes.find((cliente) => String(cliente.id) === clienteId),
+            empleado: registro.empleado ?? {
+                nombre: aperturaAsignada?.label?.split(' — ')[1] ?? 'Empleado',
+            },
+            aperturaCaja: registro.aperturaCaja ?? {
+                id: Number(aperturaCajaId),
+                caja: { nombre: aperturaAsignada?.label?.split(' — ')[0] ?? 'Caja' },
+            },
+            metodoPago: registro.metodoPago ?? metodosPago.find((metodo) => String(metodo.id) === metodoPago),
+            detalleVenta: detalleRegistrado,
+            subtotal: registro.subtotal ?? subtotal,
+            total: registro.total ?? total,
+            createdAt: registro.createdAt ?? new Date().toISOString(),
+            estado: registro.estado ?? 'completada',
+        });
+        setClienteId(null);
+        setMetodoPago(null);
+        setCaja1([]);
+        setCaja2([]);
         notifications.show({
             color: 'green',
-            message: modoEdicion ? 'Venta actualizada correctamente.' : 'Venta creada correctamente.',
+            message: 'Venta creada correctamente.',
         });
-        if (modoEdicion) {
-            navigate('/registro-de-ventas');
-        } else {
-            setListaProductos([]);
-        }
+        setListaProductos([]);
     } catch (error) {
         notifications.show({
             color: 'red',
@@ -653,83 +687,114 @@ export function Nueva({ modoEdicion = false }) {
         setListaProductos([]);
     }
 
+    const eliminarProducto = (producto) => {
+        setListaProductos((listaAnterior) => listaAnterior.filter((item) =>
+            !(item.id === producto.id && item.tipoItem === producto.tipoItem)
+        ));
+    };
+
     return (
         <div className={classes.principal}>
-            <div>
-                <Group
-                    justify="space-between"
-                    mb="md"
-                    align="flex-end"
-                    className={classes.header}
-                >
-                    <div>
-                        <Title order={2}>{modoEdicion ? `Editar venta #${ventaId}` : 'ApexGym'}</Title>
-                    </div>
-                    <div>
-                        <Title order={2}>
-                            Caja 1
-                        </Title>
-                    </div>
-
-                    <Badge
-                        size="lg"
-                        variant="light"
-                        leftSection={<IconClock size={15} />}
-                    >
-                        {hora}
-                    </Badge>
-                </Group>
-
+            <div className={classes.header}>
+                <EncabezadoTabla
+                    title="Nueva venta"
+                    icon={IconShoppingCart}
+                    rightContent={(
+                        <>
+                            <Title order={4}>Caja {cajaActual}</Title>
+                            <Badge size="lg" variant="light" leftSection={<IconClock size={15} />}>
+                                {hora}
+                            </Badge>
+                        </>
+                    )}
+                />
+            </div>
+            <div className={classes.catalogoLayout}>
                 <div className={classes.catalogo}>
                     <Paper
                         withBorder
                         radius="md"
                         p="md"
-                        className={classes.catalogo}
+                        className={classes.catalogoPaper}
                     >
                         <Tabs
-                            defaultValue="productos"
+                            value={tabCatalogo}
+                            onChange={setTabCatalogo}
                             variant="pills"
+                            className={classes.tabs}
                         >
-                            <Tabs.List mb="md">
-                                <Tabs.Tab
-                                    value="productos"
-                                    leftSection={
-                                        <IconBottle size={17} />
-                                    }
-                                >
-                                    Productos
-                                </Tabs.Tab>
+                            <div className={classes.catalogoToolbar}>
+                                <Tabs.List className={classes.tabsList}>
+                                    <Tabs.Tab
+                                        value="productos"
+                                        leftSection={
+                                            <IconBottle size={17} />
+                                        }
+                                    >
+                                        Productos
+                                    </Tabs.Tab>
 
-                                <Tabs.Tab
-                                    value="servicios"
-                                    leftSection={
-                                        <IconCash size={17} />
-                                    }
-                                >
-                                    Servicios
-                                </Tabs.Tab>
+                                    <Tabs.Tab
+                                        value="servicios"
+                                        leftSection={
+                                            <IconCash size={17} />
+                                        }
+                                    >
+                                        Servicios
+                                    </Tabs.Tab>
 
-                                <Tabs.Tab
-                                    value="membresias"
-                                    leftSection={
-                                        <IconClipboardList size={17} />
-                                    }
-                                >
-                                    Membresias
-                                </Tabs.Tab>
-                            </Tabs.List>
+                                    <Tabs.Tab
+                                        value="membresias"
+                                        leftSection={
+                                            <IconClipboardList size={17} />
+                                        }
+                                    >
+                                        Membresias
+                                    </Tabs.Tab>
+                                </Tabs.List>
+                                <TextInput
+                                    aria-label="Buscar artículos por nombre o código de barras"
+                                    className={classes.busquedaCatalogo}
+                                    placeholder="Buscar por nombre o código de barras..."
+                                    leftSection={<IconSearch size={17} />}
+                                    value={busquedaCatalogo}
+                                    onChange={(event) => setBusquedaCatalogo(event.currentTarget.value)}
+                                />
+                                <div className={classes.filtrosCatalogo}>
+                                <Select
+                                    aria-label="Ordenar catálogo"
+                                    className={classes.filtroCatalogo}
+                                    placeholder="Ordenar por"
+                                    data={[
+                                        { value: 'nombre-asc', label: 'Nombre: A-Z' },
+                                        { value: 'nombre-desc', label: 'Nombre: Z-A' },
+                                        { value: 'precio-asc', label: 'Precio: menor a mayor' },
+                                        { value: 'precio-desc', label: 'Precio: mayor a menor' },
+                                    ]}
+                                    value={ordenCatalogo}
+                                    onChange={setOrdenCatalogo}
+                                    comboboxProps={{ zIndex: 1100 }}
+                                    clearable
+                                />
+                                </div>
+                            </div>
 
-                           <Tabs.Panel value="productos">
-                                <ListaProductos tipoItem="PRODUCTO" productos={productos} agregarProducto={agregarProducto} />
+                           <Tabs.Panel value="productos" className={classes.tabsPanel}>
+                                <ListaProductos
+                                    tipoItem="PRODUCTO"
+                                    productos={productos}
+                                    agregarProducto={agregarProducto}
+                                    busqueda={busquedaCatalogo}
+                                    ordenCatalogo={ordenCatalogo}
+                                />
                             </Tabs.Panel>
 
-                            <Tabs.Panel value="servicios">
-                                <ListaProductos tipoItem="SERVICIO" productos={servicios} agregarProducto={agregarProducto} />
+                            <Tabs.Panel value="servicios" className={classes.tabsPanel}>
+                                <ListaProductos tipoItem="SERVICIO" productos={servicios} agregarProducto={agregarProducto} busqueda={busquedaCatalogo} ordenCatalogo={ordenCatalogo} />
                             </Tabs.Panel>
 
-                            <Tabs.Panel value="membresias">
-                                <ListaProductos tipoItem="MEMBRESIA" productos={membresias} agregarProducto={agregarProducto} />
+                            <Tabs.Panel value="membresias" className={classes.tabsPanel}>
+                                <ListaProductos tipoItem="MEMBRESIA" productos={membresias} agregarProducto={agregarProducto} busqueda={busquedaCatalogo} ordenCatalogo={ordenCatalogo} />
                             </Tabs.Panel>
                         </Tabs>
                     </Paper>
@@ -738,19 +803,33 @@ export function Nueva({ modoEdicion = false }) {
             <Ticket  productos={listaProductos}
     sumar={sumar}
     restar={restar}
+    eliminarProducto={eliminarProducto}
     eliminarTicket={eliminarTicket}
     cambiarCaja={cambiarCaja}
+    cajaActual={cajaActual}
     onCobrar={cobrar}
     cobrando={cobrando}
-    aperturaAsignada={aperturaAsignada}
     clientes={clientes}
     metodosPago={metodosPago}
-    aperturaCajaId={aperturaCajaId}
+    aperturaAsignada={aperturaAsignada}
+    asignacionValida={asignacionValida}
     clienteId={clienteId} setClienteId={setClienteId}
     metodoPago={metodoPago} setMetodoPago={setMetodoPago}
-    modoEdicion={modoEdicion}
-    cargandoVenta={cargandoVenta}
-    cargaFallida={cargaFallida}></Ticket>
+    ></Ticket>
+            {ventaCreada && (
+                <ExportarDocumento
+                    crearDocumento={async () => {
+                        const { default: DocumentoTicketVenta } = await import(
+                            '../../../documents/DocumentoTicketVenta.jsx'
+                        );
+                        return <DocumentoTicketVenta venta={ventaCreada} />;
+                    }}
+                    nombreArchivo={`ticket-${ventaCreada.folioVentaId ?? ventaCreada.id}.pdf`}
+                    abrirAlMontar
+                    ocultarBoton
+                    onClose={() => setVentaCreada(null)}
+                />
+            )}
         </div>
     );
 

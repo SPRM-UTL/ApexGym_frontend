@@ -49,43 +49,14 @@ async crearVenta(datosVenta) {
         }
     }
 
-    async actualizarVenta(id, metodoPagoId, subtotal, total, detalleVenta) {
-
-        
+    async eliminar(id, motivoCancelacion) {
         try {
-            const datos = {};
-
-            if (metodoPagoId !== undefined) {
-                datos.metodoPagoId = metodoPagoId;
-            }
-
-
-            if (detalleVenta !== undefined) {
-                datos.detalleVenta = detalleVenta;
-                datos.subtotal = subtotal;
-                datos.total = total;
-            }
-
-            const response = await httpClient.put(
-                `${this.urlApi}/${id}`,
-                datos
-            );
-
-            return response.data;
-        } catch (error) {
-            throw new ResponseModel(
-                error.response?.data || null,
-                1,
-                error.response?.data?.message || 'Error al actualizar la venta',
-                error.response?.status || 500
-            );
-        }
-    }
-
-    async eliminar(id) {
-        try {
+            const config = motivoCancelacion
+                ? { data: { motivoCancelacion } }
+                : undefined;
             const response = await httpClient.delete(
-                `${this.urlApi}/${id}`
+                `${this.urlApi}/${id}`,
+                config
             );
 
             return response.data;
