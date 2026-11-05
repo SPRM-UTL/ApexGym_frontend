@@ -3,15 +3,11 @@ import {
     Alert,
     Badge,
     Button,
-    ColorInput,
     Divider,
     Grid,
     Group,
     Loader,
-    NumberInput,
     Paper,
-    Stack,
-    Switch,
     Tabs,
     Text,
     Textarea,
@@ -26,7 +22,6 @@ import {
     IconClock,
     IconDeviceFloppy,
     IconMapPin,
-    IconPalette,
     IconReceipt2,
     IconRefresh,
 } from '@tabler/icons-react';
@@ -65,18 +60,11 @@ export function Empresa() {
                 return 'Ingresa un correo electrónico válido';
             }
         }
-        if (key === 'toleranciaMinutos') {
-            const num = Number(value);
-            if (isNaN(num) || num < 0 || num > 240) {
-                return 'La tolerancia debe estar entre 0 y 240 minutos';
-            }
-        }
         return null;
     };
 
     const handleChange = (key, value) => {
         setForm((prev) => ({ ...prev, [key]: value }));
-        // Si ya hubo interacción previa, actualizar el estado de error de inmediato para recuperar sin fricción
         if (touched[key] || errors[key]) {
             const errorMsg = validarCampo(key, value);
             setErrors((prev) => ({ ...prev, [key]: errorMsg }));
@@ -91,13 +79,13 @@ export function Empresa() {
 
     const validarTodo = () => {
         const nuevosErrores = {};
-        for (const campo of ['nombreComercial', 'email', 'toleranciaMinutos']) {
+        for (const campo of ['nombreComercial', 'email']) {
             const err = validarCampo(campo, form[campo]);
             if (err) {
                 nuevosErrores[campo] = err;
             }
         }
-        setTouched({ nombreComercial: true, email: true, toleranciaMinutos: true });
+        setTouched({ nombreComercial: true, email: true });
         setErrors(nuevosErrores);
         return Object.keys(nuevosErrores).length === 0;
     };
@@ -193,11 +181,9 @@ export function Empresa() {
                         <Tabs.Tab value="operacion" leftSection={<IconClock size={16} />}>
                             Operación, Moneda y Tickets
                         </Tabs.Tab>
-                        <Tabs.Tab value="marca" leftSection={<IconPalette size={16} />}>
-                            Marca y Personalización
-                        </Tabs.Tab>
                     </Tabs.List>
 
+                    {/* Tab 1: Identidad Fiscal y Comercial */}
                     <Tabs.Panel value="identidad">
                         <Grid gutter="md">
                             <Grid.Col span={{ base: 12, md: 6 }}>
@@ -220,7 +206,7 @@ export function Empresa() {
                                     onChange={(e) => handleChange('razonSocial', e.currentTarget.value)}
                                 />
                             </Grid.Col>
-                            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                            <Grid.Col span={{ base: 12, md: 6 }}>
                                 <TextInput
                                     label="RFC"
                                     placeholder="Ej. APX260101AAA"
@@ -228,19 +214,10 @@ export function Empresa() {
                                     onChange={(e) => handleChange('rfc', e.currentTarget.value.toUpperCase())}
                                 />
                             </Grid.Col>
-                            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                                <Switch
-                                    mt="xl"
-                                    size="md"
-                                    color="orange"
-                                    label="Empresa activa para operaciones"
-                                    checked={Boolean(form.activo)}
-                                    onChange={(e) => handleChange('activo', e.currentTarget.checked)}
-                                />
-                            </Grid.Col>
                         </Grid>
                     </Tabs.Panel>
 
+                    {/* Tab 2: Contacto y Ubicación */}
                     <Tabs.Panel value="ubicacion">
                         <Grid gutter="md">
                             <Grid.Col span={{ base: 12, md: 6 }}>
@@ -303,43 +280,9 @@ export function Empresa() {
                         </Grid>
                     </Tabs.Panel>
 
+                    {/* Tab 3: Operación, Moneda y Tickets */}
                     <Tabs.Panel value="operacion">
                         <Grid gutter="md">
-                            <Grid.Col span={{ base: 12, sm: 4 }}>
-                                <TextInput
-                                    label="Moneda (ISO)"
-                                    placeholder="MXN"
-                                    value={form.moneda ?? 'MXN'}
-                                    onChange={(e) => handleChange('moneda', e.currentTarget.value.toUpperCase())}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={{ base: 12, sm: 4 }}>
-                                <TextInput
-                                    label="Símbolo de Moneda"
-                                    placeholder="$"
-                                    value={form.simboloMoneda ?? '$'}
-                                    onChange={(e) => handleChange('simboloMoneda', e.currentTarget.value)}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={{ base: 12, sm: 4 }}>
-                                <TextInput
-                                    label="Zona Horaria"
-                                    placeholder="America/Mexico_City"
-                                    value={form.zonaHoraria ?? 'America/Mexico_City'}
-                                    onChange={(e) => handleChange('zonaHoraria', e.currentTarget.value)}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={{ base: 12, sm: 6 }}>
-                                <NumberInput
-                                    label="Tolerancia de Acceso / Membresía (minutos)"
-                                    min={0}
-                                    max={240}
-                                    value={form.toleranciaMinutos ?? 15}
-                                    error={touched.toleranciaMinutos ? errors.toleranciaMinutos : null}
-                                    onBlur={() => handleBlur('toleranciaMinutos')}
-                                    onChange={(val) => handleChange('toleranciaMinutos', val)}
-                                />
-                            </Grid.Col>
                             <Grid.Col span={{ base: 12 }}>
                                 <Textarea
                                     label="Mensaje en Pie de Ticket / Reporte de Corte PDF"
@@ -348,29 +291,6 @@ export function Empresa() {
                                     leftSection={<IconReceipt2 size={16} />}
                                     value={form.mensajeTicket ?? ''}
                                     onChange={(e) => handleChange('mensajeTicket', e.currentTarget.value)}
-                                />
-                            </Grid.Col>
-                        </Grid>
-                    </Tabs.Panel>
-
-                    <Tabs.Panel value="marca">
-                        <Grid gutter="md">
-                            <Grid.Col span={{ base: 12, md: 6 }}>
-                                <ColorInput
-                                    label="Color Primario Institucional"
-                                    placeholder="#FF6A00"
-                                    format="hex"
-                                    swatches={['#FF6A00', '#E8590C', '#1B1F3A', '#1971C2', '#2B8A3E', '#C92A2A']}
-                                    value={form.colorPrimario ?? '#FF6A00'}
-                                    onChange={(val) => handleChange('colorPrimario', val)}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={{ base: 12, md: 6 }}>
-                                <TextInput
-                                    label="URL o Data URI del Logotipo"
-                                    placeholder="https://... o dejar vacío para logotipo oficial por defecto"
-                                    value={form.logoUrl ?? ''}
-                                    onChange={(e) => handleChange('logoUrl', e.currentTarget.value)}
                                 />
                             </Grid.Col>
                         </Grid>

@@ -23,6 +23,7 @@ import { ClienteMembresiaService } from './ClienteMembresiaService.js';
 import { MetodosPagoService } from './MetodosPagoService.js';
 import { ServicioService } from './ServicioService.js';
 import { EmpresaService } from './EmpresaService.js';
+import { PagoService } from './PagoService.js';
 
 export class ApiService {
     constructor() {
@@ -52,6 +53,7 @@ export class ApiService {
         this.metodosPago = new MetodosPagoService(this.urlBase);
         this.servicio = new ServicioService(this.urlBase);
         this.empresa = new EmpresaService(this.urlBase);
+        this.pagos = new PagoService(this.urlBase);
     }
 }
 
