@@ -29,6 +29,7 @@ import {
     IconCreditCard,
     IconDeviceFloppy,
     IconDeviceMobile,
+    IconExternalLink,
     IconEye,
     IconInfoCircle,
     IconPlus,
@@ -68,9 +69,9 @@ export function SimuladorPagos() {
 
     // Formulario de Cobro
     const [concepto, setConcepto] = useState('Membresía Mensual ApexGym');
-    const [monto, setMonto] = useState(599.00);
-    const [correo, setCorreo] = useState('socio.prueba@apexgym.com');
-    const [metodo, setMetodo] = useState('TERMINAL'); // 'EFECTIVO' | 'TERMINAL' | 'DIGITAL'
+    const [monto, setMonto] = useState(10.00);
+    const [correo, setCorreo] = useState('');
+    const [metodo, setMetodo] = useState('DIGITAL'); // 'EFECTIVO' | 'TERMINAL' | 'DIGITAL'
 
     // Detalles de Terminal
     const [tipoTarjeta, setTipoTarjeta] = useState('DEBITO'); // 'DEBITO' | 'CREDITO'
@@ -179,6 +180,8 @@ export function SimuladorPagos() {
                 }
                 proveedor = 'TERMINAL_MANUAL';
                 folio = folioVoucher;
+            } else if (metodo === 'DIGITAL') {
+                proveedor = 'MERCADO_PAGO';
             }
 
             const llaveAEnviar = idempotenciaKey || crypto.randomUUID();
@@ -622,7 +625,7 @@ export function SimuladorPagos() {
                                 />
                                 <TextInput
                                     label="Correo del Socio (Opcional)"
-                                    placeholder="socio.prueba@apexgym.com"
+                                    placeholder="ejemplo@gmail.com"
                                     value={correo}
                                     onChange={(e) => setCorreo(e.currentTarget.value)}
                                     leftSection={<IconUser size={16} />}
@@ -983,6 +986,25 @@ export function SimuladorPagos() {
                                 </Text>
                             </Stack>
                         </SectionCard>
+
+                        {/* Botón para abrir Pasarela Oficial cuando hay URL generada */}
+                        {transaccionDetalle.urlCheckout && (
+                            <Button
+                                component="a"
+                                href={transaccionDetalle.urlCheckout}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                color="apex"
+                                radius="md"
+                                size="md"
+                                leftSection={<IconExternalLink size={18} />}
+                                fullWidth
+                            >
+                                {transaccionDetalle.proveedor === 'MERCADO_PAGO' || transaccionDetalle.metadatos?.pasarelaReal || transaccionDetalle.urlCheckout?.includes('mercadopago')
+                                    ? 'Pagar en Pasarela Oficial Mercado Pago'
+                                    : 'Abrir Portal de Cobro en Línea'}
+                            </Button>
+                        )}
 
                         {/* Panel Interactivo para Transacciones Pendientes */}
                         {transaccionDetalle.estado === 'PENDIENTE' && (
