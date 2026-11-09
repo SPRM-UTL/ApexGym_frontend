@@ -122,7 +122,11 @@ function Field({ campo, value, options, error, onChange, form }) {
             : optionsForForm;
         const data = [
             { value: '', label: campo.placeholder ?? `Selecciona ${campo.label.toLowerCase()}` },
-            ...filteredOptions,
+            ...filteredOptions.map(({ value: optionValue, label, disabled }) => ({
+                value: optionValue,
+                label,
+                ...(disabled !== undefined && { disabled }),
+            })),
         ];
         return <NativeSelect {...common} data={data} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
     }

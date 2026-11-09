@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { Button, Divider, Group, Modal, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import {
     IconBriefcase2,
@@ -9,7 +10,7 @@ import {
     IconUser,
     IconX,
 } from '@tabler/icons-react';
-import { obtenerNombreCliente, obtenerNombreEmpleado } from '../../utils/ventaHelper/ventaHelpers.js';
+import { obtenerNombreCliente, obtenerNombreEmpleado } from '../../../utils/ventaHelper/ventaHelpers.js';
 import classes from './DetalleVentaModal.module.css';
 
 const moneda = (valor) => `$${Number(valor ?? 0).toLocaleString('es-MX', {
@@ -20,7 +21,7 @@ const moneda = (valor) => `$${Number(valor ?? 0).toLocaleString('es-MX', {
 function Dato({ icon: Icono, label, children }) {
     return (
         <div className={classes.dato}>
-            <span className={classes.datoIcono}><Icono size={21} stroke={2} /></span>
+            <span className={classes.datoIcono}>{createElement(Icono, { size: 21, stroke: 2 })}</span>
             <div className={classes.datoContenido}>
                 <Text size="sm" c="dimmed">{label}</Text>
                 <Text fw={650} lineClamp={2}>{children || '—'}</Text>

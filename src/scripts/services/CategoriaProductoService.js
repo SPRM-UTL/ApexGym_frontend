@@ -1,8 +1,16 @@
 import { CatalogoService } from './CatalogoService.js';
+import { httpClient } from './httpClient.js';
 
 export class CategoriaProductoService extends CatalogoService {
     constructor(urlBase) {
         super(urlBase, 'categorias-productos', 'categorías de productos');
+    }
+
+    obtenerParaVenta() {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/filtro-venta`),
+            'Error al obtener categorías para ventas'
+        );
     }
 
     // Alias para compatibilidad con el módulo de Productos

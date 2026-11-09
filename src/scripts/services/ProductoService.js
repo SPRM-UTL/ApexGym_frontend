@@ -38,6 +38,20 @@ export class ProductoService {
         }
     }
 
+    async obtenerCatalogoPaginado(parametros) {
+        try {
+            const response = await httpClient.get(`${this.urlApi}/catalogo`, { params: parametros });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener el catálogo de productos',
+                error.response?.status || 500
+            );
+        }
+    }
+
     // Alias para compatibilidad si se llama obtenerTodas
     async obtenerTodas() {
         return this.obtenerTodos();

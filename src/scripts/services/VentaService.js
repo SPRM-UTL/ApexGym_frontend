@@ -50,13 +50,17 @@ async crearVenta(datosVenta) {
     }
 
     async eliminar(id, motivoCancelacion) {
+        const motivo = typeof motivoCancelacion === 'string'
+            ? motivoCancelacion.trim()
+            : '';
+        if (!motivo || motivo.length > 500) {
+            throw new Error('El motivo de cancelación es obligatorio y no debe exceder 500 caracteres.');
+        }
+
         try {
-            const config = motivoCancelacion
-                ? { data: { motivoCancelacion } }
-                : undefined;
             const response = await httpClient.delete(
                 `${this.urlApi}/${id}`,
-                config
+                { data: { motivoCancelacion: motivo } }
             );
 
             return response.data;

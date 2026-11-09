@@ -55,7 +55,10 @@
 }
 .tabs :global(.mantine-Tabs-tab:not([data-active]):hover) { background: var(--ag-color-primary-soft); color: var(--ag-color-primary); }
 .tabsPanel { flex: 1 1 auto; min-height: 0; }
-.listaProductos { height: 100%; }
+.listaProductosContenedor { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: 8px; }
+.listaProductos { height: 100%; min-height: 0; flex: 1 1 auto; }
+.catalogoPaginacion { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; }
+.catalogoPaginacion :global(.mantine-Text-root) { color: var(--ag-color-secondary-light); }
 .catalogoVacio {
     display: flex;
     min-height: 100%;

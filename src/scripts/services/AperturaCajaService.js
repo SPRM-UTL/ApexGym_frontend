@@ -5,6 +5,14 @@ export class AperturaCajaService extends CatalogoService {
     constructor(urlBase) {
         super(urlBase, 'aperturas-caja', 'aperturas de caja');
     }
+
+    obtenerPorId(id) {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/${id}`),
+            'Error al obtener la apertura de caja'
+        );
+    }
+
     cerrar(id) {
         return this.ejecutar(
             () => httpClient.post(`${this.urlApi}/${id}/cerrar`),

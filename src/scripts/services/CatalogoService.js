@@ -28,6 +28,13 @@ export class CatalogoService {
         );
     }
 
+    obtenerCatalogoPaginado(parametros) {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/catalogo`, { params: parametros }),
+            `Error al obtener ${this.etiqueta}`
+        );
+    }
+
     crear(datos) {
         return this.ejecutar(
             () => httpClient.post(`${this.urlApi}/`, datos),

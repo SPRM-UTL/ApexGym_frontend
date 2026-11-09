@@ -136,6 +136,18 @@ export default function DocumentoTicketVenta({ venta }) {
                     <Text>IVA</Text>
                     <Text>{ticket.iva}</Text>
                 </View>
+                {ticket.montoRecibido && (
+                    <View style={styles.totalFila}>
+                        <Text>Recibido</Text>
+                        <Text>{ticket.montoRecibido}</Text>
+                    </View>
+                )}
+                {ticket.cambio && (
+                    <View style={styles.totalFila}>
+                        <Text>Cambio</Text>
+                        <Text>{ticket.cambio}</Text>
+                    </View>
+                )}
                 <View style={[styles.totalFila, styles.totalFinal]}>
                     <Text>Total</Text>
                     <Text>{ticket.total}</Text>

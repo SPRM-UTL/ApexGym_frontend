@@ -15,8 +15,8 @@ import {
 import { cambioNombreWeb } from '../../../scripts/globales.js';
 import { api } from '../../../scripts/services/api.js';
 import { CrudCatalogo } from '../../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { CancelarVentaModal } from '../../../components/CancelarVentaModal/CancelarVentaModal.jsx';
-import { DetalleVentaModal } from '../../../components/DetalleVentaModal/DetalleVentaModal.jsx';
+import { CancelarVentaModal } from '../components/CancelarVentaModal.jsx';
+import { DetalleVentaModal } from '../components/DetalleVentaModal.jsx';
 import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
 import {
     obtenerEmpleadoIdApertura,
