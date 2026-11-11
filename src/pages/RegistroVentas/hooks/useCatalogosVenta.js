@@ -18,7 +18,7 @@ const CARGAR_CATALOGO = {
 };
 const LIMITE_CATALOGO = 12;
 
-export function useCatalogosVenta(empleadoId, aperturaCajaId, filtrosCatalogo) {
+export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosCatalogo) {
     const {
         tipoItem,
         busqueda,
@@ -45,16 +45,9 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, filtrosCatalogo) {
             setAsignacionValida(false);
             setAperturaAsignada(null);
 
-            const resultadoApertura = aperturaCajaId
-                ? api.aperturaCaja.obtenerPorId(Number(aperturaCajaId))
-                : Promise.resolve(null);
-            const [resultadosCatalogos, resultadoAperturaCaja] = await Promise.all([
-                Promise.allSettled(CATALOGOS.map(([, cargarCatalogo]) => cargarCatalogo())),
-                Promise.resolve(resultadoApertura).then(
-                    (apertura) => ({ status: 'fulfilled', value: apertura }),
-                    (reason) => ({ status: 'rejected', reason })
-                ),
-            ]);
+            const resultadosCatalogos = await Promise.allSettled(
+                CATALOGOS.map(([, cargarCatalogo]) => cargarCatalogo())
+            );
             if (cancelado) return;
 
             const listas = resultadosCatalogos.map((resultado, indice) => {
@@ -81,17 +74,6 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, filtrosCatalogo) {
             if (listaCategorias) setCategorias(listaCategorias);
 
             if (!empleadoId || !aperturaCajaId) return;
-
-            if (resultadoAperturaCaja.status === 'rejected') {
-                const error = resultadoAperturaCaja.reason;
-                notifications.show({
-                    color: 'red',
-                    message: error.message || 'No se pudo validar la apertura de caja.',
-                });
-                return;
-            }
-
-            const apertura = resultadoAperturaCaja.value?.data ?? resultadoAperturaCaja.value;
             const aperturaPerteneceAlEmpleado = apertura
                 && String(obtenerEmpleadoIdApertura(apertura) ?? '') === empleadoId;
 
@@ -119,7 +101,7 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, filtrosCatalogo) {
         return () => {
             cancelado = true;
         };
-    }, [empleadoId, aperturaCajaId]);
+    }, [empleadoId, aperturaCajaId, apertura]);
 
     useEffect(() => {
         let cancelado = false;

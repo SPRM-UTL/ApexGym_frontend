@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
@@ -17,6 +17,7 @@ import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { Ventas } from './pages/RegistroVentas/Ventas/Ventas.jsx';
 import { Nueva } from './pages/RegistroVentas/Nueva/Nueva.jsx';
 import { ClienteVenta } from './pages/RegistroVentas/Cliente/Cliente.jsx';
+import { ProteccionCajaAbierta } from './pages/RegistroVentas/components/ProteccionCajaAbierta.jsx';
 import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual, obtenerEsPersistente } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
 /**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
  * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
@@ -165,8 +166,11 @@ function App() {
             <Route path="/apertura-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AperturaCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/movimientos-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><MovimientosCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/corte-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><CorteCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/registro-de-ventas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Ventas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-          <Route path="/registro-de-ventas/nueva" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Nueva /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+            <Route element={ estaLogeadoEn ? ( <Dashboard onLogout={accionLogout}><Outlet /></Dashboard> ) : ( <Login onLoginAceptado={accionLogin} /> ) } >
+            <Route path="/registro-de-ventas" element={<Ventas />} />
+            <Route element={<ProteccionCajaAbierta onSessionExpired={() => { eliminarUsuarioActual(); setEstaLogeadoEn(false); }} />}> 
+              <Route path="/registro-de-ventas/nueva" element={<Nueva />} /></Route>
+            </Route>
           <Route path="/registro-de-ventas/cliente" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ClienteVenta /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
 
             {/* Ruta raíz: muestra el grid de secciones (sin children) */}

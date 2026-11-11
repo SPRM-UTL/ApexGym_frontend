@@ -13,17 +13,18 @@ async crearVenta(datosVenta) {
         const response = await httpClient.post(`${this.urlApi}/`, datosVenta);
         return response.data;
     } catch (error) {
+        const respuestaError = error.response?.data;
         throw new ResponseModel(
-            error.response?.data || null,
+            respuestaError?.data ?? respuestaError ?? null,
             1,
-            error.response?.data?.message || 'Error al crear la venta',
+            respuestaError?.message || 'Error al crear la venta',
             error.response?.status || 500
         );
     }
 }
-    async obtenerTodos() {
+    async obtenerTodos(parametros = {}) {
         try {
-            const response = await httpClient.get(`${this.urlApi}/`);
+            const response = await httpClient.get(`${this.urlApi}/`, { params: parametros });
             return response.data;
         } catch (error) {
             throw new ResponseModel(

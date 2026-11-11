@@ -26,6 +26,9 @@ export const obtenerRegistros = (respuesta, etiqueta) => {
 export const obtenerEmpleadoIdApertura = (apertura) =>
     apertura.empleadoId ?? apertura.empleado?.id;
 
+export const esErrorCajaCerrada = (error) =>
+    error?.data?.code === 'APERTURA_CAJA_CERRADA';
+
 export const obtenerNombreEmpleado = (empleado) =>
     [empleado?.nombre, empleado?.apellidoPaterno, empleado?.apellidoMaterno]
         .filter(Boolean)

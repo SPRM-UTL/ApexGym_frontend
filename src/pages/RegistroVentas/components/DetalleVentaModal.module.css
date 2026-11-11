@@ -96,6 +96,18 @@
 .total :global(.mantine-Text-root:first-child) { color: var(--ag-color-black) !important; }
 .total :global(.mantine-Text-root:last-child) { color: var(--ag-color-primary) !important; }
 
+.motivoCancelacion {
+    border-color: color-mix(in srgb, var(--mantine-color-red-6) 28%, transparent);
+    background: color-mix(in srgb, var(--mantine-color-red-0) 72%, var(--ag-color-surface-elevated));
+}
+.iconoCancelacion { flex: 0 0 auto; color: var(--mantine-color-red-7); }
+.textoCancelacion {
+    margin-top: 4px;
+    color: var(--ag-color-secondary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .footer {
     width: 100%;
     padding: 20px 30px 24px;

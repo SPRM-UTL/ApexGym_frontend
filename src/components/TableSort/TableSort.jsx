@@ -274,6 +274,7 @@ export function TableSort({
     initialSortDirection = 'asc',
     headerVariant = 'classic',
     filters: configuredFilters = EMPTY_CONFIGURED_FILTERS,
+    serverPagination,
 }) {
     const isNeutral = headerVariant === 'neutral';
     const columns = useMemo(() => {
@@ -303,6 +304,15 @@ export function TableSort({
     const [draftField, setDraftField] = useState(null);
     /**Guarda temporalmente el texto ingresado*/
     const [draftValue, setDraftValue] = useState('');
+    const onServerSearchChange = serverPagination?.onSearchChange;
+
+    useEffect(() => {
+        if (!onServerSearchChange) return undefined;
+        const timeout = setTimeout(() => {
+            onServerSearchChange(globalSearch.trim());
+        }, 300);
+        return () => clearTimeout(timeout);
+    }, [globalSearch, onServerSearchChange]);
 
     /**useMemo(...) memoriza el resultado */
     const filterableColums = useMemo(
@@ -339,13 +349,24 @@ export function TableSort({
         return value !== undefined && value !== null && String(value).trim() !== '';
     });
 
+    const notificarFiltrosServidor = (values) => {
+        if (!serverPagination?.onFiltersChange) return;
+        const filtros = Object.fromEntries(configuredFilters.map((filter) => [
+            filter.key,
+            values[`${CONFIGURED_FILTER_PREFIX}${filter.key}`],
+        ]).filter(([key, value]) => {
+            const filter = configuredFilters.find((item) => item.key === key);
+            return filtroConfiguradoActivo(filter, value);
+        }));
+        serverPagination.onFiltersChange(filtros);
+    };
+
     /**De esta manera recorremos para borrar todos los filtros de manera individual */
     const removeFilter = (key) => {
-        setFilterValues((prev) => {
-            const next = { ...prev };
-            delete next[key];
-            return next;
-        });
+        const next = { ...filterValues };
+        delete next[key];
+        setFilterValues(next);
+        notificarFiltrosServidor(next);
         setPage(1);
     };
     /**Limpia de manera completa los filtros en todos */
@@ -355,25 +376,25 @@ export function TableSort({
         setDraftField(null);
         setDraftValue('');
         setPage(1);
+        notificarFiltrosServidor({});
     };
 
     const aplicarFiltros = () => {
-        setFilterValues((previous) => {
-            const next = { ...previous };
-            configuredFilters.forEach((filter) => {
-                const key = `${CONFIGURED_FILTER_PREFIX}${filter.key}`;
-                const value = draftConfiguredValues[filter.key];
-                if (filtroConfiguradoActivo(filter, value)) {
-                    next[key] = value;
-                } else {
-                    delete next[key];
-                }
-            });
-            if (draftField && String(draftValue).trim()) {
-                next[`${COLUMN_FILTER_PREFIX}${draftField}`] = String(draftValue).trim();
+        const next = { ...filterValues };
+        configuredFilters.forEach((filter) => {
+            const key = `${CONFIGURED_FILTER_PREFIX}${filter.key}`;
+            const value = draftConfiguredValues[filter.key];
+            if (filtroConfiguradoActivo(filter, value)) {
+                next[key] = value;
+            } else {
+                delete next[key];
             }
-            return next;
         });
+        if (draftField && String(draftValue).trim()) {
+            next[`${COLUMN_FILTER_PREFIX}${draftField}`] = String(draftValue).trim();
+        }
+        setFilterValues(next);
+        notificarFiltrosServidor(next);
         setDraftField(null);
         setDraftValue('');
         setPage(1);
@@ -430,14 +451,19 @@ export function TableSort({
     };
 
     const processed = useMemo(() => {
+        if (serverPagination) return data;
         const filtered = filterRows(data, columns, globalSearch, filterValues, configuredFilters);
         return sortRows(filtered, sortBy, reverseSortDirection, columns);
-    }, [data, columns, globalSearch, filterValues, configuredFilters, sortBy, reverseSortDirection]);
+    }, [data, columns, globalSearch, filterValues, configuredFilters, sortBy, reverseSortDirection, serverPagination]);
 
-    const totalPages = Math.max(1, Math.ceil(processed.length / pageSize));
-    const currentPage = Math.min(page, totalPages);
-    const pageStart = (currentPage - 1) * pageSize;
-    const pageRows = processed.slice(pageStart, pageStart + pageSize);
+    const totalRecords = serverPagination?.total ?? processed.length;
+    const currentPageSize = serverPagination?.pageSize ?? pageSize;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / currentPageSize));
+    const currentPage = serverPagination?.page ?? Math.min(page, totalPages);
+    const pageStart = (currentPage - 1) * currentPageSize;
+    const pageRows = serverPagination
+        ? processed
+        : processed.slice(pageStart, pageStart + currentPageSize);
 
     const rowId = (row, index) => row.id ?? index;
 
@@ -490,17 +516,22 @@ export function TableSort({
                     <Text className={classes.controlLabel}>Mostrar</Text>
                     <NativeSelect
                         size="xs"
-                        value={String(pageSize)}
+                        value={String(currentPageSize)}
                         onChange={(e) => {
-                            setPageSize(Number(e.currentTarget.value));
-                            setPage(1);
+                            const nextPageSize = Number(e.currentTarget.value);
+                            if (serverPagination) {
+                                serverPagination.onPageSizeChange(nextPageSize);
+                            } else {
+                                setPageSize(nextPageSize);
+                                setPage(1);
+                            }
                         }}
                         data={pageSizeOptions.map((n) => ({ value: String(n), label: String(n) }))}
                     />
                     <Text className={classes.controlLabel}>registros</Text>
                 </Group>
 
-                <Group gap="xs">
+                {(!serverPagination || serverPagination.onSearchChange) && <Group gap="xs">
                     <Text className={classes.controlLabel}>Buscar:</Text>
                     <TextInput
                         className={classes.searchInput}
@@ -512,7 +543,7 @@ export function TableSort({
                             setPage(1);
                         }}
                     />
-                </Group>
+                </Group>}
 
                 <Popover
                     opened={filterOpen}
@@ -855,13 +886,16 @@ export function TableSort({
 
             <div className={classes.footer}>
                 <span>
-                    Mostrando {processed.length === 0 ? 0 : pageStart + 1}–
-                    {Math.min(pageStart + pageSize, processed.length)} de {processed.length} registros
+                    Mostrando {totalRecords === 0 ? 0 : pageStart + 1}–
+                    {Math.min(pageStart + currentPageSize, totalRecords)} de {totalRecords} registros
                 </span>
                 <Group gap="xs">
                     <UnstyledButton
                         disabled={currentPage <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        onClick={() => {
+                            if (serverPagination) serverPagination.onPageChange(currentPage - 1);
+                            else setPage((p) => Math.max(1, p - 1));
+                        }}
                         style={{ opacity: currentPage <= 1 ? 0.4 : 1 }}
                     >
                         Anterior
@@ -871,7 +905,10 @@ export function TableSort({
                     </span>
                     <UnstyledButton
                         disabled={currentPage >= totalPages}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() => {
+                            if (serverPagination) serverPagination.onPageChange(currentPage + 1);
+                            else setPage((p) => Math.min(totalPages, p + 1));
+                        }}
                         style={{ opacity: currentPage >= totalPages ? 0.4 : 1 }}
                     >
                         Siguiente

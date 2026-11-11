@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import {
     Avatar,
@@ -33,6 +33,7 @@ import classes from './CrudCatalogo.module.css';
 
 const identityFilter = (records) => records;
 const EMPTY_FILTERS = [];
+const EMPTY_QUERY = {};
 
 function Field({ campo, value, options, error, onChange, form }) {
     const tipo = typeof campo.type === 'function' ? campo.type(form) : campo.type;
@@ -174,8 +175,10 @@ export function CrudCatalogo({
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
     pageSizeOptions,
+    serverPagination,
     createPersonalized = null,
-    updatePersonalized = null
+    updatePersonalized = null,
+    onCreateSuccess,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -188,25 +191,49 @@ export function CrudCatalogo({
     const [deleting, setDeleting] = useState(false);
     const [fieldOptions, setFieldOptions] = useState({});
     const [loadedFilterOptions, setLoadedFilterOptions] = useState({});
+    const [serverTotal, setServerTotal] = useState(0);
 
     const fieldsWithLoader = useMemo(() => campos.filter((campo) => campo.loadOptions), [campos]);
 
-    const fetchData = async () => {
+    const serverQuery = serverPagination?.query ?? EMPTY_QUERY;
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await servicio.obtenerTodos();
+            const response = await servicio.obtenerTodos(serverPagination
+                ? {
+                    ...serverQuery,
+                    pagina: serverPagination.page,
+                    limite: serverPagination.pageSize,
+                }
+                : undefined);
             if (response.responseFlag !== 0) throw new Error(response.message);
-            setRecords(response.data ?? []);
+            if (serverPagination) {
+                const resultado = response.data;
+                if (!Array.isArray(resultado?.registros) || !Number.isSafeInteger(Number(resultado.total))) {
+                    throw new Error('El servidor devolvió un historial paginado no válido.');
+                }
+                const total = Number(resultado.total);
+                const paginas = Math.max(1, Math.ceil(total / serverPagination.pageSize));
+                if (serverPagination.page > paginas) {
+                    serverPagination.onPageChange(paginas);
+                    return;
+                }
+                setRecords(resultado.registros);
+                setServerTotal(total);
+            } else {
+                setRecords(response.data ?? []);
+            }
             setError(null);
         } catch (err) {
             setError(err.message || `Error al cargar ${titulo.toLowerCase()}`);
             setRecords([]);
+            if (serverPagination) setServerTotal(0);
         } finally {
             setLoading(false);
         }
-    };
+    }, [servicio, serverPagination, serverQuery, titulo]);
 
-    const fetchOptions = async () => {
+    const fetchOptions = useCallback(async () => {
         const loaded = await Promise.all(fieldsWithLoader.map(async (campo) => {
             try {
                 return [campo.key, await campo.loadOptions()];
@@ -220,12 +247,12 @@ export function CrudCatalogo({
             }
         }));
         setFieldOptions(Object.fromEntries(loaded));
-    };
+    }, [fieldsWithLoader]);
 
     useEffect(() => {
         fetchData();
         fetchOptions();
-    }, []);
+    }, [fetchData, fetchOptions]);
 
     useEffect(() => {
         let activo = true;
@@ -271,12 +298,12 @@ export function CrudCatalogo({
         setModalOpen(true);
     };
 
-    const openEdit = (record) => {
+    const openEdit = useCallback((record) => {
         setEditingId(record.id);
         setForm(mapRecordToForm(records.find((item) => item.id === record.id) ?? record));
         setErrors({});
         setModalOpen(true);
-    };
+    }, [mapRecordToForm, records]);
 
     const updateField = (key, value) => {
         const dependentFields = campos.filter((campo) => campo.dependsOn === key);
@@ -358,6 +385,7 @@ export function CrudCatalogo({
             notifications.show({ title: editingId ? 'Actualizado' : 'Agregado', message: `${singular} guardado correctamente.`, color: 'green' });
 
             await fetchData();
+            if (!editingId) onCreateSuccess?.(response.data);
             setModalOpen(false);
             resetForm();
         } catch (err) {
@@ -422,7 +450,7 @@ export function CrudCatalogo({
 
             return renderAccionesFila(fila, segundoArg, helpers);
         };
-    }, [renderAccionesFila, records]);
+    }, [renderAccionesFila, records, fetchData, fetchOptions, openEdit]);
 
     const leftFields = useMemo(() => campos.filter((c) => c.side !== 'right'), [campos]);
     const rightFields = useMemo(() => campos.filter((c) => c.side === 'right'), [campos]);
@@ -669,6 +697,15 @@ export function CrudCatalogo({
                         headerVariant={tableHeaderVariant}
                         pageSizeOptions={pageSizeOptions}
                         filters={filtrosTabla}
+                        serverPagination={serverPagination ? {
+                            page: serverPagination.page,
+                            pageSize: serverPagination.pageSize,
+                            total: serverTotal,
+                            onPageChange: serverPagination.onPageChange,
+                            onPageSizeChange: serverPagination.onPageSizeChange,
+                            onFiltersChange: serverPagination.onFiltersChange,
+                            onSearchChange: serverPagination.onSearchChange,
+                        } : undefined}
                 />
             </div>
         </>

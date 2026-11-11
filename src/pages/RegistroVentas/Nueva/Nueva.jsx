@@ -26,18 +26,37 @@ import { ListaProductos } from '../components/ListaProductos.jsx';
 import { ModalCobroVenta } from '../components/ModalCobroVenta.jsx';
 import { Ticket } from '../components/Ticket.jsx';
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTicketVenta } from '../hooks/useTicketVenta.js';
 import { useCatalogosVenta } from '../hooks/useCatalogosVenta.js';
 import { useClientesVenta } from '../hooks/useClientesVenta.js';
+import { useCaja } from '../components/useCaja.js';
 import {
     calcularMontos,
     redondear,
 } from '../utils/venta.utils.js';
-import { obtenerVenta } from '../../../utils/ventaHelper/ventaHelpers.js';
+import { esErrorCajaCerrada, obtenerVenta } from '../../../utils/ventaHelper/ventaHelpers.js';
 
 
 const channel = new BroadcastChannel('app_sync_channel');
+const VENTA_PENDIENTE_KEY = 'venta_pendiente_apertura_caja';
+
+function consumirVentaPendiente() {
+    try {
+        const guardado = sessionStorage.getItem(VENTA_PENDIENTE_KEY);
+        if (!guardado) return null;
+
+        sessionStorage.removeItem(VENTA_PENDIENTE_KEY);
+        return JSON.parse(guardado);
+    } catch (error) {
+        console.error('No se pudo leer o restaurar la venta pendiente.', error);
+        notifications.show({
+            color: 'red',
+            message: 'No se pudo recuperar el carrito guardado.',
+        });
+        return null;
+    }
+}
 
 function triggerUpdate(data) {
     channel.postMessage({
@@ -47,10 +66,16 @@ function triggerUpdate(data) {
 }
 
 export function Nueva() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { aperturas } = useCaja();
+    const [ventaPendiente] = useState(consumirVentaPendiente);
     const [hora, setHora] = useState('');
     const [ventaCreada, setVentaCreada] = useState(null);
     const {
         listaProductos,
+        listaCaja1,
+        listaCaja2,
         cajaActual,
         cambiarCaja,
         agregarProducto,
@@ -59,15 +84,18 @@ export function Nueva() {
         eliminarProducto,
         eliminarTicket,
         limpiarTickets,
-    } = useTicketVenta();
+    } = useTicketVenta(ventaPendiente ?? {});
     const [tabCatalogo, setTabCatalogo] = useState('productos');
     const [busquedaCatalogo, setBusquedaCatalogo] = useState('');
     const [ordenCatalogo, setOrdenCatalogo] = useState(null);
     const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
     const [paginaCatalogo, setPaginaCatalogo] = useState(1);
-    const { state } = useLocation();
+    const { state } = location;
     const empleadoId = state?.empleadoId != null ? String(state.empleadoId) : null;
     const aperturaCajaId = state?.aperturaCajaId != null ? String(state.aperturaCajaId) : null;
+    const aperturaSeleccionada = aperturas.find(
+        (apertura) => String(apertura.id) === String(aperturaCajaId)
+    );
     const {
         categorias,
         metodosPago,
@@ -80,7 +108,7 @@ export function Nueva() {
         errorCatalogo,
         aperturaAsignada,
         asignacionValida,
-    } = useCatalogosVenta(empleadoId, aperturaCajaId, {
+    } = useCatalogosVenta(empleadoId, aperturaCajaId, aperturaSeleccionada, {
         tipoItem: tabCatalogo,
         busqueda: busquedaCatalogo,
         pagina: paginaCatalogo,
@@ -99,13 +127,12 @@ export function Nueva() {
         cargando: cargandoClientes,
         error: errorClientes,
     } = useClientesVenta();
-    const [clienteId, setClienteId] = useState(null);
-    const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
-    const [metodoPago, setMetodoPago] = useState(null);
+    const [clienteId, setClienteId] = useState(ventaPendiente?.clienteId ?? null);
+    const [clienteSeleccionado, setClienteSeleccionado] = useState(ventaPendiente?.clienteSeleccionado ?? null);
+    const [metodoPago, setMetodoPago] = useState(ventaPendiente?.metodoPago ?? null);
     const [cobrando, setCobrando] = useState(false);
     const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
-    const [montoRecibido, setMontoRecibido] = useState(0);
-
+    const [montoRecibido, setMontoRecibido] = useState(ventaPendiente?.montoRecibido ?? 0);
 
     useEffect(() => {
         triggerUpdate(listaProductos);
@@ -122,6 +149,12 @@ export function Nueva() {
 
         return () => clearInterval(intervalo);
     }, []);
+
+    useEffect(() => {
+        if (!empleadoId || !aperturaCajaId || !aperturaSeleccionada) {
+            navigate('/registro-de-ventas', { replace: true });
+        }
+    }, [empleadoId, aperturaCajaId, aperturaSeleccionada, navigate]);
 
     const cambiarMetodoPago = (value) => {
         setMetodoPago(value);
@@ -270,6 +303,33 @@ export function Nueva() {
             message: 'Venta creada correctamente.',
         });
     } catch (error) {
+        if (esErrorCajaCerrada(error)) {
+            try {
+                sessionStorage.setItem(VENTA_PENDIENTE_KEY, JSON.stringify({
+                    listaProductos,
+                    listaCaja1,
+                    listaCaja2,
+                    cajaActual,
+                    clienteId,
+                    clienteSeleccionado,
+                    metodoPago,
+                    montoRecibido,
+                }));
+            } catch (errorAlGuardar) {
+                console.error('No se pudo conservar el carrito antes de abrir la caja.', errorAlGuardar);
+                notifications.show({
+                    color: 'yellow',
+                    message: 'No se pudo guardar el carrito. Anota los artículos antes de continuar.',
+                });
+            }
+            notifications.show({
+                color: 'red',
+                message: 'La caja ya no está abierta. Abre una caja para continuar con la venta.',
+            });
+            navigate('/apertura-caja', { replace: true, state: { from: location } });
+            return;
+        }
+
         notifications.show({
             color: 'red',
             message: error.message || 'No se pudo crear la venta.',
@@ -388,6 +448,7 @@ export function Nueva() {
                                         aria-label="Filtrar por categoría"
                                         className={classes.filtroCatalogo}
                                         placeholder="Todas las categorías"
+                                        comboboxProps={{ zIndex: 1100 }}
                                         clearable
                                         value={categoriaSeleccionada}
                                         onChange={(value) => {

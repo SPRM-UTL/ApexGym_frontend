@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import {
@@ -27,12 +27,12 @@ import {
 } from '../../../utils/ventaHelper/ventaHelpers.js';
 
 const COLUMNAS = [
-    { key: 'folio', label: 'Folio', sortable: true, filterable: true },
-    { key: 'cliente', label: 'Cliente', sortable: true, filterable: false },
-    { key: 'fecha', label: 'Fecha', sortable: true, filterable: false, format: 'date' },
-    { key: 'estado', label: 'Estado', sortable: true, filterable: false, format: 'status' },
-    { key: 'subtotal', label: 'Subtotal', sortable: false, filterable: true, format: 'currency' },
-    { key: 'total', label: 'Total', sortable: false, filterable: true, format: 'currency' },
+    { key: 'folio', label: 'Folio', sortable: false, filterable: false },
+    { key: 'cliente', label: 'Cliente', sortable: false, filterable: false },
+    { key: 'fecha', label: 'Fecha', sortable: false, filterable: false, format: 'date' },
+    { key: 'estado', label: 'Estado', sortable: false, filterable: false, format: 'status' },
+    { key: 'subtotal', label: 'Subtotal', sortable: false, filterable: false, format: 'currency' },
+    { key: 'total', label: 'Total', sortable: false, filterable: false, format: 'currency' },
 ];
 
 const normalizarEstadoVenta = (estado) => {
@@ -51,18 +51,11 @@ const etiquetaEstadoVenta = (estado) => {
 
 const FILTROS = [
     {
-        key: 'clienteId',
+        key: 'cliente',
         label: 'Cliente',
-        type: 'select',
-        placeholder: 'Todos los clientes',
-        getValue: (venta) => venta.cliente?.id ?? venta.clientId ?? venta.clienteId,
-        optionsFromRecords: (ventas) => [...new Map(ventas
-            .map((venta) => venta.cliente ?? venta.client)
-            .filter((cliente) => cliente?.id != null)
-            .map((cliente) => [String(cliente.id), {
-                value: String(cliente.id),
-                label: obtenerNombreCliente(cliente),
-            }])).values()],
+        type: 'text',
+        placeholder: 'Nombre o apellido',
+        getValue: (venta) => obtenerNombreCliente(venta.cliente ?? venta.client),
     },
     {
         key: 'fechaVenta',
@@ -71,6 +64,20 @@ const FILTROS = [
         from: 'fechaDesde',
         to: 'fechaHasta',
         getValue: (venta) => venta.createdAt ?? venta.fecha,
+    },
+    {
+        key: 'metodoPagoId',
+        label: 'Método de pago',
+        type: 'select',
+        placeholder: 'Todos los métodos de pago',
+        loadOptions: async () => {
+            const respuesta = await api.metodosPago.obtenerActivos();
+            return obtenerRegistros(respuesta, 'métodos de pago').map((metodo) => ({
+                value: String(metodo.id),
+                label: metodo.nombre,
+            }));
+        },
+        getValue: (venta) => venta.metodoPago?.id,
     },
     {
         key: 'estadoVenta',
@@ -96,11 +103,10 @@ const cargarEmpleadosYAperturas = () => {
     if (!empleadosYAperturasRequest) {
         empleadosYAperturasRequest = Promise.all([
             api.empleado.obtenerTodos(),
-            api.aperturaCaja.obtenerTodos(),
+            api.aperturaCaja.obtenerAbiertas(),
         ]).then(([respuestaEmpleados, respuestaAperturas]) => ({
             empleados: obtenerRegistros(respuestaEmpleados, 'empleados'),
-            aperturas: obtenerRegistros(respuestaAperturas, 'aperturas de caja')
-                .filter((apertura) => String(apertura.estado ?? '').trim().toUpperCase() === 'ABIERTA'),
+            aperturas: obtenerRegistros(respuestaAperturas, 'aperturas de caja'),
         })).finally(() => {
             empleadosYAperturasRequest = null;
         });
@@ -169,6 +175,38 @@ export function Ventas() {
     const [cancelacionPendiente, setCancelacionPendiente] = useState(null);
     const [motivoCancelacion, setMotivoCancelacion] = useState('');
     const [cancelando, setCancelando] = useState(false);
+    const [pagina, setPagina] = useState(1);
+    const [limite, setLimite] = useState(20);
+    const [busquedaHistorial, setBusquedaHistorial] = useState('');
+    const [filtrosHistorial, setFiltrosHistorial] = useState({});
+    const cambiarFiltrosHistorial = useCallback((filtros) => {
+        setFiltrosHistorial(filtros);
+        setPagina(1);
+    }, []);
+    const cambiarBusquedaHistorial = useCallback((busqueda) => {
+        setBusquedaHistorial(busqueda);
+        setPagina(1);
+    }, []);
+    const queryHistorial = useMemo(() => ({
+        q: busquedaHistorial || undefined,
+        cliente: filtrosHistorial.cliente,
+        fechaDesde: filtrosHistorial.fechaVenta?.fechaDesde,
+        fechaHasta: filtrosHistorial.fechaVenta?.fechaHasta,
+        metodoPagoId: filtrosHistorial.metodoPagoId,
+        estado: filtrosHistorial.estadoVenta,
+    }), [busquedaHistorial, filtrosHistorial]);
+    const paginacionHistorial = useMemo(() => ({
+        page: pagina,
+        pageSize: limite,
+        query: queryHistorial,
+        onPageChange: setPagina,
+        onPageSizeChange: (nuevoLimite) => {
+            setLimite(nuevoLimite);
+            setPagina(1);
+        },
+        onFiltersChange: cambiarFiltrosHistorial,
+        onSearchChange: cambiarBusquedaHistorial,
+    }), [pagina, limite, queryHistorial, cambiarFiltrosHistorial, cambiarBusquedaHistorial]);
 
     const abrirAgregar = ({ form }) => {
         navigate('/registro-de-ventas/nueva', {
@@ -345,6 +383,8 @@ export function Ventas() {
                 tableHeaderVariant="neutral"
                 validateForm={validateForm}
                 createPersonalized={abrirAgregar}
+                pageSizeOptions={[10, 20, 50]}
+                serverPagination={paginacionHistorial}
             />
             <DetalleVentaModal
                 venta={detalleVenta}

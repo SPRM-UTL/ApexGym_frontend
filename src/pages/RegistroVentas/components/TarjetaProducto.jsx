@@ -1,7 +1,8 @@
 import classes from '../Nueva/Nueva.module.css';
-import { Card, Group, Image, NumberFormatter, Stack, Text } from '@mantine/core';
+import { Badge, Card, Group, Image, NumberFormatter, Stack, Text } from '@mantine/core';
 
 export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
+    const categoriaNombre = producto.categoria?.nombre ?? (typeof producto.categoria === 'string' ? producto.categoria : null);
     return (
         <Card
             shadow="sm"
@@ -23,6 +24,11 @@ export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
             </Card.Section>
 
             <Stack gap={5} mt="sm">
+                {categoriaNombre && (
+                    <Badge size="xs" variant="light" color="orange" radius="sm" style={{ alignSelf: 'flex-start' }}>
+                        {categoriaNombre}
+                    </Badge>
+                )}
 
                 <Group justify="space-between" align="flex-start">
                     <Text fw={650} size="md" lineClamp={2} className={classes.productoNombre}

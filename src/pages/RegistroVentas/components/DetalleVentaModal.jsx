@@ -1,6 +1,7 @@
 import { createElement } from 'react';
-import { Button, Divider, Group, Modal, SimpleGrid, Stack, Table, Text } from '@mantine/core';
+import { Button, Divider, Group, Modal, Paper, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import {
+    IconAlertTriangle,
     IconBriefcase2,
     IconCashBanknote,
     IconCheck,
@@ -34,6 +35,8 @@ export function DetalleVentaModal({ venta, cargando, onClose }) {
     const subtotal = Number(venta?.subtotal ?? 0);
     const total = Number(venta?.total ?? 0);
     const iva = Number(venta?.iva ?? venta?.impuestoIVA ?? total - subtotal);
+    const montoRecibido = venta?.montoRecibido;
+    const cambio = venta?.cambio;
     const estado = venta?.estado ?? 'Completada';
 
     return (
@@ -123,12 +126,32 @@ export function DetalleVentaModal({ venta, cargando, onClose }) {
                             <Group justify="space-between" className={`${classes.resumenFila} ${classes.iva}`}>
                                 <Text>IVA (16%)</Text><Text fw={700}>{moneda(iva)}</Text>
                             </Group>
+                            {montoRecibido != null && (
+                                <Group justify="space-between" className={classes.resumenFila}>
+                                    <Text>Monto recibido</Text><Text fw={600}>{moneda(montoRecibido)}</Text>
+                                </Group>
+                            )}
+                            {cambio != null && (
+                                <Group justify="space-between" className={classes.resumenFila}>
+                                    <Text>Cambio</Text><Text fw={600}>{moneda(cambio)}</Text>
+                                </Group>
+                            )}
                             <Group justify="space-between" className={classes.total}>
                                 <Text fw={750} size="lg">Total</Text><Text fw={800} size="xl">{moneda(total)}</Text>
                             </Group>
                         </div>
                         {String(venta.estado).toLowerCase() === 'cancelada' && venta.motivoCancelacion && (
-                            <Text c="red">Motivo de cancelación: {venta.motivoCancelacion}</Text>
+                            <Paper className={classes.motivoCancelacion} radius="md" p="md" withBorder>
+                                <Group align="flex-start" gap="sm" wrap="nowrap">
+                                    <IconAlertTriangle size={21} className={classes.iconoCancelacion} />
+                                    <div>
+                                        <Text fw={700} c="red.8">Motivo de cancelación</Text>
+                                        <Text className={classes.textoCancelacion}>
+                                            {venta.motivoCancelacion}
+                                        </Text>
+                                    </div>
+                                </Group>
+                            </Paper>
                         )}
                     </div>
                     <div className={classes.footer}>

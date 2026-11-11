@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-export function useTicketVenta() {
-    const [listaProductos, setListaProductos] = useState([]);
-    const [listaCaja1, setCaja1] = useState([]);
-    const [listaCaja2, setCaja2] = useState([]);
-    const [cajaActual, setCajaActual] = useState(1);
+export function useTicketVenta(estadoInicial = {}) {
+    const [listaProductos, setListaProductos] = useState(estadoInicial.listaProductos ?? []);
+    const [listaCaja1, setCaja1] = useState(estadoInicial.listaCaja1 ?? []);
+    const [listaCaja2, setCaja2] = useState(estadoInicial.listaCaja2 ?? []);
+    const [cajaActual, setCajaActual] = useState(estadoInicial.cajaActual ?? 1);
 
     const cambiarCaja = (caja) => {
         if (caja === cajaActual) return;
@@ -74,6 +74,8 @@ export function useTicketVenta() {
 
     return {
         listaProductos,
+        listaCaja1,
+        listaCaja2,
         setListaProductos,
         cajaActual,
         cambiarCaja,

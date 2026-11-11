@@ -13,6 +13,13 @@ export class AperturaCajaService extends CatalogoService {
         );
     }
 
+    obtenerAbiertas() {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/abierta`),
+            'Error al obtener las aperturas de caja abiertas'
+        );
+    }
+
     cerrar(id) {
         return this.ejecutar(
             () => httpClient.post(`${this.urlApi}/${id}/cerrar`),

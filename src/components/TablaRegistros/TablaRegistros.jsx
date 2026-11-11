@@ -89,6 +89,7 @@ export function TablaRegistros({
     initialSortDirection,
     headerVariant = 'classic',
     filters = [],
+    serverPagination,
     title,
     icon,
     onAdd,
@@ -97,7 +98,7 @@ export function TablaRegistros({
     return (
         <div className={classes.frame} aria-busy={loading}>
             {title && <EncabezadoTabla title={title} icon={icon} onAdd={onAdd} addLabel={addLabel} />}
-            {loading ? (
+            {loading && !serverPagination ? (
                 <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />
             ) : (
                 <TableSort
@@ -114,6 +115,7 @@ export function TablaRegistros({
                     initialSortDirection={initialSortDirection}
                     headerVariant={headerVariant}
                     filters={filters}
+                    serverPagination={serverPagination}
                 />
             )}
         </div>

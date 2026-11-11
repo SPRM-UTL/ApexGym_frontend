@@ -40,6 +40,7 @@ import {
     IconUser,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
@@ -602,6 +603,8 @@ function DrawerDetalleApertura({ apertura, opened, onClose }) {
 
 /* ─── Componente Principal ──────────────────────────────────────────────────── */
 export function AperturaCaja() {
+    const location = useLocation();
+    const navigate = useNavigate();
     const usuarioActual = obtenerUsuarioActual();
     const esAdminOSupervisor = useMemo(() => {
         if (!usuarioActual) return false;
@@ -614,6 +617,30 @@ export function AperturaCaja() {
     const [aperturaDetalle, setAperturaDetalle] = useState(null);
     const [cancelando, setCancelando] = useState(false);
     const recargarTablaRef = useRef(null);
+
+    const regresarAVenta = (apertura) => {
+        const origen = location.state?.from;
+        if (!origen?.pathname?.startsWith('/registro-de-ventas/nueva')) return;
+
+        const aperturaCreada = apertura?.data ?? apertura;
+        const empleadoId = aperturaCreada?.empleadoId ?? aperturaCreada?.empleado?.id;
+        if (aperturaCreada?.id == null || empleadoId == null) {
+            notifications.show({
+                color: 'red',
+                message: 'La caja se abrió, pero no se pudo recuperar su asignación para continuar la venta.',
+            });
+            return;
+        }
+
+        navigate(`${origen.pathname}${origen.search ?? ''}${origen.hash ?? ''}`, {
+            replace: true,
+            state: {
+                ...origen.state,
+                empleadoId: String(empleadoId),
+                aperturaCajaId: String(aperturaCreada.id),
+            },
+        });
+    };
 
     const mapRecordToForm = useMemo(() => (record) => {
         let fechaForm = obtenerFechaHoraActualLocal();
@@ -778,6 +805,7 @@ export function AperturaCaja() {
                 mapRecordToRow={mapRecordToRow}
                 renderForm={(props) => <AperturaForm {...props} />}
                 validateForm={validateForm}
+                onCreateSuccess={regresarAVenta}
                 pageSizeOptions={[6, 12, 18, 24]}
                 permitirEditar={false}
                 permitirEliminar={false}
