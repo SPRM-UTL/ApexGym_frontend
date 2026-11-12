@@ -76,6 +76,68 @@ const COLUMNAS_SERVICIOS = [
     { key: 'disponibleBadge', label: 'Disponible', sortable: false, filterable: false },
 ];
 
+<<<<<<< HEAD
+/* ─── Formulario personalizado ──────────────────────────────────────────────── */
+function ServicioForm({ form, errors, onChange }) {
+    return (
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle>Información del servicio</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <TextInput
+                        label="Nombre del servicio"
+                        withAsterisk
+                        placeholder="Ej. Entrenamiento Personalizado"
+                        value={form.nombre ?? ''}
+                        error={errors.nombre}
+                        maxLength={100}
+                        description="Máximo 100 caracteres"
+                        size="md"
+                        radius="md"
+                        onChange={(e) => onChange('nombre', e.currentTarget.value)}
+                    />
+                    <NativeSelect
+                        label="Estado"
+                        withAsterisk
+                        value={form.estado ?? 'ACTIVO'}
+                        error={errors.estado}
+                        size="md"
+                        radius="md"
+                        data={[
+                            { value: 'ACTIVO', label: 'Activo' },
+                            { value: 'INACTIVO', label: 'Inactivo' },
+                        ]}
+                        onChange={(e) => onChange('estado', e.currentTarget.value)}
+                    />
+                </SimpleGrid>
+                <Box mt="xs">
+                    <NumberInput
+                        label="Precio ($)"
+                        withAsterisk
+                        placeholder="0.00"
+                        value={form.precio ?? ''}
+                        error={errors.precio}
+                        min={0}
+                        decimalScale={2}
+                        size="md"
+                        radius="md"
+                        onChange={(val) => onChange('precio', val)}
+                    />
+                </Box>
+                <Box mt="xs">
+                    <Textarea
+                        label="Descripción"
+                        placeholder="Detalles o especificaciones del servicio"
+                        value={form.descripcion ?? ''}
+                        error={errors.descripcion}
+                        minRows={3}
+                        autosize
+                        size="md"
+                        radius="md"
+                        onChange={(e) => onChange('descripcion', e.currentTarget.value)}
+                    />
+                </Box>
+=======
 function ServicioForm({ form, errors, onChange }) {
     const handleDrop = (archivos) => {
         const archivo = archivos[0] ?? null;
@@ -192,6 +254,7 @@ function ServicioForm({ form, errors, onChange }) {
                         onChange={(v) => onChange('precio', v)}
                     />
                 </SimpleGrid>
+>>>>>>> d847833fe6f81b59e85f55ea54b3d820ae4bb7df
             </Box>
         </Stack>
     );
