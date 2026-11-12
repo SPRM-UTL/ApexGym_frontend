@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import {
     ActionIcon,
@@ -76,6 +75,7 @@ const COLUMNAS_SERVICIOS = [
     { key: 'disponibleBadge', label: 'Disponible', sortable: false, filterable: false },
 ];
 
+/* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function ServicioForm({ form, errors, onChange }) {
     const handleDrop = (archivos) => {
         const archivo = archivos[0] ?? null;

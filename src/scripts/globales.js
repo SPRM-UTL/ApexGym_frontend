@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { obtenerEmpresaCache } from '../context/EmpresaContext.jsx';
 
 const codificar = (valor) => {
     try {
@@ -18,8 +19,11 @@ const decodificar = (valorGuardado) => {
 
 export const cambioNombreWeb = (nombre) => {
     useEffect(() => {
+        const nombreEmpresa = obtenerEmpresaCache()?.nombreComercial || 'ApexGym';
         if (nombre) {
-            document.title = `${nombre} | ApexGym`;
+            document.title = `${nombre} | ${nombreEmpresa}`;
+        } else {
+            document.title = nombreEmpresa;
         }
     }, [nombre]);
 };

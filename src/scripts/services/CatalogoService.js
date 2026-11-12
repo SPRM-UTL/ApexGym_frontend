@@ -28,6 +28,13 @@ export class CatalogoService {
         );
     }
 
+    obtenerActual() {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/actual`),
+            `Error al obtener ${this.etiqueta} actual`
+        );
+    }
+
     crear(datos) {
         return this.ejecutar(
             () => httpClient.post(`${this.urlApi}/`, datos),
@@ -39,6 +46,13 @@ export class CatalogoService {
         return this.ejecutar(
             () => httpClient.put(`${this.urlApi}/${id}`, datos),
             `Error al actualizar ${this.etiqueta}`
+        );
+    }
+
+    actualizarActual(datos) {
+        return this.ejecutar(
+            () => httpClient.put(`${this.urlApi}/actual`, datos),
+            `Error al actualizar ${this.etiqueta} actual`
         );
     }
 
