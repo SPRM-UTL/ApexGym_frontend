@@ -3,6 +3,7 @@ import {
     ActionIcon,
     Badge,
     Box,
+    Button,
     Group,
     SimpleGrid,
     Stack,
@@ -11,11 +12,14 @@ import {
 import {
     IconEdit,
     IconPackage,
+    IconPhoto,
     IconTrash,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
@@ -41,6 +45,7 @@ const CAMPOS = [
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
     { key: 'descripcion', label: 'Descripción' },
     { key: 'disponibleCompra', label: 'Disponible' },
+    { key: 'imagenUrl', label: 'Imagen del producto', type: 'dropzone' },
 ];
 
 const INICIAL = {
@@ -52,7 +57,8 @@ const INICIAL = {
     precioCompra: '',
     stockActual: '',
     stockMinimo: '',
-    disponibleCompra: true
+    disponibleCompra: true,
+    imagenUrl: '',
 };
 
 const COLUMNAS_PRODUCTOS = [
@@ -69,8 +75,66 @@ const COLUMNAS_PRODUCTOS = [
 
 
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
+    const handleDrop = (archivos) => {
+        const archivo = archivos[0] ?? null;
+        if (!archivo) return;
+        const reader = new FileReader();
+        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
+        reader.readAsDataURL(archivo);
+    };
+
+    const handleReject = () => {
+        notifications.show({
+            title: 'Imagen no válida',
+            message: 'Selecciona una imagen válida de máximo 5 MB.',
+            color: 'red',
+        });
+    };
+
     return (
         <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle
+                    rightSection={
+                        form.imagenUrl ? (
+                            <Button
+                                variant="outline"
+                                color="red"
+                                size="compact-xs"
+                                radius="md"
+                                leftSection={<IconTrash size={14} stroke={1.8} />}
+                                onClick={() => onChange('imagenUrl', '')}
+                                styles={{
+                                    root: {
+                                        border: '1px solid #EF4444',
+                                        backgroundColor: '#FEF2F2',
+                                        color: '#DC2626',
+                                        fontWeight: 600,
+                                        '&:hover': {
+                                            backgroundColor: '#FEE2E2',
+                                        },
+                                    },
+                                }}
+                            >
+                                Quitar imagen
+                            </Button>
+                        ) : null
+                    }
+                >
+                    Imagen del producto
+                </SectionTitle>
+                <DropzoneImagen
+                    variant="compact"
+                    archivo={null}
+                    preview={form.imagenUrl || null}
+                    onDrop={handleDrop}
+                    onReject={handleReject}
+                    icon={IconPhoto}
+                    loadedText="Imagen del producto cargada"
+                    avatarRadius="md"
+                />
+            </Box>
+
             <Box>
                 <SectionTitle>Información general</SectionTitle>
                 <Stack gap="md">
@@ -179,7 +243,8 @@ export function Productos() {
         precioCompra: record.precioCompra ?? '',
         stockActual: record.stockActual ?? '',
         stockMinimo: record.stockMinimo ?? '',
-        disponibleCompra: record.disponibleCompra
+        disponibleCompra: record.disponibleCompra,
+        imagenUrl: record.imagenUrl ?? '',
     }), []);
 
     const mapFormToPayload = (form) => ({
@@ -191,7 +256,8 @@ export function Productos() {
         precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
-        disponibleCompra: form.disponibleCompra
+        disponibleCompra: form.disponibleCompra,
+        imagenUrl: form.imagenUrl || null,
     });
 
     const colorStock = (actual, minimo) => {

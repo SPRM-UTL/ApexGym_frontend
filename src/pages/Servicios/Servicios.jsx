@@ -4,6 +4,7 @@ import {
     ActionIcon,
     Badge,
     Box,
+    Button,
     Group,
     SimpleGrid,
     Stack,
@@ -12,11 +13,14 @@ import {
 import {
     IconDumbbell,
     IconEdit,
+    IconPhoto,
     IconTrash,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
+import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import {
     SectionTitle,
     FInput,
@@ -52,6 +56,7 @@ const CAMPOS = [
     },
     { key: 'descripcion', label: 'Descripción' },
     { key: 'disponibleCompra', label: 'Disponible' },
+    { key: 'imagenUrl', label: 'Imagen del servicio', type: 'dropzone' },
 ];
 
 const INICIAL = {
@@ -60,6 +65,7 @@ const INICIAL = {
     estado: 'ACTIVO',
     descripcion: '',
     disponibleCompra: true,
+    imagenUrl: '',
 };
 
 const COLUMNAS_SERVICIOS = [
@@ -70,6 +76,7 @@ const COLUMNAS_SERVICIOS = [
     { key: 'disponibleBadge', label: 'Disponible', sortable: false, filterable: false },
 ];
 
+<<<<<<< HEAD
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function ServicioForm({ form, errors, onChange }) {
     return (
@@ -130,6 +137,124 @@ function ServicioForm({ form, errors, onChange }) {
                         onChange={(e) => onChange('descripcion', e.currentTarget.value)}
                     />
                 </Box>
+=======
+function ServicioForm({ form, errors, onChange }) {
+    const handleDrop = (archivos) => {
+        const archivo = archivos[0] ?? null;
+        if (!archivo) return;
+        const reader = new FileReader();
+        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
+        reader.readAsDataURL(archivo);
+    };
+
+    const handleReject = () => {
+        notifications.show({
+            title: 'Imagen no válida',
+            message: 'Selecciona una imagen válida de máximo 5 MB.',
+            color: 'red',
+        });
+    };
+
+    return (
+        <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle
+                    rightSection={
+                        form.imagenUrl ? (
+                            <Button
+                                variant="outline"
+                                color="red"
+                                size="compact-xs"
+                                radius="md"
+                                leftSection={<IconTrash size={14} stroke={1.8} />}
+                                onClick={() => onChange('imagenUrl', '')}
+                                styles={{
+                                    root: {
+                                        border: '1px solid #EF4444',
+                                        backgroundColor: '#FEF2F2',
+                                        color: '#DC2626',
+                                        fontWeight: 600,
+                                        '&:hover': {
+                                            backgroundColor: '#FEE2E2',
+                                        },
+                                    },
+                                }}
+                            >
+                                Quitar imagen
+                            </Button>
+                        ) : null
+                    }
+                >
+                    Imagen del servicio
+                </SectionTitle>
+                <DropzoneImagen
+                    variant="compact"
+                    archivo={null}
+                    preview={form.imagenUrl || null}
+                    onDrop={handleDrop}
+                    onReject={handleReject}
+                    icon={IconPhoto}
+                    loadedText="Imagen del servicio cargada"
+                    avatarRadius="md"
+                />
+            </Box>
+
+            <Box>
+                <SectionTitle>Información general</SectionTitle>
+                <Stack gap="md">
+                    <FInput
+                        label="Nombre del Servicio"
+                        required
+                        placeholder="Ej. Entrenamiento Personalizado"
+                        value={form.nombre}
+                        error={errors.nombre}
+                        onChange={(v) => onChange('nombre', v)}
+                    />
+
+                    <FSelect
+                        label="Estado"
+                        required
+                        placeholder="Selecciona un estado"
+                        options={[
+                            { value: 'ACTIVO', label: 'Activo' },
+                            { value: 'INACTIVO', label: 'Inactivo' },
+                        ]}
+                        value={form.estado}
+                        error={errors.estado}
+                        onChange={(v) => onChange('estado', v)}
+                    />
+
+                    <FTextarea
+                        label="Descripción"
+                        placeholder="Detalles o especificaciones del servicio"
+                        value={form.descripcion}
+                        error={errors.descripcion}
+                        onChange={(v) => onChange('descripcion', v)}
+                    />
+
+                    <FCheckbox
+                        label="Disponible"
+                        size="md"
+                        checked={form.disponibleCompra}
+                        onChange={(v) => onChange('disponibleCompra', v)}
+                    />
+                </Stack>
+            </Box>
+
+            <Box>
+                <SectionTitle>Precio del servicio</SectionTitle>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+                    <FInput
+                        label="Precio ($)"
+                        required
+                        type="number"
+                        placeholder="Ej. 250.00"
+                        value={form.precio}
+                        error={errors.precio}
+                        onChange={(v) => onChange('precio', v)}
+                    />
+                </SimpleGrid>
+>>>>>>> d847833fe6f81b59e85f55ea54b3d820ae4bb7df
             </Box>
         </Stack>
     );
@@ -145,6 +270,7 @@ export function Servicios() {
         estado: record.estado ?? 'ACTIVO',
         descripcion: record.descripcion ?? '',
         disponibleCompra: record.disponibleCompra ?? true,
+        imagenUrl: record.imagenUrl ?? '',
     }), []);
 
     const mapFormToPayload = (form) => ({
@@ -153,6 +279,7 @@ export function Servicios() {
         estado: form.estado || 'ACTIVO',
         descripcion: form.descripcion || null,
         disponibleCompra: form.disponibleCompra ?? true,
+        imagenUrl: form.imagenUrl || null,
     });
 
     const mapRecordToRow = (record) => {
