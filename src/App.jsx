@@ -215,6 +215,18 @@ function App() {
               }
             />
             <Route
+              path="/ventas"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <SimuladorPagos />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
               path="/pagos-experimentacion"
               element={
                 estaLogeadoEn ? (

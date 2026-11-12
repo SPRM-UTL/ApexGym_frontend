@@ -1207,6 +1207,7 @@ export function CorteCaja() {
     const handleDescargarPdf = async (corte, esReimpresion = false) => {
         if (!corte) return;
         let movs = [];
+        let resumenApertura = null;
         const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
         if (aperturaId) {
             try {
@@ -1214,6 +1215,12 @@ export function CorteCaja() {
                 if (r.responseFlag === 0) movs = r.data ?? [];
             } catch {
                 movs = [];
+            }
+            try {
+                const rRes = await api.movimientoCaja.obtenerResumenApertura(aperturaId);
+                if (rRes.responseFlag === 0) resumenApertura = rRes.data;
+            } catch {
+                resumenApertura = null;
             }
         }
 
@@ -1236,7 +1243,10 @@ export function CorteCaja() {
             configuraciones = [];
         }
 
-        generarPdfCorte(corte, movs, desglose, configuraciones, { esReimpresion });
+        generarPdfCorte(corte, movs, desglose, configuraciones, {
+            esReimpresion,
+            totales: resumenApertura?.totales,
+        });
     };
 
     const handleValidar = async (corte, helpers = {}) => {

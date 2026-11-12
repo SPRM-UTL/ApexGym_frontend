@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     ActionIcon,
     Alert,
@@ -8,7 +9,9 @@ import {
     Drawer,
     Grid,
     Group,
+    NativeSelect,
     NumberInput,
+    Select,
     Paper,
     SegmentedControl,
     Stack,
@@ -36,6 +39,7 @@ import {
     IconReceipt,
     IconRefresh,
     IconRotateClockwise,
+    IconSearch,
     IconShieldCheck,
     IconUser,
     IconX,
@@ -56,19 +60,28 @@ const COLUMNAS = [
 ];
 
 export function SimuladorPagos() {
-    cambioNombreWeb('Caja y Transacciones de Pago');
+    cambioNombreWeb('Ventas y Cobros');
 
     const [cargando, setCargando] = useState(false);
     const [cargandoAccion, setCargandoAccion] = useState(false);
     const [resumen, setResumen] = useState({ totalAprobado: 0, totalPendiente: 0, totalReembolsado: 0 });
     const [transacciones, setTransacciones] = useState([]);
+    const navigate = useNavigate();
+    const [aperturasAbiertas, setAperturasAbiertas] = useState([]);
+    const [aperturaSeleccionadaId, setAperturaSeleccionadaId] = useState('');
 
     // Drawers del sistema
     const [drawerNuevoCobroAbierto, setDrawerNuevoCobroAbierto] = useState(false);
     const [transaccionDetalle, setTransaccionDetalle] = useState(null);
 
+    // Catálogos para autocompletar cobro
+    const [serviciosCatalogo, setServiciosCatalogo] = useState([]);
+    const [productosCatalogo, setProductosCatalogo] = useState([]);
+    const [membresiasCatalogo, setMembresiasCatalogo] = useState([]);
+    const [itemSeleccionadoId, setItemSeleccionadoId] = useState(null);
+
     // Formulario de Cobro
-    const [concepto, setConcepto] = useState('Membresía Mensual ApexGym');
+    const [concepto, setConcepto] = useState('');
     const [monto, setMonto] = useState(10.00);
     const [correo, setCorreo] = useState('');
     const [metodo, setMetodo] = useState('DIGITAL'); // 'EFECTIVO' | 'TERMINAL' | 'DIGITAL'
@@ -90,10 +103,44 @@ export function SimuladorPagos() {
     const cargarDatos = async () => {
         try {
             setCargando(true);
-            const [respResumen, respTrans] = await Promise.all([
+            const [respResumen, respTrans, respAperturas, respServicios, respProductos, respMembresias] = await Promise.all([
                 api.pagos.obtenerResumen().catch(() => null),
                 api.pagos.obtenerTransacciones().catch(() => null),
+                api.aperturaCaja.obtenerTodos().catch(() => null),
+                api.servicio.obtenerTodos().catch(() => null),
+                api.producto.obtenerTodos().catch(() => null),
+                api.tipoMembresia.obtenerTodos().catch(() => null),
             ]);
+
+            const extraerLista = (resp) => {
+                if (!resp) return [];
+                if (Array.isArray(resp)) return resp;
+                if (Array.isArray(resp.data)) return resp.data;
+                if (Array.isArray(resp.data?.data)) return resp.data.data;
+                return [];
+            };
+
+            const esActivo = (item) => {
+                if (!item) return false;
+                if (!item.estado) return true;
+                const est = String(item.estado).trim().toUpperCase();
+                return est === 'ACTIVO' || est === 'ACTIVA' || est === 'TRUE';
+            };
+
+            const listaServicios = extraerLista(respServicios).filter(esActivo);
+            setServiciosCatalogo(listaServicios);
+
+            const listaProductos = extraerLista(respProductos).filter(esActivo);
+            setProductosCatalogo(listaProductos);
+
+            const listaMembresias = extraerLista(respMembresias).filter(esActivo);
+            setMembresiasCatalogo(listaMembresias);
+
+            const listaAperturas = (respAperturas?.data ?? []).filter((a) => a.estado === 'ABIERTA');
+            setAperturasAbiertas(listaAperturas);
+            if (listaAperturas.length > 0 && !aperturaSeleccionadaId) {
+                setAperturaSeleccionadaId(String(listaAperturas[0].id));
+            }
 
             const resumenData = respResumen?.data || respResumen;
             if (resumenData && typeof resumenData === 'object') {
@@ -122,12 +169,168 @@ export function SimuladorPagos() {
         cargarDatos();
     }, []);
 
+    // Determina si estamos filtrando por turno específico o viendo el acumulado global
+    const esFiltroTurno = aperturaSeleccionadaId !== 'TODAS' && (aperturasAbiertas.length > 0);
+
+    // Sesión de caja activa calculada
+    const aperturaActiva = useMemo(() => {
+        if (aperturaSeleccionadaId === 'TODAS') return null;
+        if (!aperturaSeleccionadaId) return aperturasAbiertas[0] || null;
+        return aperturasAbiertas.find((a) => String(a.id) === String(aperturaSeleccionadaId)) || aperturasAbiertas[0] || null;
+    }, [aperturasAbiertas, aperturaSeleccionadaId]);
+
+    // Transacciones filtradas según la caja/turno seleccionado o historial global
+    const transaccionesFiltradas = useMemo(() => {
+        if (!esFiltroTurno || !aperturaActiva) {
+            return transacciones;
+        }
+
+        const fechaInicioTurno = aperturaActiva?.fechaApertura ? new Date(aperturaActiva.fechaApertura) : null;
+
+        return transacciones.filter((t) => {
+            let meta = t.metadatos;
+            if (typeof meta === 'string') {
+                try {
+                    meta = JSON.parse(meta);
+                } catch {
+                    meta = null;
+                }
+            }
+
+            // 1. Vinculacion directa por metadatos de apertura de caja
+            const idMetadato = meta?.aperturaCajaId;
+            if (idMetadato !== undefined && idMetadato !== null) {
+                return Number(idMetadato) === Number(aperturaActiva.id);
+            }
+
+            // 2. Si no tiene metadatos pero fue emitida a partir del horario de apertura del turno
+            if (fechaInicioTurno && t.createdAt) {
+                const fechaTx = new Date(t.createdAt);
+                return fechaTx >= fechaInicioTurno;
+            }
+
+            return false;
+        });
+    }, [transacciones, esFiltroTurno, aperturaActiva]);
+
+    // Métricas dinámicas calculadas para la caja/turno seleccionado o global
+    const metricas = useMemo(() => {
+        if (!esFiltroTurno) {
+            return {
+                totalAprobado: Number(resumen?.totalAprobado || 0),
+                totalPendiente: Number(resumen?.totalPendiente || 0),
+                totalReembolsado: Number(resumen?.totalReembolsado || 0),
+            };
+        }
+
+        let totalAprobado = 0;
+        let totalPendiente = 0;
+        let totalReembolsado = 0;
+
+        for (const t of transaccionesFiltradas) {
+            const monto = Number(t.monto) || 0;
+            if (t.estado === 'APROBADO') {
+                totalAprobado += monto;
+            } else if (t.estado === 'PENDIENTE') {
+                totalPendiente += monto;
+            } else if (t.estado === 'REEMBOLSADO') {
+                totalReembolsado += monto;
+            }
+        }
+
+        return { totalAprobado, totalPendiente, totalReembolsado };
+    }, [esFiltroTurno, transaccionesFiltradas, resumen]);
+
+    // Lista plana de todos los artículos para autollenado y sugerencias rápidas
+    const articulosDisponibles = useMemo(() => {
+        const flat = [];
+        for (const s of serviciosCatalogo) {
+            flat.push({
+                id: `SRV_${s.id}`,
+                nombre: s.nombre,
+                precio: Number(s.precio || 0),
+                categoria: 'Servicio',
+                color: 'blue',
+            });
+        }
+        for (const p of productosCatalogo) {
+            flat.push({
+                id: `PRD_${p.id}`,
+                nombre: p.nombre,
+                precio: Number(p.precioVenta || 0),
+                categoria: 'Producto',
+                color: 'teal',
+            });
+        }
+        for (const m of membresiasCatalogo) {
+            flat.push({
+                id: `MEM_${m.id}`,
+                nombre: m.nombre,
+                precio: Number(m.precio || 0),
+                categoria: 'Membresía',
+                color: 'violet',
+            });
+        }
+        return flat;
+    }, [serviciosCatalogo, productosCatalogo, membresiasCatalogo]);
+
+    // Opciones agrupadas formateadas estrictamente para Mantine Select ({ group, items: [{ value, label }] })
+    const opcionesCatalogo = useMemo(() => {
+        const grupos = [];
+
+        if (serviciosCatalogo.length > 0) {
+            grupos.push({
+                group: 'Servicios',
+                items: serviciosCatalogo.map((s) => ({
+                    value: `SRV_${s.id}`,
+                    label: `${s.nombre} — ${Number(s.precio || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+                })),
+            });
+        }
+
+        if (productosCatalogo.length > 0) {
+            grupos.push({
+                group: 'Productos',
+                items: productosCatalogo.map((p) => ({
+                    value: `PRD_${p.id}`,
+                    label: `${p.nombre} — ${Number(p.precioVenta || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+                })),
+            });
+        }
+
+        if (membresiasCatalogo.length > 0) {
+            grupos.push({
+                group: 'Membresías',
+                items: membresiasCatalogo.map((m) => ({
+                    value: `MEM_${m.id}`,
+                    label: `${m.nombre} — ${Number(m.precio || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+                })),
+            });
+        }
+
+        return grupos;
+    }, [serviciosCatalogo, productosCatalogo, membresiasCatalogo]);
+
+    const handleSeleccionarCatalogo = (val) => {
+        setItemSeleccionadoId(val);
+        if (!val) return;
+        const seleccionado = articulosDisponibles.find((a) => a.id === val);
+        if (seleccionado) {
+            setConcepto(seleccionado.nombre);
+            setMonto(seleccionado.precio);
+        }
+    };
+
     // Preparar y abrir Drawer para un nuevo cobro
     const abrirNuevoCobro = () => {
         setIdempotenciaKey(crypto.randomUUID());
         setFolioVoucher(`AUTH-${Math.floor(100000 + Math.random() * 900000)}`);
         setUltimosDigitos(String(Math.floor(1000 + Math.random() * 9000)));
+        setItemSeleccionadoId(null);
+        setConcepto('');
+        setMonto(0);
         setDrawerNuevoCobroAbierto(true);
+        cargarDatos();
     };
 
     // Cálculos de efectivo y cambio
@@ -199,6 +402,8 @@ export function SimuladorPagos() {
                 metadatos: {
                     efectivoRecibido: metodo === 'EFECTIVO' ? efectivoRecibidoNum : null,
                     cambioEntregado: metodo === 'EFECTIVO' ? cambioEfectivo : null,
+                    aperturaCajaId: aperturaActiva?.id ?? null,
+                    cajaNombre: aperturaActiva?.caja?.nombre ?? null,
                 },
             };
 
@@ -362,7 +567,7 @@ export function SimuladorPagos() {
 
     // Mapeo oficial de datos para la TablaRegistros de ApexGym
     const tableData = useMemo(() => {
-        return transacciones.map((t) => ({
+        return transaccionesFiltradas.map((t) => ({
             id: t.id,
             _recordOriginal: t,
             numero: `#${t.id}`,
@@ -385,7 +590,7 @@ export function SimuladorPagos() {
                 ? new Date(t.createdAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
                 : 'Reciente',
         }));
-    }, [transacciones]);
+    }, [transaccionesFiltradas]);
 
     return (
         <div className={classes.layout}>
@@ -401,14 +606,11 @@ export function SimuladorPagos() {
                     <div>
                         <Group gap="xs" align="center">
                             <Title order={2} className={classes.unifiedTitle}>
-                                Caja y Transacciones de Pago
+                                Ventas y Cobros
                             </Title>
-                            <Badge color="apex" variant="light" size="sm" radius="sm">
-                                MODO EXPERIMENTAL
-                            </Badge>
                         </Group>
                         <Text c="dimmed" size="xs">
-                            Control de cobros en mostrador: Efectivo, Terminales Bancarias y Pasarela en Línea
+                            Registro de ventas y cobranza general: Efectivo, Terminales Bancarias y Pasarela en Línea
                         </Text>
                     </div>
                 </Group>
@@ -423,19 +625,105 @@ export function SimuladorPagos() {
                     >
                         Recargar
                     </Button>
-                    <ActionIcon
-                        className={classes.addButtonUnified}
-                        onClick={abrirNuevoCobro}
-                        aria-label="Registrar nuevo cobro"
-                        size={42}
-                        radius="xl"
+                    <Button
                         color="apex"
-                        variant="filled"
+                        radius="md"
+                        leftSection={<IconPlus size={16} stroke={2.5} />}
+                        onClick={abrirNuevoCobro}
+                        style={{ color: '#ffffff' }}
+                        styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
                     >
-                        <IconPlus size={20} stroke={2.5} />
-                    </ActionIcon>
+                        Nueva Venta / Cobro
+                    </Button>
                 </Group>
             </div>
+
+            {/* Indicador Oficial de Caja Activa y Sesión de Turno */}
+            {aperturasAbiertas.length > 0 ? (
+                <Paper
+                    p="sm"
+                    radius="md"
+                    withBorder
+                    style={{
+                        backgroundColor: '#F8FAFC',
+                        borderColor: '#CBD5E1',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    }}
+                >
+                    <Group justify="space-between" wrap="wrap" gap="sm">
+                        <Group gap="sm">
+                            <ThemeIcon size={38} radius="md" color="teal" variant="light">
+                                <IconCash size={22} stroke={1.8} />
+                            </ThemeIcon>
+                            <div>
+                                <Group gap="xs" align="center">
+                                    <Text fw={700} size="sm" c="#1E293B">
+                                        Caja Activa: {aperturaActiva?.caja?.nombre || 'Caja Principal'}
+                                    </Text>
+                                    <Badge color="teal" variant="light" size="sm" radius="sm">
+                                        TURNO EN CURSO
+                                    </Badge>
+                                    <Badge color="green" variant="dot" size="sm">
+                                        ABIERTA
+                                    </Badge>
+                                </Group>
+                                <Text size="xs" c="dimmed">
+                                    Sesión #{aperturaActiva?.id} · Cajero: {aperturaActiva?.empleado ? `${aperturaActiva.empleado.nombre} ${aperturaActiva.empleado.apellidoPaterno || ''}`.trim() : 'Asignado'} · Fondo inicial: ${Number(aperturaActiva?.montoInicial || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                                </Text>
+                            </div>
+                        </Group>
+
+                        <Group gap="xs">
+                            <NativeSelect
+                                size="xs"
+                                data={[
+                                    ...aperturasAbiertas.map((a) => ({
+                                        value: String(a.id),
+                                        label: `${a.caja?.nombre || 'Caja'} (Turno #${a.id}) - Turno Actual`,
+                                    })),
+                                    { value: 'TODAS', label: 'Historial Global (Todas las cajas y turnos)' },
+                                ]}
+                                value={aperturaSeleccionadaId || String(aperturaActiva?.id || 'TODAS')}
+                                onChange={(e) => setAperturaSeleccionadaId(e.currentTarget.value)}
+                                style={{ minWidth: 260 }}
+                            />
+                            {aperturaActiva && (
+                                <Button
+                                    variant="subtle"
+                                    color="gray"
+                                    size="xs"
+                                    onClick={() => navigate(`/movimientos-caja?aperturaId=${aperturaActiva.id}`)}
+                                >
+                                    Ver Arqueo
+                                </Button>
+                            )}
+                        </Group>
+                    </Group>
+                </Paper>
+            ) : (
+                <Alert
+                    color="orange"
+                    variant="light"
+                    radius="md"
+                    icon={<IconAlertCircle size={20} />}
+                    title="Sin sesión de caja física abierta"
+                >
+                    <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+                        <Text size="xs" c="#78350F">
+                            No hay ningún turno de caja abierto en este momento. Las ventas con Terminal o Pasarela en Línea pueden registrarse, pero los cobros en efectivo requieren una apertura previa para el arqueo.
+                        </Text>
+                        <Button
+                            size="xs"
+                            color="apex"
+                            variant="filled"
+                            onClick={() => navigate('/apertura-caja')}
+                            style={{ color: '#ffffff' }}
+                        >
+                            Abrir Caja
+                        </Button>
+                    </Group>
+                </Alert>
+            )}
 
             {/* Tarjetas de Métricas de Auditoría */}
             <Grid gutter="md">
@@ -447,10 +735,10 @@ export function SimuladorPagos() {
                                     Total Cobrado
                                 </Text>
                                 <Text className={classes.statValue} c="teal.8">
-                                    ${Number(resumen?.totalAprobado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                                    ${Number(metricas.totalAprobado).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    Pagos liquidados con éxito
+                                    {esFiltroTurno ? `Cobrado en ${aperturaActiva?.caja?.nombre || 'este turno'}` : 'Pagos liquidados con éxito (Historial global)'}
                                 </Text>
                             </div>
                             <ThemeIcon color="teal" variant="light" size="lg" radius="md">
@@ -468,10 +756,10 @@ export function SimuladorPagos() {
                                     Total Pendiente
                                 </Text>
                                 <Text className={classes.statValue} c="yellow.8">
-                                    ${Number(resumen?.totalPendiente || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                                    ${Number(metricas.totalPendiente).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    En espera de confirmación bancaria
+                                    {esFiltroTurno ? 'Pendientes en este turno' : 'En espera de confirmación bancaria'}
                                 </Text>
                             </div>
                             <ThemeIcon color="yellow" variant="light" size="lg" radius="md">
@@ -489,10 +777,10 @@ export function SimuladorPagos() {
                                     Total Reembolsos
                                 </Text>
                                 <Text className={classes.statValue} c="dimmed">
-                                    ${Number(resumen?.totalReembolsado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                                    ${Number(metricas.totalReembolsado).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    Devoluciones registradas en auditoría
+                                    {esFiltroTurno ? 'Reembolsos de este turno' : 'Devoluciones registradas en auditoría'}
                                 </Text>
                             </div>
                             <ThemeIcon color="gray" variant="light" size="lg" radius="md">
@@ -603,11 +891,58 @@ export function SimuladorPagos() {
                         subtitle="Concepto, importe y cliente"
                     >
                         <Stack gap="sm" p="md">
+                            <Select
+                                label="Catálogo de Artículos y Servicios"
+                                description="Selecciona un servicio, producto o membresía para autocompletar el precio"
+                                placeholder="Buscar en el catálogo o escribir abajo concepto libre..."
+                                data={opcionesCatalogo}
+                                value={itemSeleccionadoId}
+                                onChange={handleSeleccionarCatalogo}
+                                searchable
+                                clearable
+                                nothingFoundMessage="No se encontraron artículos"
+                                leftSection={<IconSearch size={16} />}
+                                maxDropdownHeight={280}
+                                comboboxProps={{ zIndex: 1000005, withinPortal: true }}
+                            />
+
+                            {/* Píldoras de selección rápida de artículos */}
+                            {articulosDisponibles.length > 0 && (
+                                <div>
+                                    <Text size="xs" c="dimmed" mb={4} fw={600}>
+                                        Sugerencias rápidas del catálogo:
+                                    </Text>
+                                    <Group gap={6} wrap="wrap">
+                                        {articulosDisponibles.map((item) => (
+                                            <Button
+                                                key={item.id}
+                                                size="xs"
+                                                variant={itemSeleccionadoId === item.id ? 'filled' : 'light'}
+                                                color={item.color}
+                                                onClick={() => handleSeleccionarCatalogo(item.id)}
+                                                radius="xl"
+                                                style={{ fontWeight: 600 }}
+                                            >
+                                                {item.nombre} · ${Number(item.precio).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                            </Button>
+                                        ))}
+                                    </Group>
+                                </div>
+                            )}
+
                             <TextInput
                                 label="Concepto del cobro"
-                                placeholder="Ej. Membresía Mensual ApexGym"
+                                placeholder="Ej. Proteína Whey, Suplemento, Pase de Día, Membresía..."
                                 value={concepto}
-                                onChange={(e) => setConcepto(e.currentTarget.value)}
+                                onChange={(e) => {
+                                    setConcepto(e.currentTarget.value);
+                                    if (itemSeleccionadoId) {
+                                        const sel = articulosDisponibles.find((a) => a.id === itemSeleccionadoId);
+                                        if (sel && sel.nombre !== e.currentTarget.value) {
+                                            setItemSeleccionadoId(null);
+                                        }
+                                    }
+                                }}
                                 withAsterisk
                                 required
                             />
@@ -618,7 +953,7 @@ export function SimuladorPagos() {
                                     onChange={(val) => setMonto(Number(val) || 0)}
                                     prefix="$"
                                     suffix=" MXN"
-                                    min={1}
+                                    min={0.01}
                                     decimalScale={2}
                                     withAsterisk
                                     required
@@ -641,6 +976,24 @@ export function SimuladorPagos() {
                         subtitle="Efectivo en caja, terminal en mostrador o pasarela en línea"
                     >
                         <Stack gap="sm" p="md">
+                            {metodo === 'EFECTIVO' && (
+                                aperturaActiva ? (
+                                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }}>
+                                        <Group gap="xs">
+                                            <ThemeIcon size="sm" color="teal" variant="light" radius="xl">
+                                                <IconCheck size={14} />
+                                            </ThemeIcon>
+                                            <Text size="xs" c="#166534" fw={600}>
+                                                El efectivo ingresará a: {aperturaActiva.caja?.nombre || 'Caja Principal'} (Turno #{aperturaActiva.id})
+                                            </Text>
+                                        </Group>
+                                    </Paper>
+                                ) : (
+                                    <Alert color="orange" variant="light" size="xs" icon={<IconAlertCircle size={16} />}>
+                                        Atención: No hay ninguna caja física abierta en este turno. El cobro no podrá ingresarse a un cajón físico de efectivo hasta abrir turno.
+                                    </Alert>
+                                )
+                            )}
                             <SegmentedControl
                                 value={metodo}
                                 onChange={setMetodo}

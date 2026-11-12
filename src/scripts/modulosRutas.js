@@ -24,7 +24,9 @@ const RUTAS_POR_MODULO = {
     'Servicios': '/servicios',
     'Pagos': '/pagos-experimentacion',
     'Simulador de Pagos': '/pagos-experimentacion',
-    'Accesos y Visitas': '/accesos-y-visitas'
+    'Accesos y Visitas': '/accesos-y-visitas',
+    'Ventas': '/ventas',
+    'Registro de ventas': '/ventas'
 };
 
 /**

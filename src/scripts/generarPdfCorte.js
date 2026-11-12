@@ -115,6 +115,8 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
     const estadoColor = corte?.estado === 'VALIDADO' ? '#2b8a3e' : '#e67700';
 
     const desgloseItems = desglose && typeof desglose === 'object' ? Object.entries(desglose) : [];
+    const totalesFinancieros = opciones?.totales || corte?.totales || null;
+    const metodosPago = totalesFinancieros?.ventasPorMetodoPago || [];
 
     const totalMovs = (movimientos ?? []).length;
     const sumEntradas = (movimientos ?? []).filter(m => m.tipo === 'ENTRADA').reduce((acc, m) => acc + Number(m.monto || 0), 0);
@@ -310,7 +312,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
             <button type="button" class="btn-action primary" onclick="window.print()">
-                🖨️ Imprimir / Guardar PDF
+                Imprimir / Guardar PDF
             </button>
         </div>
     </div>
@@ -451,6 +453,46 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
                 <tr>
                     <td colspan="2" style="text-align: right;">TOTAL ARQUEO FÍSICO:</td>
                     <td style="text-align: right; color: #FF6A00;">$${efectivoContado.toFixed(2)}</td>
+                </tr>
+            </tfoot>
+        </table>
+    `
+            : ''
+    }
+
+    ${
+        metodosPago.length > 0
+            ? `
+        <div class="section-title">
+            <span>Desglose de Cobros y Canales de Pago del Turno</span>
+            <span style="font-size: 9px; font-weight: 600; color: #868e96;">Total Turno: $${Number(totalesFinancieros.totalVentas || 0).toFixed(2)} (${totalesFinancieros.transaccionesVentas || 0} operaciones)</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Método / Canal de Cobro</th>
+                    <th style="text-align: center; width: 140px;">Operaciones</th>
+                    <th style="text-align: right; width: 160px;">Total Cobrado</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${metodosPago
+                    .map(
+                        (m) => `
+                    <tr>
+                        <td style="padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #212529;">${m.nombre}</td>
+                        <td style="padding: 6px 10px; border-bottom: 1px solid #e9ecef; text-align: center; color: #495057;">${m.transacciones} ops</td>
+                        <td style="padding: 6px 10px; border-bottom: 1px solid #e9ecef; text-align: right; font-weight: 700; color: #1B1F3A;">$${Number(m.total || 0).toFixed(2)}</td>
+                    </tr>
+                `
+                    )
+                    .join('')}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td style="text-align: right; font-weight: 800;">TOTAL GLOBAL FACTURADO:</td>
+                    <td style="text-align: center; font-weight: 800;">${totalesFinancieros.transaccionesVentas || 0} ops</td>
+                    <td style="text-align: right; font-weight: 800; color: #FF6A00; font-size: 11px;">$${Number(totalesFinancieros.totalVentas || 0).toFixed(2)}</td>
                 </tr>
             </tfoot>
         </table>

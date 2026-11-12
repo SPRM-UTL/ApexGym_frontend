@@ -160,6 +160,8 @@ export function CrudCatalogo({
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
     pageSizeOptions,
+    filterRecords,
+    topContent,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -293,13 +295,16 @@ export function CrudCatalogo({
         }
     };
 
-    const tableData = useMemo(() => records.map((record) => {
-        const row = mapRecordToRow(record);
-        return {
-            ...row,
-            _recordOriginal: record,
-        };
-    }), [records, mapRecordToRow]);
+    const tableData = useMemo(() => {
+        const sourceRecords = typeof filterRecords === 'function' ? filterRecords(records) : records;
+        return sourceRecords.map((record) => {
+            const row = mapRecordToRow(record);
+            return {
+                ...row,
+                _recordOriginal: record,
+            };
+        });
+    }, [records, mapRecordToRow, filterRecords]);
 
     const handleRenderAcciones = useMemo(() => {
         if (!renderAccionesFila) return undefined;
@@ -550,6 +555,7 @@ export function CrudCatalogo({
                     <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
                 )}
                 {error && <div className={classes.error}>{error}</div>}
+                {topContent}
                 {loading && records.length === 0 ? (
                     <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
                 ) : (

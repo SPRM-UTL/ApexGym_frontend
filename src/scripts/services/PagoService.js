@@ -48,6 +48,13 @@ export class PagoService extends CatalogoService {
     }
 
     /**
+     * Obtiene una transacción específica por ID.
+     */
+    obtenerTransaccionPorId(id) {
+        return this.obtenerPorId(id);
+    }
+
+    /**
      * Obtiene el listado de transacciones.
      */
     obtenerTransacciones() {
