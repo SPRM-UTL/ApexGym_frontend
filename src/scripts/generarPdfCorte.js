@@ -100,7 +100,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
                 </span>
             </td>
             <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef; word-break: break-word;">
-                <div style="font-weight: 600; color: #212529;">${m.concepto ?? '—'}</div>
+                <div style="font-weight: 600; color: #212529;">${m.concepto ?? '—'}${m.devolucionId != null ? ` · Devolución #${m.devolucionId}` : ''}</div>
                 ${m.observaciones ? `<div style="font-size: 11px; color: #868e96; margin-top: 2px;">${m.observaciones}</div>` : ''}
             </td>
             <td style="padding: 7px 10px; border-bottom: 1px solid #e9ecef; text-align: right; font-weight: 700; color: ${m.tipo === 'ENTRADA' ? '#2b8a3e' : '#c92a2a'};">

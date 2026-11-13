@@ -96,6 +96,16 @@
 .total :global(.mantine-Text-root:first-child) { color: var(--ag-color-black) !important; }
 .total :global(.mantine-Text-root:last-child) { color: var(--ag-color-primary) !important; }
 
+.devoluciones {
+    border-color: var(--ag-color-primary-light);
+    background: var(--ag-color-surface);
+}
+.devolucionFila {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--ag-color-border);
+}
+.devolucionFila:last-child { border-bottom: 0; }
+
 .motivoCancelacion {
     border-color: color-mix(in srgb, var(--mantine-color-red-6) 28%, transparent);
     background: color-mix(in srgb, var(--mantine-color-red-0) 72%, var(--ag-color-surface-elevated));

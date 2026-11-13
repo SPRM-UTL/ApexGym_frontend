@@ -22,7 +22,13 @@ import {
     IconShoppingCart,
     IconTrash,
 } from '@tabler/icons-react';
-import { calcularMontos } from '../utils/venta.utils.js';
+import {
+    calcularDescuentoUnitario,
+    calcularMontos,
+    calcularPrecioUnitarioNeto,
+    calcularSubtotalLinea,
+    redondear,
+} from '../utils/venta.utils.js';
 export function Ticket({productos, sumar, restar, eliminarProducto, eliminarTicket, cambiarCaja, cajaActual, onCobrar, cobrando,
 }) {
     const { subtotal, iva, total } = calcularMontos(productos);
@@ -81,73 +87,99 @@ export function Ticket({productos, sumar, restar, eliminarProducto, eliminarTick
                 <ScrollArea flex={1} p="md">
                     <Stack gap="sm">
 
-                        {productos.map((producto) => (
-                            <Paper
-                                key={producto.id + producto.tipoItem}
-                                p="sm"
-                                radius="sm"
-                                withBorder
-                                className={classes.ticketProducto}
-                            >
-                                <Group justify="space-between">
-                                    <Group gap="sm" wrap="nowrap" className={classes.ticketProductoInfo}>
-                                        <Box className={classes.ticketImagen}>
-                                            {producto.imagen ? (
-                                                <Image
-                                                    src={producto.imagen}
-                                                    alt={producto.nombre}
-                                                    w={60}
-                                                    h={60}
-                                                    fit="cover"
-                                                />
-                                            ) : (
-                                                <IconBottle size={22} />
-                                            )}
-                                        </Box>
-                                        <Box className={classes.ticketProductoTexto}>
-                                            <Text size="md" fw={650} lineClamp={2}>
-                                                {producto.nombre}
+                        {productos.map((producto) => {
+                            const descuentoPorcentaje = producto.tipoItem === 'PRODUCTO'
+                                ? Number(producto.descuentoPorcentaje ?? 0)
+                                : 0;
+                            const descuentoUnitario = calcularDescuentoUnitario(producto);
+                            const precioUnitarioNeto = calcularPrecioUnitarioNeto(producto);
+                            const subtotalLinea = calcularSubtotalLinea(producto);
+                            return (
+                                <Paper
+                                    key={producto.id + producto.tipoItem}
+                                    p="sm"
+                                    radius="sm"
+                                    withBorder
+                                    className={classes.ticketProducto}
+                                >
+                                    <Group justify="space-between">
+                                        <Group gap="sm" wrap="nowrap" className={classes.ticketProductoInfo}>
+                                            <Box className={classes.ticketImagen}>
+                                                {producto.imagen ? (
+                                                    <Image
+                                                        src={producto.imagen}
+                                                        alt={producto.nombre}
+                                                        w={60}
+                                                        h={60}
+                                                        fit="cover"
+                                                    />
+                                                ) : (
+                                                    <IconBottle size={22} />
+                                                )}
+                                            </Box>
+                                            <Box className={classes.ticketProductoTexto}>
+                                                <Text size="md" fw={650} lineClamp={2}>
+                                                    {producto.nombre}
+                                                </Text>
+                                                {descuentoPorcentaje > 0 ? (
+                                                    <Group gap={6}>
+                                                        <Text size="sm" c="dimmed" td="line-through">
+                                                            <NumberFormatter prefix="$" value={producto.precio} thousandSeparator decimalScale={2} fixedDecimalScale />
+                                                        </Text>
+                                                        <Badge size="xs" color="red" variant="light">{descuentoPorcentaje}%</Badge>
+                                                    </Group>
+                                                ) : null}
+                                                <Text size="sm" c={descuentoPorcentaje > 0 ? 'green.8' : 'dimmed'} fw={descuentoPorcentaje > 0 ? 650 : undefined}>
+                                                    <NumberFormatter prefix="$" value={precioUnitarioNeto} thousandSeparator decimalScale={2} fixedDecimalScale /> c/u
+                                                </Text>
+                                            </Box>
+                                        </Group>
+
+                                        <Group gap={4} wrap="nowrap">
+                                            <ActionIcon
+                                                size="sm"
+                                                variant="light"
+                                                onClick={() => restar(producto)}
+                                            >
+                                                <IconMinus size={14} />
+                                            </ActionIcon>
+
+                                            <Text className={classes.cantidadProducto} size="sm" fw={600}>
+                                                {producto.cantidad}
                                             </Text>
-                                            <Text size="sm" c="dimmed">
-                                                ${producto.precio} c/u
-                                            </Text>
-                                        </Box>
+
+                                            <ActionIcon
+                                                size="sm"
+                                                variant="light"
+                                                onClick={() => sumar(producto)}
+                                            >
+                                                <IconPlus size={14} />
+                                            </ActionIcon>
+                                            <ActionIcon
+                                                size="sm"
+                                                variant="subtle"
+                                                color="red"
+                                                aria-label={`Eliminar ${producto.nombre} del ticket`}
+                                                title="Eliminar del ticket"
+                                                onClick={() => eliminarProducto(producto)}
+                                            >
+                                                <IconTrash size={15} />
+                                            </ActionIcon>
+                                        </Group>
                                     </Group>
-
-                                    <Group gap={4} wrap="nowrap">
-                                        <ActionIcon
-                                            size="sm"
-                                            variant="light"
-                                            onClick={() => restar(producto)}
-                                        >
-                                            <IconMinus size={14} />
-                                        </ActionIcon>
-
-                                        <Text className={classes.cantidadProducto} size="sm" fw={600}>
-                                            {producto.cantidad}
+                                    <Group justify="space-between" mt="xs" pl={producto.imagen ? 72 : 0}>
+                                        {descuentoPorcentaje > 0 ? (
+                                            <Text size="xs" c="dimmed">
+                                                Descuento: -<NumberFormatter prefix="$" value={redondear(descuentoUnitario * producto.cantidad)} thousandSeparator decimalScale={2} fixedDecimalScale />
+                                            </Text>
+                                        ) : <span />}
+                                        <Text size="sm" fw={700}>
+                                            Importe: <NumberFormatter prefix="$" value={subtotalLinea} thousandSeparator decimalScale={2} fixedDecimalScale />
                                         </Text>
-
-                                        <ActionIcon
-                                            size="sm"
-                                            variant="light"
-                                            onClick={() => sumar(producto)}
-                                        >
-                                            <IconPlus size={14} />
-                                        </ActionIcon>
-                                        <ActionIcon
-                                            size="sm"
-                                            variant="subtle"
-                                            color="red"
-                                            aria-label={`Eliminar ${producto.nombre} del ticket`}
-                                            title="Eliminar del ticket"
-                                            onClick={() => eliminarProducto(producto)}
-                                        >
-                                            <IconTrash size={15} />
-                                        </ActionIcon>
                                     </Group>
-                                </Group>
                             </Paper>
-                        ))}
+                            );
+                        })}
                     </Stack>
                 </ScrollArea>
 

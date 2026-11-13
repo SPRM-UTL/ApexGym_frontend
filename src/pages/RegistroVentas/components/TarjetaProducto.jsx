@@ -1,8 +1,11 @@
 import classes from '../Nueva/Nueva.module.css';
 import { Badge, Card, Group, Image, NumberFormatter, Stack, Text } from '@mantine/core';
+import { calcularPrecioUnitarioNeto } from '../utils/venta.utils.js';
 
 export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
     const categoriaNombre = producto.categoria?.nombre ?? (typeof producto.categoria === 'string' ? producto.categoria : null);
+    const descuentoPorcentaje = tipoItem === 'PRODUCTO' ? Number(producto.descuentoPorcentaje ?? 0) : 0;
+    const precioConDescuento = calcularPrecioUnitarioNeto({ ...producto, tipoItem });
     return (
         <Card
             shadow="sm"
@@ -38,16 +41,28 @@ export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
                     </Text>
                 </Group>
 
-                <Text className={classes.productoPrecio} variant="gradient"
-                    gradient={{ from: 'green', to: 'green', deg: 0 }} fw={700} size="md">
-                    <NumberFormatter
-                        prefix="$"
-                        value={producto.precio}
-                        thousandSeparator
-                        decimalScale={2}
-                        fixedDecimalScale
-                    />
-                </Text>
+                {descuentoPorcentaje > 0 && (
+                    <Badge size="sm" variant="light" color="red" radius="sm" style={{ alignSelf: 'flex-start' }}>
+                        {descuentoPorcentaje}% de descuento
+                    </Badge>
+                )}
+                <Stack gap={0}>
+                    {descuentoPorcentaje > 0 && (
+                        <Text size="sm" c="dimmed" td="line-through">
+                            <NumberFormatter prefix="$" value={producto.precio} thousandSeparator decimalScale={2} fixedDecimalScale />
+                        </Text>
+                    )}
+                    <Text className={classes.productoPrecio} variant="gradient"
+                        gradient={{ from: 'green', to: 'green', deg: 0 }} fw={700} size="md">
+                        <NumberFormatter
+                            prefix="$"
+                            value={precioConDescuento}
+                            thousandSeparator
+                            decimalScale={2}
+                            fixedDecimalScale
+                        />
+                    </Text>
+                </Stack>
             </Stack>
         </Card>
     );

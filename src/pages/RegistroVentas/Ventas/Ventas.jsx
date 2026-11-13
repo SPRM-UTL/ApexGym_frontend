@@ -17,6 +17,7 @@ import { api } from '../../../scripts/services/api.js';
 import { CrudCatalogo } from '../../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { CancelarVentaModal } from '../components/CancelarVentaModal.jsx';
 import { DetalleVentaModal } from '../components/DetalleVentaModal.jsx';
+import { FormularioDevolucionModal } from '../components/FormularioDevolucionModal.jsx';
 import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
 import {
     obtenerEmpleadoIdApertura,
@@ -48,6 +49,15 @@ const etiquetaEstadoVenta = (estado) => {
     if (normalizado === 'completada') return 'Completada';
     return normalizado ? normalizado[0].toLocaleUpperCase() + normalizado.slice(1) : '';
 };
+
+function resumirVentasPorMetodo(resumen) {
+    const metodos = resumen?.ventasPorMetodoPago ?? resumen?.totales?.ventasPorMetodoPago ?? [];
+    if (!Array.isArray(metodos) || metodos.length === 0) return 'Sin ventas activas.';
+    return metodos.map((metodo) => (
+        `${metodo.nombre}: $${Number(metodo.total ?? metodo.monto ?? 0).toFixed(2)} `
+        + `(${Number(metodo.cantidad ?? metodo.transacciones ?? 0)} venta(s))`
+    )).join(' · ');
+}
 
 const FILTROS = [
     {
@@ -172,7 +182,9 @@ export function Ventas() {
     const navigate = useNavigate();
     const [detalleVenta, setDetalleVenta] = useState(null);
     const [cargandoDetalle, setCargandoDetalle] = useState(false);
+    const [recargarDetalle, setRecargarDetalle] = useState(null);
     const [cancelacionPendiente, setCancelacionPendiente] = useState(null);
+    const [devolucionPendiente, setDevolucionPendiente] = useState(null);
     const [motivoCancelacion, setMotivoCancelacion] = useState('');
     const [cancelando, setCancelando] = useState(false);
     const [pagina, setPagina] = useState(1);
@@ -251,8 +263,9 @@ export function Ventas() {
         };
     };
 
-    const abrirDetalle = async (venta) => {
+    const abrirDetalle = async (venta, reload) => {
         setCargandoDetalle(true);
+        setRecargarDetalle(() => reload);
         setDetalleVenta({ ...venta, detalleVenta: [] });
         try {
             setDetalleVenta(await cargarVentaCompleta(venta));
@@ -276,11 +289,34 @@ export function Ventas() {
 
         setCancelando(true);
         try {
-            await api.venta.eliminar(cancelacionPendiente.venta.id, motivo);
-            await cancelacionPendiente.reload();
+            const venta = cancelacionPendiente.venta;
+            await api.venta.cancelar(venta.id, motivo);
             setCancelacionPendiente(null);
             setMotivoCancelacion('');
-            notifications.show({ color: 'green', message: 'Venta cancelada correctamente.' });
+            let mensaje = 'Venta cancelada correctamente.';
+            try {
+                await cancelacionPendiente.reload?.();
+            } catch (errorRecarga) {
+                notifications.show({
+                    color: 'yellow',
+                    message: `La venta se canceló, pero no se pudo actualizar el historial: ${errorRecarga.message || 'error de consulta'}.`,
+                });
+            }
+            const aperturaCajaId = venta.aperturaCajaId ?? venta.aperturaCaja?.id;
+            if (aperturaCajaId != null) {
+                try {
+                    const respuesta = await api.movimientoCaja.obtenerResumenApertura(aperturaCajaId);
+                    if (respuesta.responseFlag !== 0) throw new Error(respuesta.message);
+                    mensaje += ` Ventas activas por método de pago: ${resumirVentasPorMetodo(respuesta.data)}`;
+                    mensaje += ` Efectivo esperado en caja: $${Number(respuesta.data?.saldoDisponible ?? respuesta.data?.efectivoEsperado ?? 0).toFixed(2)} (fondo inicial + entradas - salidas + ventas en efectivo brutas; incluye movimientos pendientes).`;
+                } catch (errorResumen) {
+                    notifications.show({
+                        color: 'yellow',
+                        message: `La venta se canceló, pero no se pudo actualizar el resumen de caja: ${errorResumen.message || 'error de consulta'}.`,
+                    });
+                }
+            }
+            notifications.show({ color: 'green', message: mensaje, autoClose: 10000 });
         } catch (error) {
             notifications.show({
                 color: 'red',
@@ -289,6 +325,23 @@ export function Ventas() {
         } finally {
             setCancelando(false);
         }
+    };
+
+    const confirmarDevolucion = async () => {
+        const pendiente = devolucionPendiente;
+        try {
+            await pendiente?.reload?.();
+        } catch (errorRecarga) {
+            notifications.show({
+                color: 'yellow',
+                message: `La devolución se registró, pero no se pudo actualizar el historial: ${errorRecarga.message || 'error de consulta'}.`,
+            });
+        }
+        notifications.show({
+            color: 'green',
+            message: 'Devolución registrada con éxito.',
+            autoClose: 5000,
+        });
     };
 
     const mapRecordToForm = (venta) => {
@@ -320,7 +373,7 @@ export function Ventas() {
                     variant="light"
                     color="blue"
                     aria-label="Ver detalle del ticket"
-                    onClick={() => abrirDetalle(venta)}
+                    onClick={() => abrirDetalle(venta, reload)}
                 >
                     <IconEye size={18} />
                 </ActionIcon>
@@ -389,7 +442,19 @@ export function Ventas() {
             <DetalleVentaModal
                 venta={detalleVenta}
                 cargando={cargandoDetalle}
+                onReturn={() => {
+                    setDevolucionPendiente({
+                        venta: detalleVenta,
+                        reload: recargarDetalle,
+                    });
+                    setDetalleVenta(null);
+                }}
                 onClose={() => setDetalleVenta(null)}
+            />
+            <FormularioDevolucionModal
+                venta={devolucionPendiente?.venta}
+                onClose={() => setDevolucionPendiente(null)}
+                onSuccess={confirmarDevolucion}
             />
             <CancelarVentaModal
                 venta={cancelacionPendiente?.venta}

@@ -64,7 +64,6 @@ const CATALOGO_CONCEPTOS = {
         'Pago de servicios básicos (agua, luz, internet)',
         'Gasto menor / Caja chica',
         'Anticipo de sueldo / Viáticos',
-        'Devolución a cliente',
         'Otro concepto de retiro',
     ],
 };
@@ -77,9 +76,8 @@ const CAMPOS = [
         required: true,
         loadOptions: async () => {
             try {
-                const r = await api.aperturaCaja.obtenerTodos();
+                const r = await api.aperturaCaja.obtenerAbiertas();
                 return (r?.data ?? [])
-                    .filter((a) => a.estado === 'ABIERTA')
                     .map((a) => ({
                         value: String(a.id),
                         label: `#${a.id} — ${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
@@ -1070,7 +1068,16 @@ export function MovimientosCaja() {
                 </Badge>
             ),
             monto:    `$${Number(record.monto ?? 0).toFixed(2)}`,
-            concepto: record.concepto ?? '—',
+            concepto: (
+                <Group gap="xs" wrap="nowrap">
+                    <Text size="sm">{record.concepto ?? '—'}</Text>
+                    {record.devolucionId != null && (
+                        <Badge color="orange" variant="light" size="xs">
+                            Devolución #{record.devolucionId}
+                        </Badge>
+                    )}
+                </Group>
+            ),
             estado: (
                 <Badge color={esValidado ? 'green' : 'yellow'} variant="light">
                     {record.estado ?? 'PENDIENTE'}

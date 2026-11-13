@@ -209,7 +209,12 @@ export function CrudCatalogo({
             if (response.responseFlag !== 0) throw new Error(response.message);
             if (serverPagination) {
                 const resultado = response.data;
-                if (!Array.isArray(resultado?.registros) || !Number.isSafeInteger(Number(resultado.total))) {
+                if (
+                    !Array.isArray(resultado?.registros) ||
+                    resultado.total === null ||
+                    resultado.total === undefined ||
+                    !Number.isSafeInteger(Number(resultado.total))
+                ) {
                     throw new Error('El servidor devolvió un historial paginado no válido.');
                 }
                 const total = Number(resultado.total);

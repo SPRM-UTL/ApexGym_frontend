@@ -69,9 +69,8 @@ const CAMPOS = [
         label: 'Apertura de Caja',
         required: true,
         loadOptions: async () => {
-            const r = await api.aperturaCaja.obtenerTodos();
+            const r = await api.aperturaCaja.obtenerAbiertas();
             return (r.data ?? [])
-                .filter((a) => a.estado === 'ABIERTA')
                 .map((a) => ({
                     value: String(a.id),
                     label: `${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
@@ -103,6 +102,7 @@ const COLUMNAS = [
     { key: 'fondoInicial',    label: 'Fondo Inicial',     sortable: true, filterable: true },
     { key: 'entradas',        label: 'Entradas',          sortable: true, filterable: true },
     { key: 'salidas',         label: 'Salidas',           sortable: true, filterable: true },
+    { key: 'ventas',          label: 'Ventas Turno',      sortable: true, filterable: true },
     { key: 'efectivoContado', label: 'Efectivo Contado',  sortable: true, filterable: true },
     { key: 'diferencia',      label: 'Diferencia',        sortable: true, filterable: true },
     { key: 'estado',          label: 'Estado Auditoría',  sortable: true, filterable: true },
@@ -115,13 +115,24 @@ const INICIAL = {
     observaciones: '',
 };
 
+const getMetodoIcon = (nombre = '') => {
+    const n = nombre.toLowerCase();
+    if (n.includes('efectivo')) return { icon: <IconCash size={16} />, color: 'green' };
+    if (n.includes('deb') || n.includes('déb')) return { icon: <IconCreditCard size={16} />, color: 'blue' };
+    if (n.includes('cred') || n.includes('créd')) return { icon: <IconCreditCard size={16} />, color: 'indigo' };
+    if (n.includes('transf') || n.includes('spei')) return { icon: <IconDeviceMobile size={16} />, color: 'cyan' };
+    return { icon: <IconWallet size={16} />, color: 'gray' };
+};
+
 /* ─── Modal Auxiliar: Detalle de Ventas y Movimientos del Turno ────────────── */
 function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
     const totales = resumenApertura?.totales;
     const totalVentas = totales ? Number(totales.totalVentas ?? 0) : 0;
     const transacciones = totales ? Number(totales.transaccionesVentas ?? 0) : 0;
     const ticketPromedio = totales ? Number(totales.ticketPromedio ?? 0) : 0;
-    const metodos = totales?.ventasPorMetodoPago ?? [];
+    const totalVentasCanceladas = totales ? Number(totales.totalVentasCanceladas ?? 0) : 0;
+    const cantidadVentasCanceladas = totales ? Number(totales.cantidadVentasCanceladas ?? 0) : 0;
+    const metodos = totales?.ventasPorMetodoPago ?? resumenApertura?.ventasPorMetodoPago ?? [];
 
     const movimientos = resumenApertura?.movimientos ?? [];
     const entradas = movimientos.filter((m) => m.tipo === 'ENTRADA');
@@ -129,15 +140,6 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
     const totalEntradas = Number(resumenApertura?.totalEntradas ?? 0);
     const totalSalidas = Number(resumenApertura?.totalSalidas ?? 0);
     const balanceMovimientos = totalEntradas - totalSalidas;
-
-    const getMetodoIcon = (nombre = '') => {
-        const n = nombre.toLowerCase();
-        if (n.includes('efectivo')) return { icon: <IconCash size={16} />, color: 'green' };
-        if (n.includes('deb') || n.includes('déb')) return { icon: <IconCreditCard size={16} />, color: 'blue' };
-        if (n.includes('cred') || n.includes('créd')) return { icon: <IconCreditCard size={16} />, color: 'indigo' };
-        if (n.includes('transf') || n.includes('spei')) return { icon: <IconDeviceMobile size={16} />, color: 'cyan' };
-        return { icon: <IconWallet size={16} />, color: 'gray' };
-    };
 
     return (
         <Drawer
@@ -186,10 +188,10 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                         defaultOpen={true}
                     >
                         <Stack gap="sm">
-                            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                            <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="sm">
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
                                     <Text size="xs" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
-                                    <Text fw={800} size="xl" c="#FF6A00">$${totalVentas.toFixed(2)}</Text>
+                                    <Text fw={800} size="xl" c="#FF6A00">${totalVentas.toFixed(2)}</Text>
                                 </Paper>
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
                                     <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
@@ -197,9 +199,35 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                 </Paper>
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
                                     <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
-                                    <Text fw={800} size="xl" c="#1E293B">$${ticketPromedio.toFixed(2)}</Text>
+                                    <Text fw={800} size="xl" c="#1E293B">${ticketPromedio.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                    <Text size="xs" c="#E03131" fw={700} tt="uppercase">Canceladas</Text>
+                                    <Text fw={800} size="xl" c="#E03131">${totalVentasCanceladas.toFixed(2)}</Text>
+                                    <Text size="11px" c="dimmed">{cantidadVentasCanceladas} cancelada(s)</Text>
                                 </Paper>
                             </SimpleGrid>
+
+                            {totalVentasCanceladas > 0 && (
+                                <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                    <Group justify="space-between">
+                                        <Group gap="xs">
+                                            <ThemeIcon color="red" variant="light" radius="md" size="sm">
+                                                <IconReceiptOff size={16} />
+                                            </ThemeIcon>
+                                            <div>
+                                                <Text fw={600} size="xs" c="#E03131">Ventas canceladas registradas</Text>
+                                                <Text size="11px" c="dimmed">
+                                                    El monto cancelado fue devuelto y registrado como egreso de caja; no se computa en el total de ventas.
+                                                </Text>
+                                            </div>
+                                        </Group>
+                                        <Badge color="red" variant="light" size="sm">
+                                            -${totalVentasCanceladas.toFixed(2)}
+                                        </Badge>
+                                    </Group>
+                                </Paper>
+                            )}
 
                             <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt="xs">
                                 Ventas por Método de Pago
@@ -208,7 +236,8 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                 <Stack gap="xs">
                                     {metodos.map((m) => {
                                         const { icon, color } = getMetodoIcon(m.nombre);
-                                        const totalNum = Number(m.total ?? 0);
+                                        const totalNum = Number(m.total ?? m.monto ?? 0);
+                                        const transaccionesMetodo = Number(m.cantidad ?? m.transacciones ?? 0);
                                         const pct = totalVentas > 0 ? ((totalNum / totalVentas) * 100).toFixed(1) : '0.0';
 
                                         return (
@@ -221,8 +250,8 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                                         <Text fw={600} size="xs" c="#1E293B">{m.nombre}</Text>
                                                     </Group>
                                                     <Group gap="xs">
-                                                        <Badge color={color} variant="light" size="xs">{m.transacciones} ops</Badge>
-                                                        <Text fw={700} size="xs">$${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                        <Badge color={color} variant="light" size="xs">{transaccionesMetodo} ventas</Badge>
+                                                        <Text fw={700} size="xs">${totalNum.toFixed(2)} ({pct}%)</Text>
                                                     </Group>
                                                 </Group>
                                                 <Progress value={Number(pct)} color={color} size="xs" radius="xl" />
@@ -258,16 +287,16 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
                                     <Text size="xs" c="#2B8A3E" fw={700} tt="uppercase">Total Entradas (+)</Text>
-                                    <Text fw={800} size="md" c="#2B8A3E">+$${totalEntradas.toFixed(2)}</Text>
+                                    <Text fw={800} size="md" c="#2B8A3E">+${totalEntradas.toFixed(2)}</Text>
                                 </Paper>
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
                                     <Text size="xs" c="#E03131" fw={700} tt="uppercase">Total Salidas (-)</Text>
-                                    <Text fw={800} size="md" c="#E03131">-$${totalSalidas.toFixed(2)}</Text>
+                                    <Text fw={800} size="md" c="#E03131">-${totalSalidas.toFixed(2)}</Text>
                                 </Paper>
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
                                     <Text size="xs" c="dimmed" fw={600} tt="uppercase">Balance Neto</Text>
                                     <Text fw={800} size="md" c={balanceMovimientos >= 0 ? '#2B8A3E' : '#E03131'}>
-                                        {balanceMovimientos >= 0 ? '+' : ''}$${balanceMovimientos.toFixed(2)}
+                                        {balanceMovimientos >= 0 ? '+' : ''}${balanceMovimientos.toFixed(2)}
                                     </Text>
                                 </Paper>
                             </SimpleGrid>
@@ -277,7 +306,7 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                     <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={14} /></ThemeIcon>}>
                                         <Group justify="space-between" w="100%" pr="sm">
                                             <Text fw={600} size="xs" c="#1E293B">Ingresos de Efectivo (+)</Text>
-                                            <Badge color="green" variant="light" size="xs">+$${totalEntradas.toFixed(2)}</Badge>
+                                            <Badge color="green" variant="light" size="xs">+${totalEntradas.toFixed(2)}</Badge>
                                         </Group>
                                     </Accordion.Control>
                                     <Accordion.Panel>
@@ -296,7 +325,7 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                                             <Table.Td fw={600}>#{m.id}</Table.Td>
                                                             <Table.Td>{m.concepto}</Table.Td>
                                                             <Table.Td style={{ textAlign: 'right' }}>
-                                                                <Text fw={700} size="xs" c="green">+$${Number(m.monto).toFixed(2)}</Text>
+                                                                <Text fw={700} size="xs" c="green">+${Number(m.monto).toFixed(2)}</Text>
                                                             </Table.Td>
                                                         </Table.Tr>
                                                     ))}
@@ -312,7 +341,7 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                     <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={14} /></ThemeIcon>}>
                                         <Group justify="space-between" w="100%" pr="sm">
                                             <Text fw={600} size="xs" c="#1E293B">Egresos de Efectivo (-)</Text>
-                                            <Badge color="red" variant="light" size="xs">-$${totalSalidas.toFixed(2)}</Badge>
+                                            <Badge color="red" variant="light" size="xs">-${totalSalidas.toFixed(2)}</Badge>
                                         </Group>
                                     </Accordion.Control>
                                     <Accordion.Panel>
@@ -329,9 +358,18 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                                     {salidas.map((m) => (
                                                         <Table.Tr key={m.id}>
                                                             <Table.Td fw={600}>#{m.id}</Table.Td>
-                                                            <Table.Td>{m.concepto}</Table.Td>
+                                                            <Table.Td>
+                                                                <Group gap="xs">
+                                                                    <Text size="xs">{m.concepto}</Text>
+                                                                    {m.devolucionId != null && (
+                                                                        <Badge color="orange" variant="light" size="xs">
+                                                                            Devolución #{m.devolucionId}
+                                                                        </Badge>
+                                                                    )}
+                                                                </Group>
+                                                            </Table.Td>
                                                             <Table.Td style={{ textAlign: 'right' }}>
-                                                                <Text fw={700} size="xs" c="red">-$${Number(m.monto).toFixed(2)}</Text>
+                                                                <Text fw={700} size="xs" c="red">-${Number(m.monto).toFixed(2)}</Text>
                                                             </Table.Td>
                                                         </Table.Tr>
                                                     ))}
@@ -456,9 +494,12 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
     const totalVentasEfectivo = resumenApertura ? Number(resumenApertura.totalVentasEfectivo ?? 0) : 0;
+    const totalVentasEfectivoBruto = resumenApertura
+        ? Number(resumenApertura.totalVentasEfectivoBruto ?? resumenApertura.totalVentasEfectivo ?? 0)
+        : 0;
     const efectivoEsperado = resumenApertura?.saldoDisponible !== undefined
         ? Number(resumenApertura.saldoDisponible)
-        : (fondoInicial + totalEntradas - totalSalidas + totalVentasEfectivo);
+        : (fondoInicial + totalEntradas - totalSalidas + totalVentasEfectivoBruto);
     const efectivoContado = Number(form.efectivoContado || 0);
     const diferencia = efectivoContado - efectivoEsperado;
 
@@ -705,10 +746,26 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
 
 /* ─── Drawer de Detalle y Auditoría del Corte de Caja ──────────────────────── */
 function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf }) {
+    const [detalleCorte, setDetalleCorte] = useState(null);
     const [movimientos, setMovimientos] = useState([]);
     const [cargando, setCargando] = useState(false);
 
     const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
+
+    useEffect(() => {
+        if (!corte?.id || !opened) {
+            setDetalleCorte(null);
+            return;
+        }
+        api.corteCaja
+            .obtenerPorId(corte.id)
+            .then((r) => {
+                if (r.responseFlag === 0 && r.data) {
+                    setDetalleCorte(r.data);
+                }
+            })
+            .catch(() => setDetalleCorte(null));
+    }, [corte?.id, opened]);
 
     useEffect(() => {
         if (!aperturaId || !opened) return;
@@ -724,21 +781,31 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
 
     if (!corte) return null;
 
-    const montoInicial = Number(corte.aperturaCaja?.montoInicial ?? 0);
-    const totalEntradas = Number(corte.totalEntradas ?? 0);
-    const totalSalidas = Number(corte.totalSalidas ?? 0);
-    const totalVentasEfectivo = Number(corte.totalVentasEfectivo ?? 0);
-    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas + totalVentasEfectivo;
-    const efectivoContado = Number(corte.efectivoContado ?? 0);
-    const diferencia = Number(corte.diferencia ?? (efectivoContado - efectivoEsperado));
-    const esValidado = corte.estado === 'VALIDADO';
+    const corteActual = detalleCorte || corte;
+    const montoInicial = Number(corteActual.aperturaCaja?.montoInicial ?? 0);
+    const totalEntradas = Number(corteActual.totalEntradas ?? 0);
+    const totalSalidas = Number(corteActual.totalSalidas ?? 0);
+
+    const esCorteSinDatosVentas = corteActual.totalVentas === null || corteActual.totalVentas === undefined;
+
+    const totalVentas = esCorteSinDatosVentas ? null : Number(corteActual.totalVentas ?? 0);
+    const totalVentasEfectivo = Number(corteActual.totalVentasEfectivo ?? 0);
+    const totalVentasCanceladas = Number(corteActual.totalVentasCanceladas ?? 0);
+    const metodosVenta = corteActual.ventasPorMetodoPago ?? [];
+
+    const efectivoContado = Number(corteActual.efectivoContado ?? 0);
+    const efectivoEsperado = corteActual.efectivoEsperado !== null && corteActual.efectivoEsperado !== undefined
+        ? Number(corteActual.efectivoEsperado)
+        : efectivoContado - Number(corteActual.diferencia ?? 0);
+    const diferencia = Number(corteActual.diferencia ?? (efectivoContado - efectivoEsperado));
+    const esValidado = corteActual.estado === 'VALIDADO';
 
     let desgloseFin = null;
     try {
-        if (corte.desgloseFin) {
-            desgloseFin = typeof corte.desgloseFin === 'string'
-                ? JSON.parse(corte.desgloseFin)
-                : corte.desgloseFin;
+        if (corteActual.desgloseFin) {
+            desgloseFin = typeof corteActual.desgloseFin === 'string'
+                ? JSON.parse(corteActual.desgloseFin)
+                : corteActual.desgloseFin;
         }
     } catch {
         desgloseFin = null;
@@ -746,10 +813,10 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
 
     let desgloseIni = null;
     try {
-        if (corte.desgloseInicio) {
-            desgloseIni = typeof corte.desgloseInicio === 'string'
-                ? JSON.parse(corte.desgloseInicio)
-                : corte.desgloseInicio;
+        if (corteActual.desgloseInicio) {
+            desgloseIni = typeof corteActual.desgloseInicio === 'string'
+                ? JSON.parse(corteActual.desgloseInicio)
+                : corteActual.desgloseInicio;
         }
     } catch {
         desgloseIni = null;
@@ -772,7 +839,7 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                         <IconReportAnalytics size={22} stroke={1.8} />
                     </ThemeIcon>
                     <div>
-                        <Title order={4} fw={700} c="#1E293B">Detalle del corte #{corte.id}</Title>
+                        <Title order={4} fw={700} c="#1E293B">Detalle del corte #{corteActual.id}</Title>
                         <Text size="xs" c="dimmed">Detalle completo de arqueo y movimientos</Text>
                     </div>
                 </Group>
@@ -786,16 +853,16 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                 {/* Header chips */}
                 <Group gap="xs" wrap="wrap" mb="md">
                     <Badge variant="light" color="gray" leftSection={<IconCalendar size={13} />} size="md" radius="sm">
-                        Fecha de corte: {corte.fechaCorte ? new Date(corte.fechaCorte).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                        Fecha de corte: {corteActual.fechaCorte ? new Date(corteActual.fechaCorte).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                     </Badge>
                     <Badge variant="light" color="gray" leftSection={<IconUser size={13} />} size="md" radius="sm">
-                        Empleado: {corte.empleado ? `${corte.empleado.nombre} ${corte.empleado.apellidoPaterno}` : '—'}
+                        Empleado: {corteActual.empleado ? `${corteActual.empleado.nombre} ${corteActual.empleado.apellidoPaterno}` : '—'}
                     </Badge>
                     <Badge variant="light" color="gray" leftSection={<IconCash size={13} />} size="md" radius="sm">
-                        Apertura: {corte.aperturaCaja?.caja?.nombre ?? 'Caja'} — Fondo: ${montoInicial.toFixed(2)}
+                        Apertura: {corteActual.aperturaCaja?.caja?.nombre ?? 'Caja'} — Fondo: ${montoInicial.toFixed(2)}
                     </Badge>
                     <Badge color={esValidado ? 'green' : 'yellow'} variant="light" size="md" radius="sm">
-                        {corte.estado ?? 'PENDIENTE'}
+                        {corteActual.estado ?? 'PENDIENTE'}
                     </Badge>
                 </Group>
 
@@ -803,6 +870,7 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                 <Tabs defaultValue="resumen" color="orange">
                     <Tabs.List mb="md">
                         <Tabs.Tab value="resumen">Resumen</Tabs.Tab>
+                        <Tabs.Tab value="ventas">Ventas ({esCorteSinDatosVentas ? 'N/D' : metodosVenta.length})</Tabs.Tab>
                         <Tabs.Tab value="efectivo">Efectivo</Tabs.Tab>
                         <Tabs.Tab value="billetes">Billetes y Monedas</Tabs.Tab>
                         <Tabs.Tab value="movimientos">Movimientos ({movimientos.length})</Tabs.Tab>
@@ -822,6 +890,92 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                 rightAmountColor="#1C7ED6"
                                 collapsible={false}
                             />
+
+                            {/* Card Ventas del Turno en Resumen */}
+                            <SectionCard
+                                icon={<IconReportAnalytics size={22} stroke={1.8} />}
+                                iconBg="#FFF4EC"
+                                iconColor="#FF6A00"
+                                title="Ventas del Turno"
+                                subtitle="Cobros procesados por método y ventas canceladas"
+                                rightAmount={esCorteSinDatosVentas ? 'No disponible' : `$${(totalVentas || 0).toFixed(2)}`}
+                                rightAmountColor={esCorteSinDatosVentas ? '#868E96' : '#FF6A00'}
+                                collapsible={true}
+                                defaultOpen={true}
+                            >
+                                {esCorteSinDatosVentas ? (
+                                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', textAlign: 'center' }}>
+                                        <Badge variant="light" color="gray" size="sm" mb={4}>No disponible</Badge>
+                                        <Text size="xs" c="dimmed">
+                                            Las métricas de ventas no están disponibles en cortes anteriores a la migración contable.
+                                        </Text>
+                                    </Paper>
+                                ) : (
+                                    <Stack gap="xs">
+                                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                                            <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                                <Text size="11px" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
+                                                <Text fw={800} size="md" c="#FF6A00">${(totalVentas || 0).toFixed(2)}</Text>
+                                            </Paper>
+                                            <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
+                                                <Text size="11px" c="#2B8A3E" fw={700} tt="uppercase">Ventas Efectivo</Text>
+                                                <Text fw={800} size="md" c="#2B8A3E">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                            </Paper>
+                                            <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                                <Text size="11px" c="#E03131" fw={700} tt="uppercase">Canceladas</Text>
+                                                <Text fw={800} size="md" c="#E03131">${totalVentasCanceladas.toFixed(2)}</Text>
+                                            </Paper>
+                                        </SimpleGrid>
+
+                                        {totalVentasCanceladas > 0 && (
+                                            <Group justify="space-between" p="xs" style={{ backgroundColor: '#FFF5F5', borderRadius: 8 }}>
+                                                <Group gap="xs">
+                                                    <ThemeIcon color="red" variant="light" size="sm" radius="md">
+                                                        <IconReceiptOff size={14} />
+                                                    </ThemeIcon>
+                                                    <Text size="xs" fw={600} c="#E03131">Ventas canceladas (registradas en egresos)</Text>
+                                                </Group>
+                                                <Text size="xs" fw={700} c="#E03131">-${totalVentasCanceladas.toFixed(2)}</Text>
+                                            </Group>
+                                        )}
+
+                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt={4}>
+                                            Desglose por método de pago
+                                        </Text>
+                                        {metodosVenta.length > 0 ? (
+                                            <Stack gap={6}>
+                                                {metodosVenta.map((m) => {
+                                                    const { icon, color } = getMetodoIcon(m.nombre);
+                                                    const totalNum = Number(m.total ?? m.monto ?? 0);
+                                                    const transaccionesMetodo = Number(m.cantidad ?? m.transacciones ?? 0);
+                                                    const baseVentas = (totalVentas || 0);
+                                                    const pct = baseVentas > 0 ? ((totalNum / baseVentas) * 100).toFixed(1) : '0.0';
+
+                                                    return (
+                                                        <Paper key={m.metodoPagoId ?? m.nombre} p="xs" radius="md" withBorder style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
+                                                            <Group justify="space-between" mb={2}>
+                                                                <Group gap="xs">
+                                                                    <ThemeIcon color={color} variant="light" radius="md" size="sm">
+                                                                        {icon}
+                                                                    </ThemeIcon>
+                                                                    <Text fw={600} size="xs" c="#1E293B">{m.nombre}</Text>
+                                                                </Group>
+                                                                <Group gap="xs">
+                                                                    <Badge color={color} variant="light" size="xs">{transaccionesMetodo} ventas</Badge>
+                                                                    <Text fw={700} size="xs">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                                </Group>
+                                                            </Group>
+                                                            <Progress value={Number(pct)} color={color} size="xs" radius="xl" />
+                                                        </Paper>
+                                                    );
+                                                })}
+                                            </Stack>
+                                        ) : (
+                                            <Text size="xs" c="dimmed" ta="center" py="xs">Sin ventas registradas en esta apertura.</Text>
+                                        )}
+                                    </Stack>
+                                )}
+                            </SectionCard>
 
                             {/* Card 2: Conteo final de efectivo */}
                             <SectionCard
@@ -890,10 +1044,21 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                         <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
                                         <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
                                     </Group>
-                                    {totalVentasEfectivo > 0 && (
+                                    {esCorteSinDatosVentas ? (
+                                        <Group justify="space-between">
+                                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                            <Badge variant="light" color="gray" size="xs">No disponible en corte anterior</Badge>
+                                        </Group>
+                                    ) : (
                                         <Group justify="space-between">
                                             <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
                                             <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                        </Group>
+                                    )}
+                                    {totalVentasCanceladas > 0 && (
+                                        <Group justify="space-between">
+                                            <Text size="xs" c="dimmed">(i) Ventas Canceladas (salida aplicada):</Text>
+                                            <Text fw={600} size="xs" c="red">-${totalVentasCanceladas.toFixed(2)}</Text>
                                         </Group>
                                     )}
                                     <Divider my={2} />
@@ -920,11 +1085,92 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                             </SectionCard>
 
                             {/* Observaciones */}
-                            {corte.observaciones && (
+                            {corteActual.observaciones && (
                                 <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC' }}>
                                     <Text size="xs" c="dimmed" fw={600} mb={2}>Observaciones registradas:</Text>
-                                    <Text size="sm">{corte.observaciones}</Text>
+                                    <Text size="sm">{corteActual.observaciones}</Text>
                                 </Paper>
+                            )}
+                        </Stack>
+                    </Tabs.Panel>
+
+                    {/* ── Tab: Ventas y Métodos ── */}
+                    <Tabs.Panel value="ventas">
+                        <Stack gap="md">
+                            {esCorteSinDatosVentas ? (
+                                <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: '#F8FAFC' }}>
+                                    <ThemeIcon size={42} radius="xl" variant="light" color="gray" mx="auto" mb="sm">
+                                        <IconReceiptOff size={24} />
+                                    </ThemeIcon>
+                                    <Title order={5} c="#475569" mb="xs">Métricas de ventas no disponibles</Title>
+                                    <Text size="sm" c="dimmed" maxW={460} mx="auto">
+                                        Este corte corresponde a un período previo a la integración contable de ventas en corte de caja.
+                                    </Text>
+                                </Paper>
+                            ) : (
+                                <>
+                                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                            <Text size="xs" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
+                                            <Text fw={800} size="xl" c="#FF6A00">${(totalVentas || 0).toFixed(2)}</Text>
+                                            <Text size="xs" c="dimmed">No canceladas</Text>
+                                        </Paper>
+                                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
+                                            <Text size="xs" c="#2B8A3E" fw={700} tt="uppercase">Ventas en Efectivo</Text>
+                                            <Text fw={800} size="xl" c="#2B8A3E">${totalVentasEfectivo.toFixed(2)}</Text>
+                                            <Text size="xs" c="dimmed">Afecta arqueo físico</Text>
+                                        </Paper>
+                                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                            <Text size="xs" c="#E03131" fw={700} tt="uppercase">Ventas Canceladas</Text>
+                                            <Text fw={800} size="xl" c="#E03131">${totalVentasCanceladas.toFixed(2)}</Text>
+                                            <Text size="xs" c="dimmed">Devoluciones egresadas</Text>
+                                        </Paper>
+                                    </SimpleGrid>
+
+                                    <SectionCard
+                                        icon={<IconCreditCard size={20} stroke={1.8} />}
+                                        iconBg="#FFF4EC"
+                                        iconColor="#FF6A00"
+                                        title="Desglose por Método de Pago"
+                                        subtitle="Distribución del total facturado por canal de cobro"
+                                        collapsible={false}
+                                    >
+                                        {metodosVenta.length > 0 ? (
+                                            <Stack gap="xs">
+                                                {metodosVenta.map((m) => {
+                                                    const { icon, color } = getMetodoIcon(m.nombre);
+                                                    const totalNum = Number(m.total ?? m.monto ?? 0);
+                                                    const transaccionesMetodo = Number(m.cantidad ?? m.transacciones ?? 0);
+                                                    const baseVentas = (totalVentas || 0);
+                                                    const pct = baseVentas > 0 ? ((totalNum / baseVentas) * 100).toFixed(1) : '0.0';
+
+                                                    return (
+                                                        <Paper key={m.metodoPagoId ?? m.nombre} p="sm" radius="md" withBorder style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
+                                                            <Group justify="space-between" mb={4}>
+                                                                <Group gap="xs">
+                                                                    <ThemeIcon color={color} variant="light" radius="md" size="md">
+                                                                        {icon}
+                                                                    </ThemeIcon>
+                                                                    <div>
+                                                                        <Text fw={600} size="sm" c="#1E293B">{m.nombre}</Text>
+                                                                        <Text size="11px" c="dimmed">{m.codigo ? `Código: ${m.codigo}` : 'Sin código'}</Text>
+                                                                    </div>
+                                                                </Group>
+                                                                <Group gap="xs">
+                                                                    <Badge color={color} variant="light" size="sm">{transaccionesMetodo} ventas</Badge>
+                                                                    <Text fw={700} size="sm">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                                </Group>
+                                                            </Group>
+                                                            <Progress value={Number(pct)} color={color} size="sm" radius="xl" />
+                                                        </Paper>
+                                                    );
+                                                })}
+                                            </Stack>
+                                        ) : (
+                                            <Text size="sm" c="dimmed" ta="center" py="md">Sin operaciones registradas.</Text>
+                                        )}
+                                    </SectionCard>
+                                </>
                             )}
                         </Stack>
                     </Tabs.Panel>
@@ -1069,7 +1315,16 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                                         {m.tipo}
                                                     </Badge>
                                                 </Table.Td>
-                                                <Table.Td>{m.concepto}</Table.Td>
+                                                <Table.Td>
+                                                    <Group gap="xs">
+                                                        <Text size="xs">{m.concepto}</Text>
+                                                        {m.devolucionId != null && (
+                                                            <Badge color="orange" variant="light" size="xs">
+                                                                Devolución #{m.devolucionId}
+                                                            </Badge>
+                                                        )}
+                                                    </Group>
+                                                </Table.Td>
                                                 <Table.Td>
                                                     {(m.createdAt || m.created_at) ? new Date(m.createdAt || m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                 </Table.Td>
@@ -1172,6 +1427,7 @@ export function CorteCaja() {
     const mapRecordToRow = (record) => {
         const diferencia = Number(record.diferencia ?? 0);
         const esValidado = record.estado === 'VALIDADO';
+        const esCorteSinDatosVentas = record.totalVentas === null || record.totalVentas === undefined;
 
         return {
             id:              record.id,
@@ -1190,6 +1446,13 @@ export function CorteCaja() {
             fondoInicial:    `$${Number(record.aperturaCaja?.montoInicial ?? 0).toFixed(2)}`,
             entradas:        `+$${Number(record.totalEntradas ?? 0).toFixed(2)}`,
             salidas:         `-$${Number(record.totalSalidas ?? 0).toFixed(2)}`,
+            ventas:          esCorteSinDatosVentas ? (
+                <Badge variant="subtle" color="gray" size="sm">No disponible</Badge>
+            ) : (
+                <Text fw={600} size="xs" c="#FF6A00">
+                    ${Number(record.totalVentas).toFixed(2)}
+                </Text>
+            ),
             efectivoContado: `$${Number(record.efectivoContado ?? 0).toFixed(2)}`,
             diferencia: (
                 <Text fw={700} c={diferencia >= 0 ? 'green' : 'red'}>
@@ -1291,7 +1554,7 @@ export function CorteCaja() {
                     const fondo = Number(data.montoInicial ?? data.apertura?.montoInicial ?? 0);
                     const entradas = Number(data.totalEntradas ?? 0);
                     const salidas = Number(data.totalSalidas ?? 0);
-                    const ventasEf = Number(data.totalVentasEfectivo ?? 0);
+                    const ventasEf = Number(data.totalVentasEfectivoBruto ?? data.totalVentasEfectivo ?? 0);
                     const esperado = data.saldoDisponible !== undefined
                         ? Number(data.saldoDisponible)
                         : (fondo + entradas - salidas + ventasEf);

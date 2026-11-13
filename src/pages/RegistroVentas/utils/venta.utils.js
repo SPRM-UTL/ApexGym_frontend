@@ -33,9 +33,22 @@ export const obtenerPagina = (respuesta) => {
 
 export const redondear = (valor) => Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
 
+export function calcularDescuentoUnitario(item) {
+    if (item.tipoItem !== 'PRODUCTO') return 0;
+    return redondear(Number(item.precio) * Number(item.descuentoPorcentaje ?? 0) / 100);
+}
+
+export function calcularPrecioUnitarioNeto(item) {
+    return redondear(Number(item.precio) - calcularDescuentoUnitario(item));
+}
+
+export function calcularSubtotalLinea(item) {
+    return redondear(calcularPrecioUnitarioNeto(item) * Number(item.cantidad));
+}
+
 export function calcularMontos(items) {
     const subtotal = redondear(
-        items.reduce((acumulado, item) => acumulado + redondear(item.precio * item.cantidad), 0)
+        items.reduce((acumulado, item) => acumulado + calcularSubtotalLinea(item), 0)
     );
     const iva = redondear(subtotal * 0.16);
     return { subtotal, iva, total: redondear(subtotal + iva) };

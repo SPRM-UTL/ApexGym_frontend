@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionIcon,
     Badge,
@@ -305,12 +305,18 @@ export function TableSort({
     /**Guarda temporalmente el texto ingresado*/
     const [draftValue, setDraftValue] = useState('');
     const onServerSearchChange = serverPagination?.onSearchChange;
+    const previousServerSearch = useRef(globalSearch.trim());
 
     useEffect(() => {
         if (!onServerSearchChange) return undefined;
+        const search = globalSearch.trim();
+        if (previousServerSearch.current === search) return undefined;
+        previousServerSearch.current = search;
+
         const timeout = setTimeout(() => {
-            onServerSearchChange(globalSearch.trim());
-        }, 300);
+            onServerSearchChange(search);
+            
+        }, [300]);
         return () => clearTimeout(timeout);
     }, [globalSearch, onServerSearchChange]);
 

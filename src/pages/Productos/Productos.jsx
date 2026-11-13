@@ -42,6 +42,7 @@ const CAMPOS = [
         },
     },
     { key: 'precioVenta', label: 'Precio Venta', required: true, type: 'number', min: 0 },
+    { key: 'descuentoPorcentaje', label: 'Descuento (%)', type: 'number', min: 0, max: 100, step: 0.01, decimalScale: 2 },
     { key: 'precioCompra', label: 'Precio Compra', required: true, type: 'number', min: 0 },
     { key: 'stockActual', label: 'Stock Actual', required: true, type: 'number', min: 0 },
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
@@ -57,6 +58,7 @@ const INICIAL = {
     codigoBarras: '',
     categoriaProductoId: '',
     precioVenta: '',
+    descuentoPorcentaje: 0,
     precioCompra: '',
     stockActual: '',
     stockMinimo: '',
@@ -70,6 +72,7 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'categoriaNombre', label: 'Categoría', sortable: true, filterable: true },
     { key: 'descripcion', label: 'Descripción', sortable: false, filterable: true },
     { key: 'precioVentaTexto', label: 'Precio Venta', sortable: true, filterable: false },
+    { key: 'descuentoPorcentajeTexto', label: 'Descuento', sortable: false, filterable: false },
     { key: 'precioCompraTexto', label: 'Precio Compra', sortable: true, filterable: false },
     { key: 'stockActual', label: 'Stock Actual', sortable: true, filterable: false },
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
@@ -244,6 +247,14 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         onChange={(v) => onChange('precioVenta', v)}
                     />
                     <FInput
+                        label="Descuento (%)"
+                        type="number"
+                        placeholder="Ej. 10"
+                        value={form.descuentoPorcentaje}
+                        error={errors.descuentoPorcentaje}
+                        onChange={(v) => onChange('descuentoPorcentaje', v)}
+                    />
+                    <FInput
                         label="Stock Actual"
                         required
                         type="number"
@@ -281,6 +292,7 @@ export function Productos() {
                 ? String(record.categoria.id)
                 : '',
         precioVenta: record.precioVenta ?? '',
+        descuentoPorcentaje: record.descuentoPorcentaje ?? 0,
         precioCompra: record.precioCompra ?? '',
         stockActual: record.stockActual ?? '',
         stockMinimo: record.stockMinimo ?? '',
@@ -295,6 +307,7 @@ export function Productos() {
         codigoBarras: form.codigoBarras ? String(form.codigoBarras) : null,
         categoriaProductoId: Number(form.categoriaProductoId),
         precioVenta: Number(form.precioVenta),
+        descuentoPorcentaje: Number(form.descuentoPorcentaje ?? 0),
         precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
@@ -321,6 +334,7 @@ export function Productos() {
             codigoBarras: record.codigoBarras ?? '—',
             categoriaNombre: record.categoria?.nombre ?? 'Sin categoría',
             precioVentaTexto: record.precioVenta !== undefined && record.precioVenta !== null ? `$${Number(record.precioVenta).toFixed(2)}` : '—',
+            descuentoPorcentajeTexto: `${Number(record.descuentoPorcentaje ?? 0).toFixed(2)}%`,
             precioCompraTexto: record.precioCompra !== undefined && record.precioCompra !== null ? `$${Number(record.precioCompra).toFixed(2)}` : '—',
             stockActual: (
                 <Badge

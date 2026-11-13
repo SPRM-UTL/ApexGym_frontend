@@ -33,6 +33,8 @@ import { useClientesVenta } from '../hooks/useClientesVenta.js';
 import { useCaja } from '../components/useCaja.js';
 import {
     calcularMontos,
+    calcularDescuentoUnitario,
+    calcularSubtotalLinea,
     redondear,
 } from '../utils/venta.utils.js';
 import { esErrorCajaCerrada, obtenerVenta } from '../../../utils/ventaHelper/ventaHelpers.js';
@@ -41,20 +43,36 @@ import { esErrorCajaCerrada, obtenerVenta } from '../../../utils/ventaHelper/ven
 const channel = new BroadcastChannel('app_sync_channel');
 const VENTA_PENDIENTE_KEY = 'venta_pendiente_apertura_caja';
 
-function consumirVentaPendiente() {
+function leerVentaPendiente() {
     try {
         const guardado = sessionStorage.getItem(VENTA_PENDIENTE_KEY);
         if (!guardado) return null;
 
-        sessionStorage.removeItem(VENTA_PENDIENTE_KEY);
         return JSON.parse(guardado);
     } catch (error) {
         console.error('No se pudo leer o restaurar la venta pendiente.', error);
+        try {
+            sessionStorage.removeItem(VENTA_PENDIENTE_KEY);
+        } catch (errorAlLimpiar) {
+            console.error('No se pudo limpiar el carrito pendiente inválido.', errorAlLimpiar);
+        }
         notifications.show({
             color: 'red',
             message: 'No se pudo recuperar el carrito guardado.',
         });
         return null;
+    }
+}
+
+function limpiarVentaPendiente() {
+    try {
+        sessionStorage.removeItem(VENTA_PENDIENTE_KEY);
+    } catch (error) {
+        console.error('La venta se registró, pero no se pudo borrar el carrito pendiente.', error);
+        notifications.show({
+            color: 'yellow',
+            message: 'La venta se registró, pero no se pudo borrar el carrito guardado. Recarga antes de continuar para evitar duplicarla.',
+        });
     }
 }
 
@@ -69,7 +87,7 @@ export function Nueva() {
     const location = useLocation();
     const navigate = useNavigate();
     const { aperturas } = useCaja();
-    const [ventaPendiente] = useState(consumirVentaPendiente);
+    const [ventaPendiente] = useState(leerVentaPendiente);
     const [hora, setHora] = useState('');
     const [ventaCreada, setVentaCreada] = useState(null);
     const {
@@ -233,7 +251,8 @@ export function Nueva() {
             tipoItem: item.tipoItem,
             cantidad: item.cantidad,
             precioUnitario,
-            subtotal: redondear(precioUnitario * item.cantidad),
+            descuentoUnitario: calcularDescuentoUnitario(item),
+            subtotal: calcularSubtotalLinea(item),
         };
 
         if (item.tipoItem === 'PRODUCTO') linea.productoId = item.id;
@@ -255,6 +274,7 @@ export function Nueva() {
             total,
             detalleVenta
         });
+        limpiarVentaPendiente();
 
         const registro = obtenerVenta(respuesta) ?? {};
         const detalleRegistrado = Array.isArray(registro.detalleVenta)
@@ -269,7 +289,8 @@ export function Nueva() {
                     articuloNombre: item.nombre,
                     cantidad: item.cantidad,
                     precioUnitario: Number(item.precio),
-                    subtotal: redondear(Number(item.precio) * item.cantidad),
+                    descuentoUnitario: calcularDescuentoUnitario(item),
+                    subtotal: calcularSubtotalLinea(item),
                     tipoItem: item.tipoItem,
                 };
             });

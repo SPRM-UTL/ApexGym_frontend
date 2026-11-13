@@ -50,7 +50,57 @@ async crearVenta(datosVenta) {
         }
     }
 
-    async eliminar(id, motivoCancelacion) {
+    async obtenerDisponibilidadDevolucion(id) {
+        try {
+            const response = await httpClient.get(
+                `${this.urlApi}/${id}/devoluciones/disponibilidad`
+            );
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener la disponibilidad de devolución',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async previsualizarDevolucion(id, detalles) {
+        try {
+            const response = await httpClient.post(
+                `${this.urlApi}/${id}/devoluciones/previsualizar`,
+                { detalles }
+            );
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al previsualizar la devolución',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async crearDevolucion(id, datosDevolucion) {
+        try {
+            const response = await httpClient.post(
+                `${this.urlApi}/${id}/devoluciones`,
+                datosDevolucion
+            );
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al registrar la devolución',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async cancelar(id, motivoCancelacion) {
         const motivo = typeof motivoCancelacion === 'string'
             ? motivoCancelacion.trim()
             : '';
@@ -59,9 +109,9 @@ async crearVenta(datosVenta) {
         }
 
         try {
-            const response = await httpClient.delete(
-                `${this.urlApi}/${id}`,
-                { data: { motivoCancelacion: motivo } }
+            const response = await httpClient.post(
+                `${this.urlApi}/${id}/cancelar`,
+                { motivoCancelacion: motivo }
             );
 
             return response.data;

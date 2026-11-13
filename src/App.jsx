@@ -23,7 +23,7 @@ import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminar
  * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
  * revisar las cookies  si la peticion exitosa recarga a la pantalla de la aplicacion
  * **/
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
 import { Clientes } from './pages/Clientes/Clientes.jsx';
@@ -42,6 +42,10 @@ import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
 function App() {
 
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
+  const manejarSesionExpirada = useCallback(() => {
+    eliminarUsuarioActual();
+    setEstaLogeadoEn(false);
+  }, []);
 
   /**de esta manera le decimos que revise con obtenerMisSecciones y este nos diga si
    *  tiene algun token para poder entrar de manera automatica de esta manera le 
@@ -168,7 +172,7 @@ function App() {
             <Route path="/corte-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><CorteCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route element={ estaLogeadoEn ? ( <Dashboard onLogout={accionLogout}><Outlet /></Dashboard> ) : ( <Login onLoginAceptado={accionLogin} /> ) } >
             <Route path="/registro-de-ventas" element={<Ventas />} />
-            <Route element={<ProteccionCajaAbierta onSessionExpired={() => { eliminarUsuarioActual(); setEstaLogeadoEn(false); }} />}> 
+            <Route element={<ProteccionCajaAbierta onSessionExpired={manejarSesionExpirada} />}> 
               <Route path="/registro-de-ventas/nueva" element={<Nueva />} /></Route>
             </Route>
           <Route path="/registro-de-ventas/cliente" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ClienteVenta /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
