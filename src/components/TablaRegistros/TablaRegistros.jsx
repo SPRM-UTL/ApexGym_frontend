@@ -35,6 +35,8 @@ export function TablaRegistros({
     pageSizeOptions,
     loading = false,
     entityLabel = 'registro',
+    initialSortBy,
+    initialSortDirection,
     headerVariant = 'classic',
 }) {
     return (
@@ -49,6 +51,8 @@ export function TablaRegistros({
                 pageSizeOptions={pageSizeOptions}
                 entityLabel={entityLabel}
                 onReload={onReload}
+                initialSortBy={initialSortBy}
+                initialSortDirection={initialSortDirection}
                 headerVariant={headerVariant}
             />
             {loading && <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />}

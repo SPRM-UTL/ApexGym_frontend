@@ -5,7 +5,17 @@ import { IconPhoto, IconUpload, IconUser, IconX } from '@tabler/icons-react';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
 import classes from './DropzoneImagen.module.css';
 
-export function DropzoneImagen({ archivo, preview, onDrop, onReject, h: height, variant = 'default' }) {
+export function DropzoneImagen({
+    archivo,
+    preview,
+    onDrop,
+    onReject,
+    h: height,
+    variant = 'default',
+    icon: PlaceholderIcon = IconUser,
+    loadedText = 'Fotografía de perfil cargada',
+    avatarRadius = '100%',
+}) {
     const urlFinal = resolverUrlImagen(preview);
 
     if (variant === 'compact') {
@@ -22,12 +32,12 @@ export function DropzoneImagen({ archivo, preview, onDrop, onReject, h: height, 
                 <Group wrap="nowrap" gap="md" align="center" style={{ width: '100%' }}>
                     <Avatar
                         src={urlFinal || null}
-                        alt="Fotografía de perfil"
+                        alt={loadedText}
                         size={68}
-                        radius="100%"
+                        radius={avatarRadius}
                         className={urlFinal ? classes.avatarActive : classes.avatarIdle}
                     >
-                        <IconUser size={30} stroke={1.6} color="#64748B" />
+                        <PlaceholderIcon size={30} stroke={1.6} color="#64748B" />
                     </Avatar>
 
                     <Stack gap={3} style={{ flex: 1, minWidth: 0 }}>
@@ -46,7 +56,7 @@ export function DropzoneImagen({ archivo, preview, onDrop, onReject, h: height, 
                                 {archivo?.name
                                     ? archivo.name
                                     : urlFinal
-                                        ? 'Fotografía de perfil cargada'
+                                        ? loadedText
                                         : 'Haz clic o arrastra una imagen aquí'}
                             </Text>
                         </Dropzone.Idle>

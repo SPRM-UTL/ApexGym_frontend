@@ -3,24 +3,24 @@ import {
     ActionIcon,
     Badge,
     Box,
-    Divider,
+    Button,
     Group,
-    NativeSelect,
     SimpleGrid,
     Stack,
-    Text,
-    Textarea,
     Tooltip,
 } from '@mantine/core';
 import {
     IconEdit,
     IconPackage,
+    IconPhoto,
     IconTrash,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { SectionTitle, FInput, FSelect, FTextarea } from '../../components/Controles/ControlesComponent.jsx';
+import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
+import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
@@ -44,6 +44,8 @@ const CAMPOS = [
     { key: 'stockActual', label: 'Stock Actual', required: true, type: 'number', min: 0 },
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'disponibleCompra', label: 'Disponible' },
+    { key: 'imagenUrl', label: 'Imagen del producto', type: 'dropzone' },
 ];
 
 const INICIAL = {
@@ -55,6 +57,8 @@ const INICIAL = {
     precioCompra: '',
     stockActual: '',
     stockMinimo: '',
+    disponibleCompra: true,
+    imagenUrl: '',
 };
 
 const COLUMNAS_PRODUCTOS = [
@@ -66,12 +70,71 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'precioCompraTexto', label: 'Precio Compra', sortable: true, filterable: false },
     { key: 'stockActual', label: 'Stock Actual', sortable: true, filterable: false },
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
+    { key: 'disponibleCompra', label: 'Disponible', sortable: true, filterable: false },
 ];
 
 
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
+    const handleDrop = (archivos) => {
+        const archivo = archivos[0] ?? null;
+        if (!archivo) return;
+        const reader = new FileReader();
+        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
+        reader.readAsDataURL(archivo);
+    };
+
+    const handleReject = () => {
+        notifications.show({
+            title: 'Imagen no válida',
+            message: 'Selecciona una imagen válida de máximo 5 MB.',
+            color: 'red',
+        });
+    };
+
     return (
         <Stack gap="md" style={{ width: '100%' }}>
+            <Box>
+                <SectionTitle
+                    rightSection={
+                        form.imagenUrl ? (
+                            <Button
+                                variant="outline"
+                                color="red"
+                                size="compact-xs"
+                                radius="md"
+                                leftSection={<IconTrash size={14} stroke={1.8} />}
+                                onClick={() => onChange('imagenUrl', '')}
+                                styles={{
+                                    root: {
+                                        border: '1px solid #EF4444',
+                                        backgroundColor: '#FEF2F2',
+                                        color: '#DC2626',
+                                        fontWeight: 600,
+                                        '&:hover': {
+                                            backgroundColor: '#FEE2E2',
+                                        },
+                                    },
+                                }}
+                            >
+                                Quitar imagen
+                            </Button>
+                        ) : null
+                    }
+                >
+                    Imagen del producto
+                </SectionTitle>
+                <DropzoneImagen
+                    variant="compact"
+                    archivo={null}
+                    preview={form.imagenUrl || null}
+                    onDrop={handleDrop}
+                    onReject={handleReject}
+                    icon={IconPhoto}
+                    loadedText="Imagen del producto cargada"
+                    avatarRadius="md"
+                />
+            </Box>
+
             <Box>
                 <SectionTitle>Información general</SectionTitle>
                 <Stack gap="md">
@@ -108,6 +171,13 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         value={form.descripcion}
                         error={errors.descripcion}
                         onChange={(v) => onChange('descripcion', v)}
+                    />
+                    <FCheckbox
+                        label="Producto Disponible"
+                        mt="xl"
+                        size="md"
+                        checked={form.disponibleCompra}
+                        onChange={(v) => onChange('disponibleCompra', v)}
                     />
                 </Stack>
             </Box>
@@ -173,6 +243,8 @@ export function Productos() {
         precioCompra: record.precioCompra ?? '',
         stockActual: record.stockActual ?? '',
         stockMinimo: record.stockMinimo ?? '',
+        disponibleCompra: record.disponibleCompra,
+        imagenUrl: record.imagenUrl ?? '',
     }), []);
 
     const mapFormToPayload = (form) => ({
@@ -184,6 +256,8 @@ export function Productos() {
         precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
+        disponibleCompra: form.disponibleCompra,
+        imagenUrl: form.imagenUrl || null,
     });
 
     const colorStock = (actual, minimo) => {
@@ -197,6 +271,7 @@ export function Productos() {
     const mapRecordToRow = (record) => {
         const stockActualNum = Number(record.stockActual ?? 0);
         const stockMinimoNum = Number(record.stockMinimo ?? 0);
+        const disponible = record.disponibleCompra;
         return {
             id: record.id,
             nombre: record.nombre ?? '',
@@ -217,6 +292,30 @@ export function Productos() {
                 </Badge>
             ),
             stockMinimo: stockMinimoNum,
+            disponibleCompra: (<>
+                {disponible 
+                    ? 
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color="green"
+                    radius="sm"
+                    fw={700}
+                >
+                    Disponible
+                </Badge> 
+                : 
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color="red"
+                    radius="sm"
+                    fw={700}
+                >
+                    No Disponible
+                </Badge>}
+            </>
+            )
         };
     };
 

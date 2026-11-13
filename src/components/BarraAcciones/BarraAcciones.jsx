@@ -2,13 +2,12 @@ import { Button, Text } from '@mantine/core';
 import { IconPlus, IconUser } from '@tabler/icons-react';
 import classes from './BarraAcciones.module.css';
 
-export function BarraAcciones({ onAdd, title ="Titulo no asignado", entityLabel = 'registros' }) {
+export function BarraAcciones({ onAdd, title = "Titulo no asignado", entityLabel = 'registros', icon: Icono = IconUser }) {
     return (
         <div className={classes.toolbar}>
             <div className={classes.leftGroup}>
                 <div className={classes.iconBox}>
-                    
-                    <IconUser size={22} stroke={2} />
+                    <Icono size={22} stroke={2} />
                 </div>
                 <Text size="lg" fw={700}>
                     {title}

@@ -151,12 +151,17 @@ export function CrudCatalogo({
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
+    initialSortBy,
+    initialSortDirection,
     modalFullScreen = true,
     modalSize = 'lg',
     formMode = 'modal',
     drawerSize = 640,
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
+    pageSizeOptions,
+    filterRecords,
+    topContent,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -248,10 +253,13 @@ export function CrudCatalogo({
                 }
             }
         }
-        Object.assign(nextErrors, validateForm?.(form, { editingId }) ?? {});
+        const customErrors = (await validateForm?.(form, { editingId })) ?? {};
+        Object.assign(nextErrors, customErrors);
         if (Object.keys(nextErrors).length) {
             setErrors(nextErrors);
-            notifications.show({ title: 'Formulario incompleto', message: 'Revisa los campos marcados.', color: 'red' });
+            const errorList = Object.values(nextErrors).filter(Boolean);
+            const msg = errorList.length === 1 ? errorList[0] : errorList.join(' — ');
+            notifications.show({ title: 'Formulario incompleto', message: msg, color: 'red', autoClose: 7000 });
             return;
         }
 
@@ -287,26 +295,37 @@ export function CrudCatalogo({
         }
     };
 
-    const tableData = useMemo(() => records.map((record) => {
-        const row = mapRecordToRow(record);
-        return {
-            ...row,
-            _recordOriginal: record,
-        };
-    }), [records, mapRecordToRow]);
+    const tableData = useMemo(() => {
+        const sourceRecords = typeof filterRecords === 'function' ? filterRecords(records) : records;
+        return sourceRecords.map((record) => {
+            const row = mapRecordToRow(record);
+            return {
+                ...row,
+                _recordOriginal: record,
+            };
+        });
+    }, [records, mapRecordToRow, filterRecords]);
 
     const handleRenderAcciones = useMemo(() => {
         if (!renderAccionesFila) return undefined;
         return (fila) => {
             const recordOriginal = fila?._recordOriginal ?? records.find((r) => r.id === fila?.id) ?? fila;
-            return renderAccionesFila(fila, recordOriginal, {
+            const helpers = {
                 reload: () => {
                     fetchData();
                     fetchOptions();
                 },
                 openEdit: (rec = recordOriginal) => openEdit(rec),
+                setPendingDelete: (rec = recordOriginal) => setPendingDelete(rec),
                 deleteRecord: (rec = recordOriginal) => setPendingDelete(rec),
-            });
+            };
+
+            const segundoArg = {
+                ...recordOriginal,
+                ...helpers,
+            };
+
+            return renderAccionesFila(fila, segundoArg, helpers);
         };
     }, [renderAccionesFila, records]);
 
@@ -351,12 +370,20 @@ export function CrudCatalogo({
                             }
                             <div>
                                 <Title order={4} fw={700} c="#1E293B">
-                                    {editingId ? `Editar ${singular.toLowerCase()}` : `Nuevo ${singular.toLowerCase()}`}
+                                    {editingId
+                                        ? `Editar ${singular.toLowerCase()}`
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Nueva ${singular.toLowerCase()}`
+                                            : `Nuevo ${singular.toLowerCase()}`}
                                 </Title>
                                 <Text size="xs" c="dimmed">
                                     {editingId
-                                        ? `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
-                                        : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
+                                        ? ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Modifica los datos de la ${singular.toLowerCase()} y guarda los cambios.`
+                                            : `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Completa los campos para registrar una nueva ${singular.toLowerCase()}.`
+                                            : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
                                 </Text>
                             </div>
                         </Group>
@@ -503,7 +530,7 @@ export function CrudCatalogo({
                                     <IconoHeader
                                         size={38}
                                         stroke={1.8}
-                                        color="var(--mantine-color-secondary-6"
+                                        color="var(--mantine-color-secondary-6)"
                                     />
                                     <Divider orientation="vertical" color="secondary.9" size="2" />
                                 </>
@@ -525,9 +552,10 @@ export function CrudCatalogo({
                         </ActionIcon>
                     </div>
                 ) : (
-                    <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
+                    <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
                 )}
                 {error && <div className={classes.error}>{error}</div>}
+                {topContent}
                 {loading && records.length === 0 ? (
                     <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div>
                 ) : (
@@ -536,14 +564,17 @@ export function CrudCatalogo({
                         columns={columnas}
                         onEditar={permitirEditar ? openEdit : undefined}
                         onEliminar={permitirEliminar ? setPendingDelete : undefined}
-                        renderAcciones={renderAccionesFila ? (fila) => renderAccionesFila(fila, { openEdit, setPendingDelete }) : undefined}
+                        renderAcciones={handleRenderAcciones}
                         entityLabel={singular.toLowerCase()}
                         loading={loading}
                         onReload={() => {
                             fetchData();
                             fetchOptions();
                         }}
+                        initialSortBy={initialSortBy}
+                        initialSortDirection={initialSortDirection}
                         headerVariant={tableHeaderVariant}
+                        pageSizeOptions={pageSizeOptions}
                     />
                 )}
             </div>
