@@ -233,7 +233,7 @@ function App() {
               element={
                 estaLogeadoEn ? (
                   <Dashboard onLogout={accionLogout}>
-                    <SimuladorPagos />
+                    <Ventas />
                   </Dashboard>
                 ) : (
                   <Login onLoginAceptado={accionLogin} />

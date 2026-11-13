@@ -686,7 +686,7 @@ export function CrudCatalogo({
                     <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
                 )}
                 {error && <div className={classes.error}>{error}</div>}
-                {topContext}
+                {topContent}
                 <TablaRegistros
                         data={tableData}
                         columns={columnas}

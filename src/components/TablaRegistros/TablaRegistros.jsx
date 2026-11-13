@@ -98,7 +98,7 @@ export function TablaRegistros({
     return (
         <div className={classes.frame} aria-busy={loading}>
             {title && <EncabezadoTabla title={title} icon={icon} onAdd={onAdd} addLabel={addLabel} />}
-            {loading && !serverPagination ? (
+            {loading ? (
                 <TablaSkeleton columnCount={columns.length + (onEditar || onEliminar || renderAcciones ? 1 : 0)} />
             ) : (
                 <TableSort
