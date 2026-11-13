@@ -1,4 +1,4 @@
-import { CajaContext } from './CajaContext.js';
+import { CajaContext } from '../context/CajaContext.js';
 
 export function CajaProvider({ aperturas, children }) {
     return (

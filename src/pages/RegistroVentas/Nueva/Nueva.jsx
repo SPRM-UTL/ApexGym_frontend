@@ -30,7 +30,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTicketVenta } from '../hooks/useTicketVenta.js';
 import { useCatalogosVenta } from '../hooks/useCatalogosVenta.js';
 import { useClientesVenta } from '../hooks/useClientesVenta.js';
-import { useCaja } from '../components/useCaja.js';
+import { useCaja } from '../context/useCaja.js';
 import {
     calcularMontos,
     calcularDescuentoUnitario,
