@@ -23,6 +23,8 @@ import { ClienteMembresiaService } from './ClienteMembresiaService.js';
 import { MetodosPagoService } from './MetodosPagoService.js';
 import { ServicioService } from './ServicioService.js';
 import {VentaService} from './VentaService.js'
+import { EmpresaService } from './EmpresaService.js';
+import { PagoService } from './PagoService.js';
 import { AsistenciaService } from './AsistenciaService.js';
 import { VisitaService } from './VisitaService.js';
 
@@ -54,6 +56,8 @@ export class ApiService {
         this.metodosPago = new MetodosPagoService(this.urlBase);
         this.servicio = new ServicioService(this.urlBase);
         this.venta = new VentaService(this.urlBase);
+        this.empresa = new EmpresaService(this.urlBase);
+        this.pagos = new PagoService(this.urlBase);
         this.asistencia = new AsistenciaService(this.urlBase);
         this.visita = new VisitaService(this.urlBase);
     }

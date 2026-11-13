@@ -179,6 +179,7 @@ export function CrudCatalogo({
     createPersonalized = null,
     updatePersonalized = null,
     onCreateSuccess,
+    topContent,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -685,6 +686,7 @@ export function CrudCatalogo({
                     <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
                 )}
                 {error && <div className={classes.error}>{error}</div>}
+                {topContext}
                 <TablaRegistros
                         data={tableData}
                         columns={columnas}

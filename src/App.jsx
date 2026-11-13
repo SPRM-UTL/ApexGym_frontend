@@ -35,6 +35,9 @@ import PantallaCarga from './components/PantallaCarga.jsx';
 import { Productos } from './pages/Productos/Productos.jsx';
 import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
+import { Empresa } from './pages/Empresa/Empresa.jsx';
+import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
+import { EmpresaProvider } from './context/EmpresaContext.jsx';
 import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
@@ -112,7 +115,7 @@ function App() {
   }
 
   return (
-    <>
+    <EmpresaProvider estaLogeadoEn={estaLogeadoEn}>
       <ApiLoading />
       <BrowserRouter>
         <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
@@ -161,6 +164,7 @@ function App() {
 
             <Route path="/tipos-actividad" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposActividad /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/configuracion-sistema" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ConfiguracionSistema /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+            <Route path="/empresa" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empresa /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/administracion-roles" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AdministracionRoles /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/cajas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Cajas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/areas-trabajo" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AreasTrabajo /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
@@ -225,6 +229,30 @@ function App() {
               }
             />
             <Route
+              path="/ventas"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <SimuladorPagos />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
+              path="/pagos-experimentacion"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <SimuladorPagos />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
               path="/servicios"
               element={
                 estaLogeadoEn ? (
@@ -266,7 +294,7 @@ function App() {
           </Routes>
         </ErrorBoundary>
       </BrowserRouter>
-    </>
+    </EmpresaProvider>
   )
 }
 
