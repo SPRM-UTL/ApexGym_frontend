@@ -1,7 +1,7 @@
 import classes from './backgroudLogin.module.css';
 import logoImg from '../../assets/apex_gym.png'; 
 
-export default function BackgruondLogin() {
+export default function backgroundLogin() {
     return (
         <div className={classes.backgroundLogin}>
             <div className={classes.logoContent}>
