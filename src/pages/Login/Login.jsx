@@ -12,7 +12,7 @@ import { useState, useRef } from 'react';
 import classes from './Login.module.css';
 import { cambioNombreWeb } from '../../scripts/globales';
 import { api } from '../../scripts/services/api.js';
-import BackgruondLogin from '../../components/BackgroudLogin/BackgroudLogin.jsx'
+import BackgruondLogin from '../../components/BackgroudLogin/backgroundLogin.jsx'
 import logoImg from '../../assets/apex_gym.png';
 
 export function Login({ onLoginAceptado }) {
