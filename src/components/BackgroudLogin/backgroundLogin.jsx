@@ -1,4 +1,5 @@
 import classes from './backgroudLogin.module.css';
+import classes from './backgroundLogin.module.css';
 import logoImg from '../../assets/apex_gym.png'; 
 
 export default function backgroundLogin() {
