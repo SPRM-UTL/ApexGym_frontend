@@ -321,16 +321,17 @@ export function Dashboard({ children, onLogout }) {
                     {sucursales && sucursales.length > 0 && (
                         <Menu shadow="md" width={240} position="bottom-end">
                             <Menu.Target>
-                                <Button
-                                    variant="light"
-                                    color="orange"
-                                    size="xs"
-                                    radius="md"
-                                    leftSection={<IconBuildingStore size={15} />}
-                                    rightSection={<IconChevronDown size={14} />}
-                                >
-                                    {sucursalActiva?.nombre || 'Sucursal Matriz'}
-                                </Button>
+                                <UnstyledButton className={classes.sucursalBtn} aria-label="Cambiar sucursal activa">
+                                    <span className={classes.sucursalBtnIcon}>
+                                        <IconBuildingStore size={16} stroke={1.8} />
+                                    </span>
+                                    <span className={classes.sucursalBtnText}>
+                                        {sucursalActiva?.nombre || 'Sucursal Matriz'}
+                                    </span>
+                                    <span className={classes.sucursalBtnChevron}>
+                                        <IconChevronDown size={14} stroke={2} />
+                                    </span>
+                                </UnstyledButton>
                             </Menu.Target>
                             <Menu.Dropdown>
                                 <Menu.Label>Sucursal en sesión</Menu.Label>

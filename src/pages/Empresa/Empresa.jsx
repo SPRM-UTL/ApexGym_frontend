@@ -320,8 +320,7 @@ export function Empresa() {
                                     </Text>
                                 </div>
                                 <Button
-                                    variant="light"
-                                    color="orange"
+                                    className={classes.saveButton}
                                     radius="md"
                                     rightSection={<IconArrowRight size={16} />}
                                     onClick={() => navigate('/sucursales')}

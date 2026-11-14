@@ -44,6 +44,57 @@
     }
 }
 
+.sucursalBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 12px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+
+    &:hover {
+        background-color: rgba(255, 106, 0, 0.15);
+        border-color: var(--ag-color-primary);
+    }
+
+    &:active {
+        transform: scale(0.98);
+    }
+}
+
+.sucursalBtnIcon {
+    color: var(--ag-color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sucursalBtnText {
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    max-width: 170px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sucursalBtnChevron {
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
 .content {
     /* Ocupa el espacio sobrante con scroll interno */
     flex: 1 1 auto;
