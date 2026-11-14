@@ -45,54 +45,27 @@
 }
 
 .sucursalBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 38px;
-    padding: 0 12px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 8px;
-    color: #ffffff;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: left;
-    transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+    background-color: #ffffff !important;
+    color: var(--ag-color-primary) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    height: 36px !important;
+    padding: 0 14px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+    transition: all 150ms ease !important;
 
     &:hover {
-        background-color: rgba(255, 106, 0, 0.15);
-        border-color: var(--ag-color-primary);
+        background-color: #fffaf5 !important;
+        border-color: var(--ag-color-primary) !important;
+        box-shadow: 0 3px 10px rgba(255, 106, 0, 0.25) !important;
+        transform: translateY(-1px);
     }
 
     &:active {
-        transform: scale(0.98);
+        transform: translateY(0);
     }
-}
-
-.sucursalBtnIcon {
-    color: var(--ag-color-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.sucursalBtnText {
-    color: #ffffff;
-    font-size: 0.85rem;
-    font-weight: 600;
-    max-width: 170px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sucursalBtnChevron {
-    color: rgba(255, 255, 255, 0.7);
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
 }
 
 .content {
