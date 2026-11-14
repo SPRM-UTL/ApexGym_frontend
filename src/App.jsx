@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+﻿import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
@@ -14,11 +14,11 @@ import { AperturaCaja } from './pages/AperturaCaja/AperturaCaja.jsx';
 import { MovimientosCaja } from './pages/MovimientosCaja/MovimientosCaja.jsx';
 import { CorteCaja } from './pages/CorteCaja/CorteCaja.jsx';
 import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
-import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual, obtenerEsPersistente } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
-/**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
- * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
- * revisar las cookies  si la peticion exitosa recarga a la pantalla de la aplicacion
- * **/
+import {
+  guardarUsuarioActual,
+  eliminarUsuarioActual,
+  obtenerUsuarioActual,
+} from './scripts/constantes.js';
 import { useState, useEffect } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
@@ -34,23 +34,113 @@ import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { Empresa } from './pages/Empresa/Empresa.jsx';
 import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
+import { SeccionesProvider, useSecciones } from './context/SeccionesContext.jsx';
 import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
+import {
+  esSeccionConocida,
+  tieneAccesoModulo,
+  tieneAccesoSeccion,
+} from './scripts/modulosRutas.js';
+
+function RutaSeccionProtegida({ estaLogeadoEn, onLoginAceptado, onLogout }) {
+  const { seccionSlug } = useParams();
+  const { secciones, cargandoSecciones } = useSecciones();
+
+  if (!estaLogeadoEn) {
+    return <Login onLoginAceptado={onLoginAceptado} />;
+  }
+
+  if (!esSeccionConocida(seccionSlug)) {
+    return <PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />;
+  }
+
+  if (cargandoSecciones) {
+    return <PantallaCarga />;
+  }
+
+  if (!tieneAccesoSeccion(secciones, seccionSlug)) {
+    return <PaginaError codigo={403} estaLogeadoEn={estaLogeadoEn} />;
+  }
+
+  return <Dashboard onLogout={onLogout} />;
+}
+
+function RutaModuloProtegida({
+  estaLogeadoEn,
+  onLoginAceptado,
+  onLogout,
+  seccionSlug,
+  moduloSlug,
+  children,
+}) {
+  const { secciones, cargandoSecciones } = useSecciones();
+
+  if (!estaLogeadoEn) {
+    return <Login onLoginAceptado={onLoginAceptado} />;
+  }
+
+  if (cargandoSecciones) {
+    return <PantallaCarga />;
+  }
+
+  if (!tieneAccesoModulo(secciones, seccionSlug, moduloSlug)) {
+    return <PaginaError codigo={403} estaLogeadoEn={estaLogeadoEn} />;
+  }
+
+  return <Dashboard onLogout={onLogout}>{children}</Dashboard>;
+}
+
+const RUTAS_MODULOS = [
+  // Administración
+  { seccion: 'administracion', modulo: 'usuarios', element: <Usuarios /> },
+  { seccion: 'administracion', modulo: 'configuracion-sistema', element: <ConfiguracionSistema /> },
+  { seccion: 'administracion', modulo: 'administracion-roles', element: <AdministracionRoles /> },
+  { seccion: 'administracion', modulo: 'empresa', element: <Empresa /> },
+
+  // Gestión de Clientes
+  { seccion: 'gestion-clientes', modulo: 'clientes', element: <Clientes /> },
+  { seccion: 'gestion-clientes', modulo: 'estados-cliente', element: <EstadosCliente /> },
+  { seccion: 'gestion-clientes', modulo: 'tipos-membresia', element: <TiposMembresia /> },
+  { seccion: 'gestion-clientes', modulo: 'estados-membresia', element: <EstadosMembresia /> },
+  { seccion: 'gestion-clientes', modulo: 'tipos-visita', element: <TiposVisita /> },
+  { seccion: 'gestion-clientes', modulo: 'accesos-visitas', element: <ControlAcceso /> },
+
+  // Ventas y Caja
+  { seccion: 'ventas-caja', modulo: 'cajas', element: <Cajas /> },
+  { seccion: 'ventas-caja', modulo: 'apertura-caja', element: <AperturaCaja /> },
+  { seccion: 'ventas-caja', modulo: 'movimientos-caja', element: <MovimientosCaja /> },
+  { seccion: 'ventas-caja', modulo: 'corte-caja', element: <CorteCaja /> },
+  { seccion: 'ventas-caja', modulo: 'metodos-pago', element: <MetodosPago /> },
+  { seccion: 'ventas-caja', modulo: 'servicios', element: <Servicios /> },
+  { seccion: 'ventas-caja', modulo: 'ventas', element: <SimuladorPagos /> },
+  { seccion: 'ventas-caja', modulo: 'pagos-experimentacion', element: <SimuladorPagos /> },
+
+  // Empleados
+  { seccion: 'empleados', modulo: 'areas-trabajo', element: <AreasTrabajo /> },
+  { seccion: 'empleados', modulo: 'puestos', element: <Puestos /> },
+  { seccion: 'empleados', modulo: 'estados-empleado', element: <EstadosEmpleado /> },
+  { seccion: 'empleados', modulo: 'empleados', element: <Empleados /> },
+
+  // Inventario
+  { seccion: 'inventario', modulo: 'categorias-productos', element: <CategoriaProducto /> },
+  { seccion: 'inventario', modulo: 'productos', element: <Productos /> },
+
+  // Rendimiento Laboral
+  { seccion: 'rendimiento-laboral', modulo: 'tipos-actividad', element: <TiposActividad /> },
+
+  // Ventas
+  { seccion: 'ventas', modulo: 'registro-ventas', element: <SimuladorPagos /> },
+];
 
 function App() {
-
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
-
-  /**de esta manera le decimos que revise con obtenerMisSecciones y este nos diga si
-   *  tiene algun token para poder entrar de manera automatica de esta manera le 
-   * decimos a la funcion de que si esta logueado*/
 
   useEffect(() => {
     let activo = true;
     const validarSesion = async () => {
-      //hacemos una espera minima para que se note que esta cargando
-      const espera = new Promise((resolver) => setTimeout(resolver, 500))
+      const espera = new Promise((resolver) => setTimeout(resolver, 500));
       const usuarioActual = obtenerUsuarioActual();
       if (!usuarioActual) {
         setEstaLogeadoEn(false);
@@ -63,225 +153,115 @@ function App() {
         if (activo) {
           setEstaLogeadoEn(respuesta?.responseFlag === 0);
         }
-      } catch (error) {
-        if (activo) setEstaLogeadoEn(false)
+      } catch {
+        if (activo) setEstaLogeadoEn(false);
         await espera;
       }
     };
     validarSesion();
 
     return () => {
-      activo: false;
-    }
-
+      activo = false;
+    };
   }, []);
 
-  /**Esta es la pantalla de carga mientres no este logueado*/
   if (estaLogeadoEn === null) {
     return <PantallaCarga />;
   }
 
-  const usuarioActual = obtenerUsuarioActual();
-
-  /**Aqui solo comente las lineas y evitar que guarde cualquier token */
-  const accionLogin = (/**tokenRecibido,*/ esPersistente = false, usuario = null) => {
-    /**guardarToken(tokenRecibido, esPersistente);*/
+  const accionLogin = (esPersistente = false, usuario = null) => {
     guardarUsuarioActual(usuario, esPersistente);
     setEstaLogeadoEn(true);
-    api.seccion
   };
 
   const accionLogout = async () => {
-    /**eliminarToken();*/ //Evitamos que llame el token que no esta almacenado en LocalStore
     try {
-        await api.user.logout();
-
+      await api.user.logout();
     } catch (error) {
-      console.error("error al cerrar sesion", error)
+      console.error('error al cerrar sesion', error);
     }
-
 
     eliminarUsuarioActual();
     setEstaLogeadoEn(false);
-
-  }
+  };
 
   return (
     <EmpresaProvider estaLogeadoEn={estaLogeadoEn}>
-      <ApiLoading />
-      <BrowserRouter>
-        <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
-          <Routes>
-            <Route
-              path="/login"
-              element={
-                estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
-              }
-            />
+      <SeccionesProvider estaLogeadoEn={estaLogeadoEn}>
+        <ApiLoading />
+        <BrowserRouter>
+          <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
+            <Routes>
+              <Route
+                path="/login"
+                element={
+                  estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
+                }
+              />
 
-            {/* Rutas de módulos específicos: pasan children al Dashboard */}
-            <Route
-              path="/usuarios"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <Usuarios />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
+              <Route
+                path="/"
+                element={
+                  estaLogeadoEn ? (
+                    <Dashboard onLogout={accionLogout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
 
-            <Route
-              path="/estados-cliente"
-              element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosCliente /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
-            />
-            <Route
-              path="/clientes"
-              element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Clientes /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
-            />
-            <Route
-              path="/estados-membresia"
-              element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosMembresia /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
-            />
-            <Route
-              path="/tipos-membresia"
-              element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposMembresia /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
-            />
-            <Route
-              path="/tipos-visita"
-              element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposVisita /></Dashboard> : <Login onLoginAceptado={accionLogin} />}
-            />
+              {RUTAS_MODULOS.map(({ seccion, modulo, element }) => (
+                <Route
+                  key={`${seccion}/${modulo}`}
+                  path={`/${seccion}/${modulo}`}
+                  element={
+                    <RutaModuloProtegida
+                      estaLogeadoEn={estaLogeadoEn}
+                      onLoginAceptado={accionLogin}
+                      onLogout={accionLogout}
+                      seccionSlug={seccion}
+                      moduloSlug={modulo}
+                    >
+                      {element}
+                    </RutaModuloProtegida>
+                  }
+                />
+              ))}
 
-            <Route path="/tipos-actividad" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposActividad /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/configuracion-sistema" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ConfiguracionSistema /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/empresa" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empresa /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/administracion-roles" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AdministracionRoles /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/cajas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Cajas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/areas-trabajo" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AreasTrabajo /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/puestos" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Puestos /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/estados-empleado" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosEmpleado /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/empleados" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empleados /></Dashboard> : <Login onLogout={accionLogout} />} />
-            <Route path="/apertura-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AperturaCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/movimientos-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><MovimientosCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/corte-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><CorteCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+              <Route
+                path="/error"
+                element={<PaginaError estaLogeadoEn={estaLogeadoEn} />}
+              />
+              <Route
+                path="/403"
+                element={<PaginaError codigo={403} estaLogeadoEn={estaLogeadoEn} />}
+              />
+              <Route
+                path="/404"
+                element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
+              />
 
-            {/* Ruta raíz: muestra el grid de secciones (sin children) */}
-            <Route
-              path="/"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout} />
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
-            <Route
-              path="/categorias-productos"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <CategoriaProducto />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            <Route
-              path="/productos"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <Productos />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            <Route
-              path="/metodos-pago"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <MetodosPago />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            <Route
-              path="/ventas"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <SimuladorPagos />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            <Route
-              path="/pagos-experimentacion"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <SimuladorPagos />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            <Route
-              path="/servicios"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <Servicios />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            <Route
-              path="/accesos-y-visitas"
-              element={
-                estaLogeadoEn ? (
-                  <Dashboard onLogout={accionLogout}>
-                    <ControlAcceso />
-                  </Dashboard>
-                ) : (
-                  <Login onLoginAceptado={accionLogin} />
-                )
-              }
-            />
-            {/* Rutas de error */}
-            <Route
-              path="/error"
-              element={<PaginaError estaLogeadoEn={estaLogeadoEn} />}
-            />
-            <Route
-              path="/404"
-              element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
-            />
+              <Route
+                path="/:seccionSlug"
+                element={
+                  <RutaSeccionProtegida
+                    estaLogeadoEn={estaLogeadoEn}
+                    onLoginAceptado={accionLogin}
+                    onLogout={accionLogout}
+                  />
+                }
+              />
 
-            {/* Cualquier otra ruta no reconocida muestra la pantalla de error 404 */}
-            <Route
-              path="*"
-              element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
-            />
-          </Routes>
-        </ErrorBoundary>
-      </BrowserRouter>
+              <Route
+                path="*"
+                element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
+              />
+            </Routes>
+          </ErrorBoundary>
+        </BrowserRouter>
+      </SeccionesProvider>
     </EmpresaProvider>
-  )
+  );
 }
 
 export default App;

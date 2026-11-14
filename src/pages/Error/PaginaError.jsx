@@ -4,7 +4,6 @@ import {
     Group,
     Paper,
     Text,
-    ThemeIcon,
     Title,
     UnstyledButton,
 } from '@mantine/core';
@@ -30,7 +29,6 @@ export function PaginaError({ codigo = 404, mensaje = null, estaLogeadoEn = fals
     });
 
     const usuarioActual = obtenerUsuarioActual();
-    const IconoComponente = config.icono;
     const esErrorServidor = config.codigo === 500 || config.codigo === 'Error';
 
     return (
@@ -60,23 +58,7 @@ export function PaginaError({ codigo = 404, mensaje = null, estaLogeadoEn = fals
 
             <main className={classes.content}>
                 <Paper className={classes.card}>
-                    {/* Código decorativo de fondo */}
-                    <div className={classes.watermark} aria-hidden="true">
-                        {config.codigo}
-                    </div>
-
                     <div className={classes.cardContent}>
-                        <div className={classes.iconWrapper}>
-                            <ThemeIcon
-                                size={54}
-                                radius="xl"
-                                variant="transparent"
-                                c="var(--ag-color-primary)"
-                            >
-                                <IconoComponente size={40} stroke={1.8} />
-                            </ThemeIcon>
-                        </div>
-
                         <div>
                             <Badge
                                 size="lg"
@@ -97,6 +79,7 @@ export function PaginaError({ codigo = 404, mensaje = null, estaLogeadoEn = fals
 
                         <div className={classes.actionsGroup}>
                             <Button
+                                variant="default"
                                 size="md"
                                 radius="md"
                                 className={classes.btnSecondary}
@@ -127,10 +110,6 @@ export function PaginaError({ codigo = 404, mensaje = null, estaLogeadoEn = fals
                                     Reintentar
                                 </Button>
                             )}
-                        </div>
-
-                        <div className={classes.footerHint}>
-                            ApexGym &bull; Plataforma de Gestión Deportiva
                         </div>
                     </div>
                 </Paper>
