@@ -32,8 +32,10 @@ import { Productos } from './pages/Productos/Productos.jsx';
 import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { Empresa } from './pages/Empresa/Empresa.jsx';
+import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
 import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
+import { SucursalProvider } from './context/SucursalContext.jsx';
 import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
@@ -87,6 +89,14 @@ function App() {
   const accionLogin = (/**tokenRecibido,*/ esPersistente = false, usuario = null) => {
     /**guardarToken(tokenRecibido, esPersistente);*/
     guardarUsuarioActual(usuario, esPersistente);
+    try {
+      sessionStorage.removeItem('apexgym_sucursal_sesion_confirmada');
+    } catch {
+      // Ignorar errores de almacenamiento
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('apexgym:auth-login'));
+    }
     setEstaLogeadoEn(true);
     api.seccion
   };
@@ -102,22 +112,48 @@ function App() {
 
 
     eliminarUsuarioActual();
+    try {
+      sessionStorage.removeItem('apexgym_sucursal_sesion_confirmada');
+    } catch {
+      // Ignorar
+    }
     setEstaLogeadoEn(false);
 
   }
 
   return (
     <EmpresaProvider estaLogeadoEn={estaLogeadoEn}>
-      <ApiLoading />
-      <BrowserRouter>
-        <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
-          <Routes>
-            <Route
-              path="/login"
-              element={
-                estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
-              }
+      <SucursalProvider estaLogeadoEn={estaLogeadoEn}>
+        <ApiLoading />
+        <BrowserRouter>
+          <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
+            <RutasApp
+              estaLogeadoEn={estaLogeadoEn}
+              accionLogin={accionLogin}
+              accionLogout={accionLogout}
             />
+          </ErrorBoundary>
+        </BrowserRouter>
+      </SucursalProvider>
+    </EmpresaProvider>
+  );
+}
+
+function RutasApp({ estaLogeadoEn, accionLogin, accionLogout }) {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
+        }
+      />
+      <Route
+        path="/seleccionar-sucursal"
+        element={
+          estaLogeadoEn ? <Dashboard onLogout={accionLogout} /> : <Navigate to="/login" replace />
+        }
+      />
 
             {/* Rutas de módulos específicos: pasan children al Dashboard */}
             <Route
@@ -157,6 +193,7 @@ function App() {
             <Route path="/tipos-actividad" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposActividad /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/configuracion-sistema" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ConfiguracionSistema /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/empresa" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empresa /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+            <Route path="/sucursales" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Sucursales /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/administracion-roles" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AdministracionRoles /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/cajas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Cajas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/areas-trabajo" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AreasTrabajo /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
@@ -278,10 +315,7 @@ function App() {
               element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
             />
           </Routes>
-        </ErrorBoundary>
-      </BrowserRouter>
-    </EmpresaProvider>
-  )
+  );
 }
 
 export default App;

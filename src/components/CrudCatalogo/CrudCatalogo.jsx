@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { useSucursal } from '../../context/SucursalContext.jsx';
 import {
     Avatar,
     Button,
@@ -173,6 +174,7 @@ export function CrudCatalogo({
     const [pendingDelete, setPendingDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [fieldOptions, setFieldOptions] = useState({});
+    const { sucursalActiva } = useSucursal();
 
     const fieldsWithLoader = useMemo(() => campos.filter((campo) => campo.loadOptions), [campos]);
 
@@ -205,7 +207,7 @@ export function CrudCatalogo({
     useEffect(() => {
         fetchData();
         fetchOptions();
-    }, []);
+    }, [sucursalActiva?.id]);
 
     const resetForm = () => {
         setForm(valoresIniciales);

@@ -8,6 +8,8 @@ import {
     Group,
     Loader,
     Paper,
+    Stack,
+    Table,
     Tabs,
     Text,
     Textarea,
@@ -24,15 +26,21 @@ import {
     IconMapPin,
     IconReceipt2,
     IconRefresh,
+    IconBuildingStore,
+    IconArrowRight,
 } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 import { DEFAULT_EMPRESA, useEmpresa } from '../../context/EmpresaContext.jsx';
+import { useSucursal } from '../../context/SucursalContext.jsx';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import classes from './Empresa.module.css';
 
 export function Empresa() {
     cambioNombreWeb('Empresa');
+    const navigate = useNavigate();
 
     const { empresa, cargandoEmpresa, recargarEmpresa, actualizarEmpresa } = useEmpresa();
+    const { sucursales, sucursalActiva, seleccionarSucursal, cargandoSucursales } = useSucursal();
 
     const [form, setForm] = useState(() => ({ ...DEFAULT_EMPRESA, ...(empresa || {}) }));
     const [touched, setTouched] = useState({});
@@ -181,6 +189,9 @@ export function Empresa() {
                         <Tabs.Tab value="operacion" leftSection={<IconClock size={16} />}>
                             Operación, Moneda y Tickets
                         </Tabs.Tab>
+                        <Tabs.Tab value="sucursales" leftSection={<IconBuildingStore size={16} />}>
+                            Sucursales ({sucursales.length})
+                        </Tabs.Tab>
                     </Tabs.List>
 
                     {/* Tab 1: Identidad Fiscal y Comercial */}
@@ -294,6 +305,91 @@ export function Empresa() {
                                 />
                             </Grid.Col>
                         </Grid>
+                    </Tabs.Panel>
+
+                    {/* Tab 4: Sucursales Vinculadas */}
+                    <Tabs.Panel value="sucursales">
+                        <Stack gap="md">
+                            <Group justify="space-between" align="center">
+                                <div>
+                                    <Text fw={600} size="md">
+                                        Sucursales Vinculadas
+                                    </Text>
+                                    <Text size="sm" c="dimmed">
+                                        Listado de sucursales operativas registradas bajo esta empresa.
+                                    </Text>
+                                </div>
+                                <Button
+                                    variant="light"
+                                    color="orange"
+                                    radius="md"
+                                    rightSection={<IconArrowRight size={16} />}
+                                    onClick={() => navigate('/sucursales')}
+                                >
+                                    Administrar Sucursales
+                                </Button>
+                            </Group>
+
+                            <Table striped highlightOnHover withTableBorder withColumnBorders>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>Código</Table.Th>
+                                        <Table.Th>Nombre de la Sucursal</Table.Th>
+                                        <Table.Th>Ciudad / Ubicación</Table.Th>
+                                        <Table.Th>Teléfono</Table.Th>
+                                        <Table.Th>Estatus</Table.Th>
+                                        <Table.Th>Activa en Sesión</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {sucursales.map((suc) => {
+                                        const esActiva = suc.id === sucursalActiva?.id;
+                                        return (
+                                            <Table.Tr key={suc.id}>
+                                                <Table.Td>
+                                                    <Badge variant="outline" color="dark">
+                                                        {suc.codigo || `SUC-${suc.id}`}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text fw={500}>{suc.nombre}</Text>
+                                                    {suc.direccion && (
+                                                        <Text size="xs" c="dimmed">
+                                                            {suc.direccion}
+                                                        </Text>
+                                                    )}
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    {suc.ciudad ? `${suc.ciudad}${suc.estado ? `, ${suc.estado}` : ''}` : '—'}
+                                                </Table.Td>
+                                                <Table.Td>{suc.telefono || '—'}</Table.Td>
+                                                <Table.Td>
+                                                    <Badge color={suc.activo !== false ? 'teal' : 'gray'} variant="light">
+                                                        {suc.activo !== false ? 'Activa' : 'Inactiva'}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    {esActiva ? (
+                                                        <Badge color="orange" variant="filled">
+                                                            Seleccionada
+                                                        </Badge>
+                                                    ) : (
+                                                        <Button
+                                                            size="xs"
+                                                            variant="subtle"
+                                                            color="gray"
+                                                            onClick={() => seleccionarSucursal(suc.id)}
+                                                        >
+                                                            Seleccionar
+                                                        </Button>
+                                                    )}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        );
+                                    })}
+                                </Table.Tbody>
+                            </Table>
+                        </Stack>
                     </Tabs.Panel>
                 </Tabs>
 
