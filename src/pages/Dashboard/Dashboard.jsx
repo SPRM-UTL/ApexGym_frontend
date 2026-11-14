@@ -325,8 +325,8 @@ export function Dashboard({ children, onLogout }) {
                                     className={classes.sucursalBtn}
                                     size="xs"
                                     radius="md"
-                                    leftSection={<IconBuildingStore size={16} stroke={1.6} />}
-                                    rightSection={<IconChevronDown size={14} stroke={1.6} />}
+                                    leftSection={<IconBuildingStore size={16} stroke={1.6} color="var(--ag-color-primary)" />}
+                                    rightSection={<IconChevronDown size={14} stroke={1.6} color="rgba(255, 255, 255, 0.7)" />}
                                 >
                                     {sucursalActiva?.nombre || 'Sucursal Matriz'}
                                 </Button>
