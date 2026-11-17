@@ -12,13 +12,11 @@ import {
 import {
     IconEdit,
     IconPackage,
-    IconPhoto,
     IconTrash,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
-import { resolverUrlImagen } from '../../scripts/constantes.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
@@ -48,7 +46,6 @@ const CAMPOS = [
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
     { key: 'descripcion', label: 'Descripción' },
     { key: 'disponibleCompra', label: 'Disponible' },
-    { key: 'imagenUrl', label: 'Imagen del producto', type: 'dropzone' },
 ];
 
 const INICIAL = {
@@ -64,6 +61,7 @@ const INICIAL = {
     stockMinimo: '',
     disponibleCompra: true,
     imagenUrl: '',
+    quitarImagen: false,
 };
 
 const COLUMNAS_PRODUCTOS = [
@@ -95,87 +93,25 @@ function CampoImagenProducto({ imagen, onChange }) {
     }, [imagen]);
 
     return (
-        <Box>
-            <SectionTitle>Imagen del producto</SectionTitle>
-            <DropzoneImagen
-                archivo={imagen instanceof File ? imagen : null}
-                preview={previewUrl}
-                h={180}
-                onDrop={(archivos) => onChange(archivos[0] ?? null)}
-                onReject={() => notifications.show({
-                    title: 'Imagen no válida',
-                    message: 'Selecciona una imagen válida de máximo 5 MB.',
-                    color: 'red',
-                })}
-            />
-        </Box>
+        <DropzoneImagen
+            archivo={imagen instanceof File ? imagen : null}
+            preview={previewUrl}
+            h={180}
+            onDrop={(archivos) => onChange(archivos[0] ?? null)}
+            onReject={() => notifications.show({
+                title: 'Imagen no válida',
+                message: 'Selecciona una imagen válida de máximo 5 MB.',
+                color: 'red',
+            })}
+        />
     );
 }
 
 
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
-    const handleDrop = (archivos) => {
-        const archivo = archivos[0] ?? null;
-        if (!archivo) return;
-        const reader = new FileReader();
-        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
-        reader.readAsDataURL(archivo);
-    };
-
-    const handleReject = () => {
-        notifications.show({
-            title: 'Imagen no válida',
-            message: 'Selecciona una imagen válida de máximo 5 MB.',
-            color: 'red',
-        });
-    };
-
     return (
         <Stack gap="md" style={{ width: '100%' }}>
             <Box>
-                <SectionTitle
-                    rightSection={
-                        form.imagenUrl ? (
-                            <Button
-                                variant="outline"
-                                color="red"
-                                size="compact-xs"
-                                radius="md"
-                                leftSection={<IconTrash size={14} stroke={1.8} />}
-                                onClick={() => onChange('imagenUrl', '')}
-                                styles={{
-                                    root: {
-                                        border: '1px solid #EF4444',
-                                        backgroundColor: '#FEF2F2',
-                                        color: '#DC2626',
-                                        fontWeight: 600,
-                                        '&:hover': {
-                                            backgroundColor: '#FEE2E2',
-                                        },
-                                    },
-                                }}
-                            >
-                                Quitar imagen
-                            </Button>
-                        ) : null
-                    }
-                >
-                    Imagen del producto
-                </SectionTitle>
-                <DropzoneImagen
-                    variant="compact"
-                    archivo={null}
-                    preview={form.imagenUrl || null}
-                    onDrop={handleDrop}
-                    onReject={handleReject}
-                    icon={IconPhoto}
-                    loadedText="Imagen del producto cargada"
-                    avatarRadius="md"
-                />
-            </Box>
-
-            <Box>
-                <SectionTitle>Información general</SectionTitle>
                 <Stack gap="md">
                     <FInput
                         label="Nombre de Producto"
@@ -185,10 +121,52 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         error={errors.nombre}
                         onChange={(v) => onChange('nombre', v)}
                     />
-                    <CampoImagenProducto
-                        imagen={form.imagen}
-                        onChange={(imagen) => onChange('imagen', imagen)}
-                    />
+                    <Box>
+                        <SectionTitle
+                            rightSection={
+                                form.imagen instanceof File || (form.imagenUrl && !form.quitarImagen) ? (
+                                    <Button
+                                        variant="outline"
+                                        color="red"
+                                        size="compact-xs"
+                                        radius="md"
+                                        leftSection={<IconTrash size={14} stroke={1.8} />}
+                                        onClick={() => {
+                                            onChange('imagen', null);
+                                            onChange('quitarImagen', Boolean(form.imagenUrl));
+                                        }}
+                                        styles={{
+                                            root: {
+                                                border: '1px solid #EF4444',
+                                                backgroundColor: '#FEF2F2',
+                                                color: '#DC2626',
+                                                fontWeight: 600,
+                                                '&:hover': {
+                                                    backgroundColor: '#FEE2E2',
+                                                },
+                                            },
+                                        }}
+                                    >
+                                        Quitar imagen
+                                    </Button>
+                                ) : null
+                            }
+                        >
+                            Imagen del producto
+                        </SectionTitle>
+                        <CampoImagenProducto
+                            imagen={form.imagen instanceof File
+                                ? form.imagen
+                                : form.quitarImagen
+                                    ? null
+                                    : form.imagenUrl}
+                            onChange={(imagen) => {
+                                onChange('imagen', imagen);
+                                onChange('quitarImagen', false);
+                            }}
+                        />
+                    </Box>
+                    <SectionTitle>Información general</SectionTitle>
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
                         <FInput
                             label="Código de barras"
@@ -283,7 +261,7 @@ export function Productos() {
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
-        imagen: resolverUrlImagen(record.imagenUrl ?? record.imagen) || null,
+        imagen: null,
         descripcion: record.descripcion ?? '',
         codigoBarras: record.codigoBarras ?? '',
         categoriaProductoId: record.categoriaProductoId
@@ -298,11 +276,13 @@ export function Productos() {
         stockMinimo: record.stockMinimo ?? '',
         disponibleCompra: record.disponibleCompra,
         imagenUrl: record.imagenUrl ?? '',
+        quitarImagen: false,
     }), []);
 
     const mapFormToPayload = (form) => ({
         nombre: form.nombre ?? '',
         imagen: form.imagen instanceof File ? form.imagen : null,
+        quitarImagen: Boolean(form.quitarImagen),
         descripcion: form.descripcion || null,
         codigoBarras: form.codigoBarras ? String(form.codigoBarras) : null,
         categoriaProductoId: Number(form.categoriaProductoId),
@@ -312,7 +292,6 @@ export function Productos() {
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
         disponibleCompra: form.disponibleCompra,
-        imagenUrl: form.imagenUrl || null,
     });
 
     const colorStock = (actual, minimo) => {
