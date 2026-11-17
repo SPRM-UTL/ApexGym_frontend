@@ -15,12 +15,19 @@ export const httpClient = axios.create({withCredentials: true});
 
 httpClient.interceptors.request.use((config) => {
     apiLoadingStore.iniciar();
-    
-    return config;
-    /**const token = obtenerToken();*/
-    /**if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }**/
+    try {
+        const sucursalId = localStorage.getItem('apexgym_sucursal_activa_id');
+        if (sucursalId) {
+            if (config.headers && typeof config.headers.set === 'function') {
+                config.headers.set('x-sucursal-id', sucursalId);
+            } else {
+                config.headers = config.headers || {};
+                config.headers['x-sucursal-id'] = sucursalId;
+            }
+        }
+    } catch {
+        // Ignorar si el almacenamiento local está restringido
+    }
     return config;
 }, (error) => {
     apiLoadingStore.finalizar();

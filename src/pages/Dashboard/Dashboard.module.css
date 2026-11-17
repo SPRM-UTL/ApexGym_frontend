@@ -44,6 +44,30 @@
     }
 }
 
+.sucursalBtn {
+    background-color: #242948 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 106, 0, 0.45) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    height: 36px !important;
+    padding: 0 14px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    transition: all 180ms ease !important;
+
+    &:hover {
+        background-color: #2f365d !important;
+        border-color: var(--ag-color-primary) !important;
+        box-shadow: 0 3px 12px rgba(255, 106, 0, 0.3) !important;
+        transform: translateY(-1px);
+    }
+
+    &:active {
+        transform: translateY(0);
+    }
+}
+
 .content {
     /* Ocupa el espacio sobrante con scroll interno */
     flex: 1 1 auto;

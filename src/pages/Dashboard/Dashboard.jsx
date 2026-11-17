@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
     Alert,
     Anchor,
+    Badge,
     Breadcrumbs,
     Button,
     Group,
     Loader,
+    Menu,
     SimpleGrid,
     Text,
     ThemeIcon,
@@ -15,17 +17,23 @@ import {
 } from '@mantine/core';
 import {
     IconAlertCircle,
+    IconBuildingStore,
+    IconChevronDown,
     IconChevronRight,
     IconHome,
     IconLayoutGrid,
     IconLogout,
+    IconRefresh,
     IconUsers,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
+import { SucursalCard } from '../../components/SucursalCard/SucursalCard.jsx';
+import { notifications } from '@mantine/notifications';
 import { useSecciones } from '../../context/SeccionesContext.jsx';
+import { useSucursal } from '../../context/SucursalContext.jsx';
 import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import {
@@ -55,6 +63,14 @@ export function Dashboard({ children, onLogout }) {
     const location = useLocation();
     const usuarioActual = obtenerUsuarioActual();
     const contentRef = useRef(null);
+    const {
+        sucursalActiva,
+        sucursales,
+        seleccionarSucursal,
+        sucursalConfirmada,
+        confirmarSucursal,
+        desconfirmarSucursal,
+    } = useSucursal();
 
     const { secciones, cargandoSecciones: cargando, errorSecciones: errorCarga } = useSecciones();
 
@@ -75,7 +91,13 @@ export function Dashboard({ children, onLogout }) {
     const mostrarChildren = !!children;
     const enInicio = location.pathname === '/' || Boolean(seccionActiva);
 
-    cambioNombreWeb(!mostrarChildren ? (seccionActiva?.nombre || 'Inicio') : moduloEnRuta?.modulo?.nombre || null);
+    cambioNombreWeb(
+        !sucursalConfirmada
+            ? 'Seleccionar Sucursal'
+            : !mostrarChildren
+            ? seccionActiva?.nombre || 'Inicio'
+            : moduloEnRuta?.modulo?.nombre || null
+    );
 
     const irInicio = () => {
         navigate('/');
@@ -105,7 +127,11 @@ export function Dashboard({ children, onLogout }) {
         },
     ];
 
-    if (seccionContexto && (seccionActiva || moduloEnRuta)) {
+    if (!sucursalConfirmada) {
+        migas.push({
+            label: 'Seleccionar Sucursal',
+        });
+    } else if (seccionContexto && (seccionActiva || moduloEnRuta)) {
         const rutaSec = rutaSeccion(seccionContexto.nombre);
         migas.push({
             label: seccionContexto.nombre,
@@ -115,7 +141,7 @@ export function Dashboard({ children, onLogout }) {
         });
     }
 
-    if (moduloEnRuta?.modulo) {
+    if (sucursalConfirmada && moduloEnRuta?.modulo) {
         migas.push({ label: moduloEnRuta.modulo.nombre, onClick: null });
     }
 
@@ -142,6 +168,35 @@ export function Dashboard({ children, onLogout }) {
     );
 
     const renderContenidoPrincipal = () => {
+        if (!sucursalConfirmada) {
+            return (
+                <>
+                    <Text className={classes.pageTitle}>Seleccionar Sucursal de Operación</Text>
+                    <Text className={classes.pageSubtitle}>
+                        Cada sucursal cuenta con diferentes empleados, productos, cajas e inventario. Elige la sede con la que deseas operar hoy:
+                    </Text>
+                    <Space h={16} />
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
+                        {sucursales.map((suc) => (
+                            <SucursalCard
+                                key={suc.id}
+                                sucursal={suc}
+                                esActiva={suc.id === sucursalActiva?.id}
+                                onClick={(s) => {
+                                    confirmarSucursal(s.id);
+                                    notifications.show({
+                                        title: 'Sucursal seleccionada',
+                                        message: `Operando en ${s.nombre}`,
+                                        color: 'orange',
+                                    });
+                                }}
+                            />
+                        ))}
+                    </SimpleGrid>
+                </>
+            );
+        }
+
         if (mostrarChildren) {
             return children;
         }
@@ -252,6 +307,64 @@ export function Dashboard({ children, onLogout }) {
                 </UnstyledButton>
 
                 <Group gap="sm" wrap="nowrap">
+                    {sucursales && sucursales.length > 0 && (
+                        <Menu shadow="md" width={240} position="bottom-end">
+                            <Menu.Target>
+                                <Button
+                                    className={classes.sucursalBtn}
+                                    size="xs"
+                                    radius="md"
+                                    leftSection={<IconBuildingStore size={16} stroke={1.6} color="#ffffff" />}
+                                    rightSection={<IconChevronDown size={14} stroke={1.6} color="#ffffff" />}
+                                >
+                                    {sucursalActiva?.nombre || 'Sucursal Matriz'}
+                                </Button>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Label>Sucursal en sesión</Menu.Label>
+                                {sucursales.map((s) => {
+                                    const esActiva = s.id === sucursalActiva?.id;
+                                    return (
+                                        <Menu.Item
+                                            key={s.id}
+                                            onClick={() => {
+                                                if (s.id !== sucursalActiva?.id) {
+                                                    seleccionarSucursal(s.id);
+                                                    notifications.show({
+                                                        title: 'Sucursal cambiada',
+                                                        message: `Cargando datos de ${s.nombre}...`,
+                                                        color: 'orange',
+                                                        autoClose: 2500,
+                                                    });
+                                                }
+                                            }}
+                                            leftSection={<IconBuildingStore size={14} />}
+                                            color={esActiva ? 'orange' : undefined}
+                                        >
+                                            <Group justify="space-between" wrap="nowrap" gap="xs">
+                                                <span>{s.nombre}</span>
+                                                {esActiva && (
+                                                    <Badge size="xs" color="orange" variant="light">
+                                                        Activa
+                                                    </Badge>
+                                                )}
+                                            </Group>
+                                        </Menu.Item>
+                                    );
+                                })}
+                                <Menu.Divider />
+                                <Menu.Item
+                                    leftSection={<IconRefresh size={14} />}
+                                    onClick={() => {
+                                        desconfirmarSucursal();
+                                        navigate('/');
+                                    }}
+                                >
+                                    Cambiar de sucursal...
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
+                    )}
                     <UserButton usuario={usuarioActual} />
                     <Button
                         variant="subtle"
@@ -279,7 +392,9 @@ export function Dashboard({ children, onLogout }) {
                     </>
                 )}
 
-                <div className={classes.pageBody}>{renderContenidoPrincipal()}</div>
+                <div key={`sucursal-${sucursalActiva?.id || 1}`} className={classes.pageBody}>
+                    {renderContenidoPrincipal()}
+                </div>
             </main>
         </div>
     );
