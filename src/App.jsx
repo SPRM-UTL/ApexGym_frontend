@@ -32,6 +32,7 @@ import { Productos } from './pages/Productos/Productos.jsx';
 import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { Empresa } from './pages/Empresa/Empresa.jsx';
+import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
 import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
 import { SeccionesProvider, useSecciones } from './context/SeccionesContext.jsx';
@@ -171,6 +172,14 @@ function App() {
 
   const accionLogin = (esPersistente = false, usuario = null) => {
     guardarUsuarioActual(usuario, esPersistente);
+    try {
+      sessionStorage.removeItem('apexgym_sucursal_sesion_confirmada');
+    } catch {
+      // Ignorar errores de almacenamiento
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('apexgym:auth-login'));
+    }
     setEstaLogeadoEn(true);
   };
 
@@ -182,6 +191,11 @@ function App() {
     }
 
     eliminarUsuarioActual();
+    try {
+      sessionStorage.removeItem('apexgym_sucursal_sesion_confirmada');
+    } catch {
+      // Ignorar
+    }
     setEstaLogeadoEn(false);
   };
 
