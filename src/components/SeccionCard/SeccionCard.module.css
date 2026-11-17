@@ -1,6 +1,7 @@
 .card {
   position: relative;
-  height: 260px;
+  height: clamp(190px, 23vh, 225px);
+  min-height: 190px;
   background-color: var(--ag-color-secondary);
   cursor: pointer;
   overflow: hidden;

@@ -1,10 +1,11 @@
 /** Mapa explícito nombre de módulo (BD) → ruta del frontend */
 const RUTAS_POR_MODULO = {
     Usuarios: '/usuarios',
+    Empresa: '/empresa',
     'Tipos de Actividad': '/tipos-actividad',
     'Configuración del Sistema': '/configuracion-sistema',
     'Administración de roles': '/administracion-roles',
-    'Ventas':'/ventas',
+    'Ventas': '/ventas',
     Cajas: '/cajas',
     'Áreas de Trabajo': '/areas-trabajo',
     Puestos: '/puestos',
@@ -20,7 +21,11 @@ const RUTAS_POR_MODULO = {
     'Estados de Membresía': '/estados-membresia',
     'Tipos de Membresía': '/tipos-membresia',
     'Tipos de Visita': '/tipos-visita',
-    'Metodos de Pago': '/metodos-pago'
+    'Metodos de Pago': '/metodos-pago',
+    'Servicios': '/servicios',
+    'Pagos': '/pagos-experimentacion',
+    'Simulador de Pagos': '/pagos-experimentacion',
+    'Accesos y Visitas': '/accesos-y-visitas',
 };
 
 /**

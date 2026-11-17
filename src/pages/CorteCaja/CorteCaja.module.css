@@ -1,0 +1,208 @@
+/* Contenedor exclusivo para Corte de Caja */
+.corteCajaWrapper {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* Evitar que el grid del CRUD se expanda mas alla de la pantalla */
+.corteCajaWrapper > div {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Barra superior (+ Agregar): se queda fija al 100% de la pantalla */
+.corteCajaWrapper :global([class*="BarraAcciones_toolbar"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Marco de registros: no se desborda */
+.corteCajaWrapper :global([class*="TablaRegistros_frame"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Envolvente de TableSort: ancho maximo 100% */
+.corteCajaWrapper :global([class*="TableSort_wrapper"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* Barra de busqueda y controles de tabla: fija al 100% (no se mueve) */
+.corteCajaWrapper :global([class*="TableSort_tableControls"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Barra de paginacion inferior: fija al 100% (no se mueve) */
+.corteCajaWrapper :global([class*="TableSort_footer"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* UNICAMENTE el area de la tabla tiene scroll horizontal independiente */
+.corteCajaWrapper :global([class*="TableSort_scroll"]),
+.corteCajaWrapper :global(.mantine-ScrollArea-root) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+
+.corteCajaWrapper :global(.mantine-ScrollArea-viewport) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+}
+
+/* Ancho minimo de la tabla de corte de caja para permitir scroll horizontal fluido */
+.corteCajaWrapper :global(table) {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    min-width: 1550px !important;
+    width: 100% !important;
+}
+
+/* Scrollbar horizontal siempre visible y con estilo Apex */
+.corteCajaWrapper :global(.mantine-ScrollArea-scrollbar[data-orientation="horizontal"]) {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: 10px !important;
+    background-color: rgba(27, 31, 58, 0.06) !important;
+    border-radius: 6px !important;
+}
+
+.corteCajaWrapper :global(.mantine-ScrollArea-thumb) {
+    background-color: var(--ag-color-secondary-light, #343B63) !important;
+    border-radius: 6px !important;
+}
+
+.corteCajaWrapper :global(.mantine-ScrollArea-thumb:hover) {
+    background-color: var(--ag-color-primary, #FF6A00) !important;
+}
+
+/* Altura, espaciado compacto y borde consistente */
+.corteCajaWrapper :global(td) {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+}
+
+.corteCajaWrapper :global(th) {
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+
+/* ==========================================================================
+   Columnas fijadas (Sticky columns)
+   - Columna 1 (#): Fija a la izquierda (left: 0)
+   - Columna 2 (CAJA): Fija a la izquierda contigua a # (left: 70px)
+   - Columna Final (ACCIONES): Fija a la derecha (right: 0)
+   - Demas columnas: Se desplazan libremente con scroll horizontal
+   ========================================================================== */
+
+/* 1. Columna '#' (Numero) - Fija a la izquierda */
+.corteCajaWrapper :global(th:nth-child(1)),
+.corteCajaWrapper :global(td:nth-child(1)) {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 2 !important;
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+    box-sizing: border-box !important;
+    background-color: #ffffff !important;
+}
+
+.corteCajaWrapper :global(th:nth-child(1) [class*="TableSort_control"]),
+.corteCajaWrapper :global(td:nth-child(1)) {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    text-align: center !important;
+}
+
+/* 2. Columna 'CAJA' - Fija a la izquierda contigua a '#' con sombra separadora */
+.corteCajaWrapper :global(th:nth-child(2)),
+.corteCajaWrapper :global(td:nth-child(2)) {
+    position: sticky !important;
+    left: 70px !important;
+    z-index: 2 !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    max-width: 150px !important;
+    box-sizing: border-box !important;
+    background-color: #ffffff !important;
+    box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.08) !important;
+    white-space: nowrap !important;
+}
+
+/* 3. Columna 'ACCIONES' - Fija a la derecha con sombra separadora hacia la izquierda */
+.corteCajaWrapper :global(th:last-child),
+.corteCajaWrapper :global(td:last-child) {
+    position: sticky !important;
+    right: 0 !important;
+    z-index: 2 !important;
+    width: 145px !important;
+    min-width: 145px !important;
+    max-width: 145px !important;
+    box-sizing: border-box !important;
+    background-color: #ffffff !important;
+    box-shadow: -4px 0 6px -2px rgba(0, 0, 0, 0.08) !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+.corteCajaWrapper :global(th:last-child [class*="TableSort_control"]),
+.corteCajaWrapper :global(th:last-child) {
+    text-align: center !important;
+    justify-content: center !important;
+}
+
+.corteCajaWrapper :global(td:last-child) {
+    overflow: visible !important;
+}
+
+.corteCajaWrapper :global(td:last-child > div) {
+    justify-content: center !important;
+    width: 100% !important;
+}
+
+/* Encabezados de columnas fijas: z-index prioritario sobre el cuerpo y fondo neutral */
+.corteCajaWrapper :global(thead th:nth-child(1)),
+.corteCajaWrapper :global(thead th:nth-child(2)),
+.corteCajaWrapper :global(thead th:last-child) {
+    z-index: 4 !important;
+    background-color: #F8FAFC !important;
+}
+
+/* Respetar estado hover en celdas fijadas para integracion visual fluida */
+.corteCajaWrapper :global(tbody tr:hover td:nth-child(1)),
+.corteCajaWrapper :global(tbody tr:hover td:nth-child(2)),
+.corteCajaWrapper :global(tbody tr:hover td:last-child) {
+    background-color: #FFF9F5 !important;
+}
+
+/* Si la tabla esta vacia (colspan), no fijar la celda de aviso */
+.corteCajaWrapper :global(tbody td[colspan]) {
+    position: static !important;
+}

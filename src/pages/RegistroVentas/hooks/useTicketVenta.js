@@ -1,0 +1,100 @@
+import { useCallback, useState } from 'react';
+
+export function useTicketVenta(estadoInicial = {}) {
+    const [listaProductos, setListaProductos] = useState(estadoInicial.listaProductos ?? []);
+    const [listaCaja1, setCaja1] = useState(estadoInicial.listaCaja1 ?? []);
+    const [listaCaja2, setCaja2] = useState(estadoInicial.listaCaja2 ?? []);
+    const [cajaActual, setCajaActual] = useState(estadoInicial.cajaActual ?? 1);
+
+    const cambiarCaja = (caja) => {
+        if (caja === cajaActual) return;
+
+        if (cajaActual === 1) setCaja1(listaProductos);
+        else setCaja2(listaProductos);
+
+        setListaProductos(caja === 1 ? listaCaja1 : listaCaja2);
+        setCajaActual(caja);
+    };
+
+    const agregarProducto = (producto) => {
+        setListaProductos((listaAnterior) => {
+            const existe = listaAnterior.some(
+                (item) => item.id === producto.id && item.tipoItem === producto.tipoItem
+            );
+
+            if (existe) {
+                return listaAnterior.map((item) => (
+                    item.id === producto.id && item.tipoItem === producto.tipoItem
+                        ? { ...item, cantidad: item.cantidad + 1 }
+                        : item
+                ));
+            }
+
+            return [...listaAnterior, { ...producto, cantidad: 1 }];
+        });
+    };
+
+    const sumar = (producto) => {
+        setListaProductos((listaAnterior) => listaAnterior.map((item) => (
+            item.id === producto.id && item.tipoItem === producto.tipoItem
+                ? { ...item, cantidad: item.cantidad + 1 }
+                : item
+        )));
+    };
+
+    const restar = (producto) => {
+        setListaProductos((listaAnterior) => {
+            if (producto.cantidad > 1) {
+                return listaAnterior.map((item) => (
+                    item.id === producto.id && item.tipoItem === producto.tipoItem
+                        ? { ...item, cantidad: item.cantidad - 1 }
+                        : item
+                ));
+            }
+
+            return listaAnterior.filter((item) => (
+                item.id !== producto.id || item.tipoItem !== producto.tipoItem
+            ));
+        });
+    };
+
+    const eliminarProducto = (producto) => {
+        setListaProductos((listaAnterior) => listaAnterior.filter((item) => (
+            item.id !== producto.id || item.tipoItem !== producto.tipoItem
+        )));
+    };
+
+    const eliminarTicket = () => setListaProductos([]);
+
+    const limpiarTickets = () => {
+        setCaja1([]);
+        setCaja2([]);
+        setListaProductos([]);
+    };
+
+    const filtrarArticulosDisponibles = useCallback((disponiblesPorTipo) => {
+        const conservarDisponibles = (lista) => lista.filter((item) => (
+            disponiblesPorTipo[item.tipoItem]?.has(String(item.id))
+        ));
+
+        setListaProductos(conservarDisponibles);
+        setCaja1(conservarDisponibles);
+        setCaja2(conservarDisponibles);
+    }, []);
+
+    return {
+        listaProductos,
+        listaCaja1,
+        listaCaja2,
+        setListaProductos,
+        cajaActual,
+        cambiarCaja,
+        agregarProducto,
+        sumar,
+        restar,
+        eliminarProducto,
+        eliminarTicket,
+        limpiarTickets,
+        filtrarArticulosDisponibles,
+    };
+}

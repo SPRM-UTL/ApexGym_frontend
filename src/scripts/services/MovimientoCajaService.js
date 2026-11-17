@@ -17,4 +17,10 @@ export class MovimientoCajaService extends CatalogoService {
             'Error al obtener resumen de apertura'
         );
     }
+    validar(id) {
+        return this.ejecutar(
+            () => httpClient.put(`${this.urlApi}/${id}/validar`),
+            'Error al validar el movimiento de caja'
+        );
+    }
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
@@ -17,12 +17,13 @@ import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
 import { Ventas } from './pages/RegistroVentas/Ventas/Ventas.jsx';
 import { Nueva } from './pages/RegistroVentas/Nueva/Nueva.jsx';
 import { ClienteVenta } from './pages/RegistroVentas/Cliente/Cliente.jsx';
+import { ProteccionCajaAbierta } from './pages/RegistroVentas/components/ProteccionCajaAbierta.jsx';
 import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual, obtenerEsPersistente } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
 /**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
  * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
  * revisar las cookies  si la peticion exitosa recarga a la pantalla de la aplicacion
  * **/
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
 import { Clientes } from './pages/Clientes/Clientes.jsx';
@@ -33,12 +34,21 @@ import { api } from './scripts/services/api.js';
 import PantallaCarga from './components/PantallaCarga.jsx';
 import { Productos } from './pages/Productos/Productos.jsx';
 import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
+import { Servicios } from './pages/Servicios/Servicios.jsx';
+import { Empresa } from './pages/Empresa/Empresa.jsx';
+import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
+import { EmpresaProvider } from './context/EmpresaContext.jsx';
+import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
 
 function App() {
 
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
+  const manejarSesionExpirada = useCallback(() => {
+    eliminarUsuarioActual();
+    setEstaLogeadoEn(false);
+  }, []);
 
   /**de esta manera le decimos que revise con obtenerMisSecciones y este nos diga si
    *  tiene algun token para poder entrar de manera automatica de esta manera le 
@@ -92,13 +102,10 @@ function App() {
   const accionLogout = async () => {
     /**eliminarToken();*/ //Evitamos que llame el token que no esta almacenado en LocalStore
     try {
-      if (usuarioActual && usuarioActual.id) {
-
-        const res = await api.user.logout(usuario.id);
-      }
+        await api.user.logout();
 
     } catch (error) {
-      console.error("error al serrar sesion", error)
+      console.error("error al cerrar sesion", error)
     }
 
 
@@ -108,7 +115,7 @@ function App() {
   }
 
   return (
-    <>
+    <EmpresaProvider estaLogeadoEn={estaLogeadoEn}>
       <ApiLoading />
       <BrowserRouter>
         <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
@@ -157,17 +164,21 @@ function App() {
 
             <Route path="/tipos-actividad" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><TiposActividad /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/configuracion-sistema" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ConfiguracionSistema /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+            <Route path="/empresa" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empresa /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/administracion-roles" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AdministracionRoles /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/cajas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Cajas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/areas-trabajo" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AreasTrabajo /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/puestos" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Puestos /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/estados-empleado" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><EstadosEmpleado /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/empleados" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empleados /></Dashboard> : <Login onLogout={accionLogout} />} />
+            <Route path="/empleados" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Empleados /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/apertura-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><AperturaCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/movimientos-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><MovimientosCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
             <Route path="/corte-caja" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><CorteCaja /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-            <Route path="/registro-de-ventas" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Ventas /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
-          <Route path="/registro-de-ventas/nueva" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><Nueva /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
+            <Route element={ estaLogeadoEn ? ( <Dashboard onLogout={accionLogout}><Outlet /></Dashboard> ) : ( <Login onLoginAceptado={accionLogin} /> ) } >
+            <Route path="/registro-de-ventas" element={<Ventas />} />
+            <Route element={<ProteccionCajaAbierta onSessionExpired={manejarSesionExpirada} />}> 
+              <Route path="/registro-de-ventas/nueva" element={<Nueva />} /></Route>
+            </Route>
           <Route path="/registro-de-ventas/cliente" element={estaLogeadoEn ? <Dashboard onLogout={accionLogout}><ClienteVenta /></Dashboard> : <Login onLoginAceptado={accionLogin} />} />
 
             {/* Ruta raíz: muestra el grid de secciones (sin children) */}
@@ -217,6 +228,54 @@ function App() {
                 )
               }
             />
+            <Route
+              path="/ventas"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <Ventas />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
+              path="/pagos-experimentacion"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <SimuladorPagos />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
+              path="/servicios"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <Servicios />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
+            <Route
+              path="/accesos-y-visitas"
+              element={
+                estaLogeadoEn ? (
+                  <Dashboard onLogout={accionLogout}>
+                    <ControlAcceso />
+                  </Dashboard>
+                ) : (
+                  <Login onLoginAceptado={accionLogin} />
+                )
+              }
+            />
             {/* Rutas de error */}
             <Route
               path="/error"
@@ -235,7 +294,7 @@ function App() {
           </Routes>
         </ErrorBoundary>
       </BrowserRouter>
-    </>
+    </EmpresaProvider>
   )
 }
 

@@ -1,19 +1,21 @@
 /**
  * Sistema: ApexGym Frontend
- * Modificación: 01/10/2026 - Emmanuelle Hernández Oropeza
- * Descripción: Control operativo de caja: arqueo de billetes interactivo en 2 columnas,
- *              modal de detalle de ventas, KPIs y movimientos de corte, validación de corte,
- *              generación de reporte PDF de auditoría y restricciones de edición/eliminación.
+ * Issue: [CAJA-05] Frontend: Validaciones, arqueo fisico y modales en pantalla de Corte de Caja #90
+ * Parent: Control Operativo de Caja, Auditoria Contable y Reporte de Corte en PDF #85
+ *
+ * Módulo rediseñado con Drawer moderno de creación y detalle según especificación visual.
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
+    Accordion,
     ActionIcon,
     Alert,
     Badge,
-    Box,
     Button,
     Divider,
+    Drawer,
     Group,
+    Menu,
     Modal,
     NativeSelect,
     NumberInput,
@@ -22,6 +24,7 @@ import {
     SimpleGrid,
     Stack,
     Table,
+    Tabs,
     Text,
     Textarea,
     ThemeIcon,
@@ -30,20 +33,24 @@ import {
 } from '@mantine/core';
 import {
     IconAlertCircle,
+    IconArrowLeft,
     IconArrowsExchange,
     IconCalculator,
+    IconCalendar,
     IconCash,
     IconCheck,
     IconCoins,
+    IconCopy,
     IconCreditCard,
     IconDeviceMobile,
     IconEye,
+    IconFileCheck,
     IconFileDownload,
-    IconInfoCircle,
-    IconReceipt2,
+    IconFileText,
+    IconReceiptOff,
     IconReportAnalytics,
+    IconScale,
     IconShieldCheck,
-    IconTrendingUp,
     IconUser,
     IconWallet,
 } from '@tabler/icons-react';
@@ -51,21 +58,9 @@ import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { generarPdfCorte } from '../../scripts/generarPdfCorte.js';
-
-/* ─── Denominaciones monetarias (Pesos Mexicanos) ─────────────────────────── */
-const DENOMINACIONES = [
-    { valor: 1000, tipo: 'billete', label: '$1,000' },
-    { valor: 500,  tipo: 'billete', label: '$500'   },
-    { valor: 200,  tipo: 'billete', label: '$200'   },
-    { valor: 100,  tipo: 'billete', label: '$100'   },
-    { valor: 50,   tipo: 'billete', label: '$50'    },
-    { valor: 20,   tipo: 'billete', label: '$20'    },
-    { valor: 10,   tipo: 'moneda',  label: '$10'    },
-    { valor: 5,    tipo: 'moneda',  label: '$5'     },
-    { valor: 2,    tipo: 'moneda',  label: '$2'     },
-    { valor: 1,    tipo: 'moneda',  label: '$1'     },
-    { valor: 0.5,  tipo: 'moneda',  label: '$0.50'  },
-];
+import { DENOMINACIONES, desglosarMonto } from '../../scripts/cajaUtils.js';
+import { SectionCard } from '../../components/SectionCard/SectionCard.jsx';
+import classes from './CorteCaja.module.css';
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -74,9 +69,8 @@ const CAMPOS = [
         label: 'Apertura de Caja',
         required: true,
         loadOptions: async () => {
-            const r = await api.aperturaCaja.obtenerTodos();
+            const r = await api.aperturaCaja.obtenerAbiertas();
             return (r.data ?? [])
-                .filter((a) => a.estado === 'ABIERTA')
                 .map((a) => ({
                     value: String(a.id),
                     label: `${a.caja?.nombre ?? 'Caja'} — Fondo: $${Number(a.montoInicial).toFixed(2)}`,
@@ -95,18 +89,20 @@ const CAMPOS = [
             }));
         },
     },
-    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 99999999.99 },
+    { key: 'efectivoContado', label: 'Efectivo Contado', required: true, type: 'number', min: 0, max: 200000 },
     { key: 'observaciones',   label: 'Observaciones', maxLength: 500 },
 ];
 
 /* ─── Columnas de la tabla ──────────────────────────────────────────────────── */
 const COLUMNAS = [
+    { key: 'numero',          label: '#',                sortable: true, filterable: true },
     { key: 'apertura',        label: 'Caja',             sortable: true, filterable: true },
     { key: 'empleado',        label: 'Cajero / Empleado', sortable: true, filterable: true },
     { key: 'fechaCorte',      label: 'Fecha Corte',       sortable: true, filterable: true },
     { key: 'fondoInicial',    label: 'Fondo Inicial',     sortable: true, filterable: true },
     { key: 'entradas',        label: 'Entradas',          sortable: true, filterable: true },
     { key: 'salidas',         label: 'Salidas',           sortable: true, filterable: true },
+    { key: 'ventas',          label: 'Ventas Turno',      sortable: true, filterable: true },
     { key: 'efectivoContado', label: 'Efectivo Contado',  sortable: true, filterable: true },
     { key: 'diferencia',      label: 'Diferencia',        sortable: true, filterable: true },
     { key: 'estado',          label: 'Estado Auditoría',  sortable: true, filterable: true },
@@ -119,383 +115,312 @@ const INICIAL = {
     observaciones: '',
 };
 
-/* ─── Estilos de sección ────────────────────────────────────────────────────── */
-const sectionHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottom: '1px solid var(--ag-color-border, #e9ecef)',
+const getMetodoIcon = (nombre = '') => {
+    const n = nombre.toLowerCase();
+    if (n.includes('efectivo')) return { icon: <IconCash size={16} />, color: 'green' };
+    if (n.includes('deb') || n.includes('déb')) return { icon: <IconCreditCard size={16} />, color: 'blue' };
+    if (n.includes('cred') || n.includes('créd')) return { icon: <IconCreditCard size={16} />, color: 'indigo' };
+    if (n.includes('transf') || n.includes('spei')) return { icon: <IconDeviceMobile size={16} />, color: 'cyan' };
+    return { icon: <IconWallet size={16} />, color: 'gray' };
 };
 
-/**
- * Distribuye automáticamente un monto en denominaciones para representar el fondo inicial.
- */
-function desglosarMonto(montoTotal) {
-    let restante = Number(montoTotal) || 0;
-    const resultado = {};
-    for (const d of DENOMINACIONES) {
-        if (restante >= d.valor) {
-            const cant = Math.floor(restante / d.valor);
-            resultado[d.valor] = cant;
-            restante = Math.round((restante - cant * d.valor) * 100) / 100;
-        } else {
-            resultado[d.valor] = 0;
-        }
-    }
-    return resultado;
-}
+/* ─── Modal Auxiliar: Detalle de Ventas y Movimientos del Turno ────────────── */
+function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
+    const totales = resumenApertura?.totales;
+    const totalVentas = totales ? Number(totales.totalVentas ?? 0) : 0;
+    const transacciones = totales ? Number(totales.transaccionesVentas ?? 0) : 0;
+    const ticketPromedio = totales ? Number(totales.ticketPromedio ?? 0) : 0;
+    const totalVentasCanceladas = totales ? Number(totales.totalVentasCanceladas ?? 0) : 0;
+    const cantidadVentasCanceladas = totales ? Number(totales.cantidadVentasCanceladas ?? 0) : 0;
+    const metodos = totales?.ventasPorMetodoPago ?? resumenApertura?.ventasPorMetodoPago ?? [];
 
-/* ─── Modal 1: Detalle de Ventas del Turno (Puro Diseño) ─────────────────────── */
-function ModalDetalleVentas({ opened, onClose, aperturaId }) {
-    const totalVentas = 15840.0;
+    const movimientos = resumenApertura?.movimientos ?? [];
+    const entradas = movimientos.filter((m) => m.tipo === 'ENTRADA');
+    const salidas = movimientos.filter((m) => m.tipo === 'SALIDA');
+    const totalEntradas = Number(resumenApertura?.totalEntradas ?? 0);
+    const totalSalidas = Number(resumenApertura?.totalSalidas ?? 0);
+    const balanceMovimientos = totalEntradas - totalSalidas;
 
     return (
-        <Modal
+        <Drawer
             opened={opened}
             onClose={onClose}
+            position="right"
+            size={740}
+            zIndex={1000000}
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" style={{ backgroundColor: '#fff0e6', color: '#FF6A00' }}>
-                        <IconReportAnalytics size={18} stroke={1.8} />
+                <Group gap="sm">
+                    <ThemeIcon size={38} radius="md" variant="light" color="orange" style={{ backgroundColor: '#FFF4EC', color: '#FF6A00' }}>
+                        <IconReportAnalytics size={22} stroke={1.8} />
                     </ThemeIcon>
-                    <Title order={5}>Detalle de Ventas y Métodos de Pago del Turno</Title>
-                </Group>
-            }
-            size="lg"
-            radius="md"
-        >
-            <Stack gap="md">
-                {/* Tarjetas KPI Superiores */}
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
-                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Total Ventas</Text>
-                        <Text fw={800} size="xl" c="#FF6A00">$15,840.00</Text>
-                        <Text size="xs" c="dimmed" mt={2}>Turno actual</Text>
-                    </Paper>
-                    <Paper p="sm" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
-                        <Text fw={800} size="xl" c="dark">38</Text>
-                        <Text size="xs" c="dimmed" mt={2}>Tickets generados</Text>
-                    </Paper>
-                    <Paper p="sm" radius="md" withBorder>
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
-                        <Text fw={800} size="xl" c="dark">$416.84</Text>
-                        <Text size="xs" c="dimmed" mt={2}>Por cliente</Text>
-                    </Paper>
-                </SimpleGrid>
-
-                <Divider label="Desglose por Tipo de Pago" labelPosition="left" />
-
-                {/* Métodos de Pago */}
-                <Stack gap="sm">
-                    {/* Efectivo */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="green" variant="light" radius="md" size="sm">
-                                    <IconCash size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Efectivo en Caja</Text>
-                            </Group>
-                            <Group gap="xs">
-                                <Badge color="green" variant="light">24 transacciones</Badge>
-                                <Text fw={700} size="sm">$9,240.00 (58.3%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={58.3} color="green" size="sm" radius="xl" />
-                    </Paper>
-
-                    {/* Tarjeta Débito */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="blue" variant="light" radius="md" size="sm">
-                                    <IconCreditCard size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Tarjeta de Débito (Terminal)</Text>
-                            </Group>
-                            <Group gap="xs">
-                                <Badge color="blue" variant="light">8 transacciones</Badge>
-                                <Text fw={700} size="sm">$3,900.00 (24.6%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={24.6} color="blue" size="sm" radius="xl" />
-                    </Paper>
-
-                    {/* Tarjeta Crédito */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="indigo" variant="light" radius="md" size="sm">
-                                    <IconCreditCard size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Tarjeta de Crédito</Text>
-                            </Group>
-                            <Group gap="xs">
-                                <Badge color="indigo" variant="light">4 transacciones</Badge>
-                                <Text fw={700} size="sm">$1,850.00 (11.7%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={11.7} color="indigo" size="sm" radius="xl" />
-                    </Paper>
-
-                    {/* Transferencia */}
-                    <Paper p="sm" radius="md" withBorder>
-                        <Group justify="space-between" mb={4}>
-                            <Group gap="xs">
-                                <ThemeIcon color="cyan" variant="light" radius="md" size="sm">
-                                    <IconDeviceMobile size={16} />
-                                </ThemeIcon>
-                                <Text fw={600} size="sm">Transferencia / SPEI</Text>
-                            </Group>
-                            <Group gap="xs">
-                                <Badge color="cyan" variant="light">2 transacciones</Badge>
-                                <Text fw={700} size="sm">$850.00 (5.4%)</Text>
-                            </Group>
-                        </Group>
-                        <Progress value={5.4} color="cyan" size="sm" radius="xl" />
-                    </Paper>
-                </Stack>
-
-                <Group justify="flex-end" mt="xs">
-                    <Button variant="default" onClick={onClose}>
-                        Cerrar
-                    </Button>
-                </Group>
-            </Stack>
-        </Modal>
-    );
-}
-
-/* ─── Modal 2: Detalle y Auditoría del Corte de Caja (KPIs + Movimientos) ────── */
-function ModalDetalleCorte({ corte, opened, onClose, onValidar }) {
-    const [movimientos, setMovimientos] = useState([]);
-    const [cargando, setCargando] = useState(false);
-
-    useEffect(() => {
-        if (!corte?.aperturaCajaId || !opened) return;
-        setCargando(true);
-        api.movimientoCaja
-            .obtenerPorApertura(corte.aperturaCajaId)
-            .then((r) => {
-                if (r.responseFlag === 0) setMovimientos(r.data ?? []);
-            })
-            .catch(() => setMovimientos([]))
-            .finally(() => setCargando(false));
-    }, [corte?.aperturaCajaId, opened]);
-
-    if (!corte) return null;
-
-    const montoInicial = Number(corte.aperturaCaja?.montoInicial ?? 0);
-    const totalEntradas = Number(corte.totalEntradas ?? 0);
-    const totalSalidas = Number(corte.totalSalidas ?? 0);
-    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas;
-    const efectivoContado = Number(corte.efectivoContado ?? 0);
-    const diferencia = Number(corte.diferencia ?? 0);
-    const esValidado = corte.estado === 'VALIDADO';
-
-    let desgloseFin = null;
-    try {
-        if (corte.desgloseFin) desgloseFin = JSON.parse(corte.desgloseFin);
-    } catch (e) {
-        desgloseFin = null;
-    }
-
-    return (
-        <Modal
-            opened={opened}
-            onClose={onClose}
-            size="xl"
-            radius="md"
-            title={
-                <Group gap="xs">
-                    <ThemeIcon size="md" radius="md" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                        <IconReportAnalytics size={18} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={4}>Auditoría de Corte de Caja #{corte.id}</Title>
-                    <Badge color={esValidado ? 'green' : 'yellow'} variant="filled" size="md">
-                        {corte.estado ?? 'PENDIENTE'}
-                    </Badge>
-                </Group>
-            }
-        >
-            <Stack gap="md">
-                {/* ── KPIs Principales del Corte ───────────────────────────── */}
-                <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs">
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fondo Inicial</Text>
-                        <Text fw={800} size="md">${montoInicial.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Entradas (+)</Text>
-                        <Text fw={800} size="md" c="green">+${totalEntradas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Salidas (-)</Text>
-                        <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Esperado</Text>
-                        <Text fw={800} size="md">${efectivoEsperado.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper p="xs" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Ef. Contado</Text>
-                        <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
-                    </Paper>
-                    <Paper
-                        p="xs"
-                        radius="md"
-                        withBorder
-                        style={{
-                            textAlign: 'center',
-                            backgroundColor: diferencia >= 0 ? '#f4fbf5' : '#fff5f5',
-                            borderColor: diferencia >= 0 ? '#40c057' : '#fa5252',
-                        }}
-                    >
-                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Diferencia</Text>
-                        <Text fw={800} size="md" c={diferencia >= 0 ? 'green' : 'red'}>
-                            {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
-                        </Text>
-                    </Paper>
-                </SimpleGrid>
-
-                {/* Info adicional */}
-                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#f8f9fa' }}>
-                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Caja Asignada</Text>
-                            <Text fw={600} size="sm">{corte.aperturaCaja?.caja?.nombre ?? '—'}</Text>
-                        </div>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Cajero Responsable</Text>
-                            <Text fw={600} size="sm">
-                                {corte.empleado ? `${corte.empleado.nombre} ${corte.empleado.apellidoPaterno}` : '—'}
-                            </Text>
-                        </div>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={600}>Fecha y Hora de Corte</Text>
-                            <Text fw={600} size="sm">
-                                {corte.fechaCorte ? new Date(corte.fechaCorte).toLocaleString('es-MX') : '—'}
-                            </Text>
-                        </div>
-                    </SimpleGrid>
-                </Paper>
-
-                {/* Desglose de billetes si está disponible */}
-                {desgloseFin && (
-                    <Box>
-                        <div style={sectionHeader}>
-                            <ThemeIcon size="sm" radius="md" variant="light" color="apex">
-                                <IconCoins size={14} />
-                            </ThemeIcon>
-                            <Title order={6}>Arqueo de Billetes y Monedas Registrado</Title>
-                        </div>
-                        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-                            {Object.entries(desgloseFin).map(([valor, cant]) => {
-                                const v = Number(valor);
-                                const c = Number(cant);
-                                if (!c) return null;
-                                return (
-                                    <Paper key={valor} p="xs" radius="sm" withBorder style={{ fontSize: 12 }}>
-                                        <Text size="xs" fw={700}>${v >= 1 ? v : '0.50'} × {c}</Text>
-                                        <Text size="xs" c="dimmed">${(v * c).toFixed(2)}</Text>
-                                    </Paper>
-                                );
-                            })}
-                        </SimpleGrid>
-                    </Box>
-                )}
-
-                {/* ── Tabla de Movimientos del Turno ──────────────────────── */}
-                <Box>
-                    <div style={sectionHeader}>
-                        <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                            <IconArrowsExchange size={14} />
-                        </ThemeIcon>
-                        <Title order={6}>Movimientos Manuales del Turno ({movimientos.length})</Title>
+                    <div>
+                        <Title order={4} fw={700} c="#1E293B">Detalle de Ventas y Movimientos</Title>
+                        <Text size="xs" c="dimmed">Auditoría del turno en curso y flujo de efectivo</Text>
                     </div>
-
-                    <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>#</Table.Th>
-                                <Table.Th>Tipo</Table.Th>
-                                <Table.Th>Concepto</Table.Th>
-                                <Table.Th>Monto</Table.Th>
-                                <Table.Th>Hora</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {movimientos.length > 0 ? (
-                                movimientos.map((m, idx) => (
-                                    <Table.Tr key={m.id}>
-                                        <Table.Td>{idx + 1}</Table.Td>
-                                        <Table.Td>
-                                            <Badge color={m.tipo === 'ENTRADA' ? 'green' : 'red'} size="sm">
-                                                {m.tipo}
-                                            </Badge>
-                                        </Table.Td>
-                                        <Table.Td>{m.concepto}</Table.Td>
-                                        <Table.Td fw={700}>${Number(m.monto).toFixed(2)}</Table.Td>
-                                        <Table.Td>
-                                            {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))
-                            ) : (
-                                <Table.Tr>
-                                    <Table.Td colSpan={5} style={{ textAlign: 'center', color: '#868e96' }}>
-                                        {cargando ? 'Cargando movimientos…' : 'No se registraron movimientos en este turno.'}
-                                    </Table.Td>
-                                </Table.Tr>
-                            )}
-                        </Table.Tbody>
-                    </Table>
-                </Box>
-
-                {/* Acciones del Modal */}
-                <Group justify="space-between" mt="md">
-                    <Button
-                        variant="light"
-                        color="apex"
-                        leftSection={<IconFileDownload size={16} />}
-                        onClick={() => generarPdfCorte(corte, movimientos, desgloseFin)}
-                    >
-                        Descargar PDF
-                    </Button>
-
-                    <Group gap="xs">
-                        {!esValidado && (
-                            <Button
-                                color="green"
-                                leftSection={<IconShieldCheck size={16} />}
-                                onClick={() => {
-                                    onValidar(corte);
-                                    onClose();
-                                }}
-                            >
-                                Validar Corte
-                            </Button>
-                        )}
-                        <Button variant="default" onClick={onClose}>
-                            Cerrar
-                        </Button>
-                    </Group>
                 </Group>
-            </Stack>
-        </Modal>
+            }
+            styles={{
+                header: {
+                    borderBottom: '1px solid #E2E8F0',
+                    paddingBottom: 16,
+                    marginBottom: 0,
+                },
+                body: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '16px 20px',
+                    minHeight: 'calc(100vh - 80px)',
+                },
+            }}
+        >
+            <div style={{ flex: 1, paddingBottom: 16 }}>
+                <Stack gap="md">
+                    {/* ─── Card 1: Ventas del Turno ─── */}
+                    <SectionCard
+                        icon={<IconReportAnalytics size={22} stroke={1.8} />}
+                        iconBg="#FFF4EC"
+                        iconColor="#FF6A00"
+                        title="Ventas del Turno"
+                        subtitle="Métricas de ventas y cobros procesados en este turno"
+                        rightAmount={`$${totalVentas.toFixed(2)}`}
+                        rightAmountColor="#FF6A00"
+                        collapsible={true}
+                        defaultOpen={true}
+                    >
+                        <Stack gap="sm">
+                            <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="sm">
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                    <Text size="xs" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
+                                    <Text fw={800} size="xl" c="#FF6A00">${totalVentas.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                                    <Text size="xs" c="dimmed" fw={600} tt="uppercase">Transacciones</Text>
+                                    <Text fw={800} size="xl" c="#1E293B">{transacciones}</Text>
+                                </Paper>
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                                    <Text size="xs" c="dimmed" fw={600} tt="uppercase">Ticket Promedio</Text>
+                                    <Text fw={800} size="xl" c="#1E293B">${ticketPromedio.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                    <Text size="xs" c="#E03131" fw={700} tt="uppercase">Canceladas</Text>
+                                    <Text fw={800} size="xl" c="#E03131">${totalVentasCanceladas.toFixed(2)}</Text>
+                                    <Text size="11px" c="dimmed">{cantidadVentasCanceladas} cancelada(s)</Text>
+                                </Paper>
+                            </SimpleGrid>
+
+                            {totalVentasCanceladas > 0 && (
+                                <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                    <Group justify="space-between">
+                                        <Group gap="xs">
+                                            <ThemeIcon color="red" variant="light" radius="md" size="sm">
+                                                <IconReceiptOff size={16} />
+                                            </ThemeIcon>
+                                            <div>
+                                                <Text fw={600} size="xs" c="#E03131">Ventas canceladas registradas</Text>
+                                                <Text size="11px" c="dimmed">
+                                                    El monto cancelado fue devuelto y registrado como egreso de caja; no se computa en el total de ventas.
+                                                </Text>
+                                            </div>
+                                        </Group>
+                                        <Badge color="red" variant="light" size="sm">
+                                            -${totalVentasCanceladas.toFixed(2)}
+                                        </Badge>
+                                    </Group>
+                                </Paper>
+                            )}
+
+                            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt="xs">
+                                Ventas por Método de Pago
+                            </Text>
+                            {metodos.length > 0 ? (
+                                <Stack gap="xs">
+                                    {metodos.map((m) => {
+                                        const { icon, color } = getMetodoIcon(m.nombre);
+                                        const totalNum = Number(m.total ?? m.monto ?? 0);
+                                        const transaccionesMetodo = Number(m.cantidad ?? m.transacciones ?? 0);
+                                        const pct = totalVentas > 0 ? ((totalNum / totalVentas) * 100).toFixed(1) : '0.0';
+
+                                        return (
+                                            <Paper key={m.metodoPagoId ?? m.nombre} p="xs" radius="md" withBorder style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
+                                                <Group justify="space-between" mb={4}>
+                                                    <Group gap="xs">
+                                                        <ThemeIcon color={color} variant="light" radius="md" size="sm">
+                                                            {icon}
+                                                        </ThemeIcon>
+                                                        <Text fw={600} size="xs" c="#1E293B">{m.nombre}</Text>
+                                                    </Group>
+                                                    <Group gap="xs">
+                                                        <Badge color={color} variant="light" size="xs">{transaccionesMetodo} ventas</Badge>
+                                                        <Text fw={700} size="xs">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                    </Group>
+                                                </Group>
+                                                <Progress value={Number(pct)} color={color} size="xs" radius="xl" />
+                                            </Paper>
+                                        );
+                                    })}
+                                </Stack>
+                            ) : (
+                                <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', textAlign: 'center' }}>
+                                    <ThemeIcon size={36} radius="xl" variant="light" color="gray" mx="auto" mb="xs">
+                                        <IconReceiptOff size={18} />
+                                    </ThemeIcon>
+                                    <Text size="xs" fw={600} c="#475569">Sin ventas registradas</Text>
+                                    <Text size="xs" c="dimmed">No se han registrado ventas ni transacciones en esta apertura.</Text>
+                                </Paper>
+                            )}
+                        </Stack>
+                    </SectionCard>
+
+                    {/* ─── Card 2: Movimientos Manuales del Turno ─── */}
+                    <SectionCard
+                        icon={<IconArrowsExchange size={22} stroke={1.8} />}
+                        iconBg="#FFF4EC"
+                        iconColor="#FF6A00"
+                        title="Movimientos Manuales del Turno"
+                        subtitle="Entradas y salidas manuales de efectivo registradas"
+                        rightAmount={`${balanceMovimientos >= 0 ? '+' : ''}$${balanceMovimientos.toFixed(2)}`}
+                        rightAmountColor={balanceMovimientos >= 0 ? '#2B8A3E' : '#E03131'}
+                        collapsible={true}
+                        defaultOpen={true}
+                    >
+                        <Stack gap="sm">
+                            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
+                                    <Text size="xs" c="#2B8A3E" fw={700} tt="uppercase">Total Entradas (+)</Text>
+                                    <Text fw={800} size="md" c="#2B8A3E">+${totalEntradas.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                    <Text size="xs" c="#E03131" fw={700} tt="uppercase">Total Salidas (-)</Text>
+                                    <Text fw={800} size="md" c="#E03131">-${totalSalidas.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                                    <Text size="xs" c="dimmed" fw={600} tt="uppercase">Balance Neto</Text>
+                                    <Text fw={800} size="md" c={balanceMovimientos >= 0 ? '#2B8A3E' : '#E03131'}>
+                                        {balanceMovimientos >= 0 ? '+' : ''}${balanceMovimientos.toFixed(2)}
+                                    </Text>
+                                </Paper>
+                            </SimpleGrid>
+
+                            <Accordion variant="separated" radius="md" defaultValue={['entradas', 'salidas']} multiple>
+                                <Accordion.Item value="entradas" style={{ borderColor: '#E2E8F0' }}>
+                                    <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={14} /></ThemeIcon>}>
+                                        <Group justify="space-between" w="100%" pr="sm">
+                                            <Text fw={600} size="xs" c="#1E293B">Ingresos de Efectivo (+)</Text>
+                                            <Badge color="green" variant="light" size="xs">+${totalEntradas.toFixed(2)}</Badge>
+                                        </Group>
+                                    </Accordion.Control>
+                                    <Accordion.Panel>
+                                        {entradas.length > 0 ? (
+                                            <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                                <Table.Thead>
+                                                    <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                        <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                        <Table.Th>Concepto</Table.Th>
+                                                        <Table.Th style={{ textAlign: 'right', width: 120 }}>Monto</Table.Th>
+                                                    </Table.Tr>
+                                                </Table.Thead>
+                                                <Table.Tbody>
+                                                    {entradas.map((m) => (
+                                                        <Table.Tr key={m.id}>
+                                                            <Table.Td fw={600}>#{m.id}</Table.Td>
+                                                            <Table.Td>{m.concepto}</Table.Td>
+                                                            <Table.Td style={{ textAlign: 'right' }}>
+                                                                <Text fw={700} size="xs" c="green">+${Number(m.monto).toFixed(2)}</Text>
+                                                            </Table.Td>
+                                                        </Table.Tr>
+                                                    ))}
+                                                </Table.Tbody>
+                                            </Table>
+                                        ) : (
+                                            <Text size="xs" c="dimmed" ta="center" py="xs">Sin entradas registradas.</Text>
+                                        )}
+                                    </Accordion.Panel>
+                                </Accordion.Item>
+
+                                <Accordion.Item value="salidas" style={{ borderColor: '#E2E8F0' }}>
+                                    <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={14} /></ThemeIcon>}>
+                                        <Group justify="space-between" w="100%" pr="sm">
+                                            <Text fw={600} size="xs" c="#1E293B">Egresos de Efectivo (-)</Text>
+                                            <Badge color="red" variant="light" size="xs">-${totalSalidas.toFixed(2)}</Badge>
+                                        </Group>
+                                    </Accordion.Control>
+                                    <Accordion.Panel>
+                                        {salidas.length > 0 ? (
+                                            <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                                <Table.Thead>
+                                                    <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                        <Table.Th style={{ width: 60 }}>#</Table.Th>
+                                                        <Table.Th>Concepto</Table.Th>
+                                                        <Table.Th style={{ textAlign: 'right', width: 120 }}>Monto</Table.Th>
+                                                    </Table.Tr>
+                                                </Table.Thead>
+                                                <Table.Tbody>
+                                                    {salidas.map((m) => (
+                                                        <Table.Tr key={m.id}>
+                                                            <Table.Td fw={600}>#{m.id}</Table.Td>
+                                                            <Table.Td>
+                                                                <Group gap="xs">
+                                                                    <Text size="xs">{m.concepto}</Text>
+                                                                    {m.devolucionId != null && (
+                                                                        <Badge color="orange" variant="light" size="xs">
+                                                                            Devolución #{m.devolucionId}
+                                                                        </Badge>
+                                                                    )}
+                                                                </Group>
+                                                            </Table.Td>
+                                                            <Table.Td style={{ textAlign: 'right' }}>
+                                                                <Text fw={700} size="xs" c="red">-${Number(m.monto).toFixed(2)}</Text>
+                                                            </Table.Td>
+                                                        </Table.Tr>
+                                                    ))}
+                                                </Table.Tbody>
+                                            </Table>
+                                        ) : (
+                                            <Text size="xs" c="dimmed" ta="center" py="xs">Sin salidas registradas.</Text>
+                                        )}
+                                    </Accordion.Panel>
+                                </Accordion.Item>
+                            </Accordion>
+                        </Stack>
+                    </SectionCard>
+                </Stack>
+            </div>
+
+            {/* Footer sticky del Drawer */}
+            <Group
+                justify="flex-start"
+                pt="md"
+                style={{
+                    borderTop: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--ag-color-surface, #ffffff)',
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 10,
+                }}
+            >
+                <Button
+                    variant="default"
+                    radius="md"
+                    leftSection={<IconArrowLeft size={16} />}
+                    onClick={onClose}
+                >
+                    Volver al corte
+                </Button>
+            </Group>
+        </Drawer>
     );
 }
 
-/* ─── Formulario de Arqueo (Billetes Inicio Izquierda / Cierre Derecha) ─────── */
+/* ─── Formulario de Arqueo (Drawer de Creación con Cards) ──────────────────── */
 function CorteForm({ form, errors, onChange, fieldOptions }) {
     const [modalVentasAbierto, setModalVentasAbierto] = useState(false);
     const [resumenApertura, setResumenApertura] = useState(null);
 
     // Estado local para conteo de billetes de cierre
     const [conteoCierre, setConteoCierre] = useState(() => {
+        if (form.desgloseFin && typeof form.desgloseFin === 'object') {
+            return form.desgloseFin;
+        }
         const init = {};
         for (const d of DENOMINACIONES) init[d.valor] = '';
         return init;
@@ -516,234 +441,275 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             .catch(() => setResumenApertura(null));
     }, [form.aperturaCajaId]);
 
-    // Calcular desglose de inicio a partir del monto inicial
+    // Desglose de inicio del turno
     const desgloseInicio = useMemo(() => {
-        const monto = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
+        if (resumenApertura?.apertura?.desgloseInicio) {
+            try {
+                const parsed = typeof resumenApertura.apertura.desgloseInicio === 'string'
+                    ? JSON.parse(resumenApertura.apertura.desgloseInicio)
+                    : resumenApertura.apertura.desgloseInicio;
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch {
+                // Continuar con fallback
+            }
+        }
+        const monto = resumenApertura
+            ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
+            : 0;
         return desglosarMonto(monto);
     }, [resumenApertura]);
 
-    // Recalcular efectivo contado a partir del conteo de cierre
+    useEffect(() => {
+        if (desgloseInicio) {
+            onChange('desgloseInicio', desgloseInicio);
+        }
+    }, [desgloseInicio, onChange]);
+
+    // Actualizar conteo de denominación y recalcular total
     const actualizarConteoCierre = (valor, cantidad) => {
         let cant = 0;
         if (cantidad !== '' && !isNaN(Number(cantidad))) {
-            cant = Math.max(0, Math.min(100000, Math.floor(Number(cantidad))));
+            cant = Math.max(0, Math.min(1000, Math.floor(Number(cantidad))));
         }
         const valToStore = cantidad === '' ? '' : cant;
         const nuevoConteo = { ...conteoCierre, [valor]: valToStore };
         setConteoCierre(nuevoConteo);
 
-        // Sumar total
         let total = 0;
         for (const d of DENOMINACIONES) {
-            const c = nuevoConteo[d.valor] === '' ? 0 : Number(nuevoConteo[d.valor]);
+            const raw = nuevoConteo[d.valor];
+            const c = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw) || 0;
             total += d.valor * c;
         }
         total = Math.round(total * 100) / 100;
+        total = Math.min(total, 200000);
         onChange('efectivoContado', total);
         onChange('desgloseFin', nuevoConteo);
         onChange('desgloseInicio', desgloseInicio);
     };
 
-    const fondoInicial = resumenApertura ? Number(resumenApertura.montoInicial ?? 0) : 0;
+    const fondoInicial = resumenApertura
+        ? Number(resumenApertura.montoInicial ?? resumenApertura.apertura?.montoInicial ?? 0)
+        : 0;
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
-    const efectivoEsperado = fondoInicial + totalEntradas - totalSalidas;
+    const totalVentasEfectivo = resumenApertura ? Number(resumenApertura.totalVentasEfectivo ?? 0) : 0;
+    const totalVentasEfectivoBruto = resumenApertura
+        ? Number(resumenApertura.totalVentasEfectivoBruto ?? resumenApertura.totalVentasEfectivo ?? 0)
+        : 0;
+    const efectivoEsperado = resumenApertura?.saldoDisponible !== undefined
+        ? Number(resumenApertura.saldoDisponible)
+        : (fondoInicial + totalEntradas - totalSalidas + totalVentasEfectivoBruto);
     const efectivoContado = Number(form.efectivoContado || 0);
     const diferencia = efectivoContado - efectivoEsperado;
 
     return (
         <Stack gap="md">
-            <ModalDetalleVentas
+            <DrawerDetalleVentas
                 opened={modalVentasAbierto}
                 onClose={() => setModalVentasAbierto(false)}
-                aperturaId={form.aperturaCajaId}
+                resumenApertura={resumenApertura}
             />
 
-            {/* Cabecera y botón Ver Detalle de Ventas */}
-            <Box>
-                <Group justify="space-between" align="center" style={sectionHeader}>
-                    <Group gap="xs">
-                        <ThemeIcon size="md" radius="md" variant="light" style={{ backgroundColor: '#e8eaf0', color: '#1B1F3A' }}>
-                            <IconCalculator size={16} stroke={1.8} />
-                        </ThemeIcon>
-                        <Title order={5}>Datos del arqueo</Title>
+            {/* Alerta de movimientos pendientes */}
+            {resumenApertura?.movimientosPendientes > 0 && (
+                <Alert
+                    color="red"
+                    variant="filled"
+                    radius="md"
+                    icon={<IconAlertCircle size={20} />}
+                    title="Movimientos de caja pendientes de validación"
+                >
+                    Existen <b>{resumenApertura.movimientosPendientes} movimiento(s)</b> de este turno en estado PENDIENTE.
+                    Debe validarlos antes de realizar el corte.
+                </Alert>
+            )}
+
+            {/* ── Card 1: Datos del arqueo ── */}
+            <SectionCard
+                icon={<IconFileText size={22} stroke={1.8} />}
+                iconBg="#FFF4EC"
+                iconColor="#FF6A00"
+                title="Datos del arqueo"
+                subtitle="Selecciona la apertura y el empleado que realiza el corte de caja."
+                collapsible={false}
+            >
+                <Stack gap="sm">
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <NativeSelect
+                            label="Apertura de Caja"
+                            withAsterisk
+                            value={form.aperturaCajaId ?? ''}
+                            error={errors.aperturaCajaId}
+                            size="md"
+                            radius="md"
+                            leftSection={<IconCalendar size={16} stroke={1.5} />}
+                            data={[{ value: '', label: 'Selecciona una apertura activa' }, ...(fieldOptions.aperturaCajaId ?? [])]}
+                            onChange={(e) => onChange('aperturaCajaId', e.currentTarget.value)}
+                        />
+                        <NativeSelect
+                            label="Empleado que realiza el corte"
+                            withAsterisk
+                            value={form.empleadoId ?? ''}
+                            error={errors.empleadoId}
+                            size="md"
+                            radius="md"
+                            leftSection={<IconUser size={16} stroke={1.5} />}
+                            data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
+                            onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
+                        />
+                    </SimpleGrid>
+
+                    <Group justify="flex-start" mt="xs">
+                        <Button
+                            variant="light"
+                            color="orange"
+                            size="xs"
+                            radius="md"
+                            leftSection={<IconReportAnalytics size={16} />}
+                            onClick={() => setModalVentasAbierto(true)}
+                            disabled={!form.aperturaCajaId}
+                        >
+                            Ver detalle de ventas
+                        </Button>
                     </Group>
-                    <Button
-                        variant="light"
-                        color="apex"
-                        size="xs"
-                        radius="md"
-                        leftSection={<IconReportAnalytics size={16} />}
-                        onClick={() => setModalVentasAbierto(true)}
-                    >
-                        Ver detalle de ventas
-                    </Button>
-                </Group>
+                </Stack>
+            </SectionCard>
 
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
-                    <NativeSelect
-                        label="Apertura de Caja"
-                        withAsterisk
-                        value={form.aperturaCajaId ?? ''}
-                        error={errors.aperturaCajaId}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconCash size={16} stroke={1.5} />}
-                        data={[{ value: '', label: 'Selecciona una apertura activa' }, ...(fieldOptions.aperturaCajaId ?? [])]}
-                        onChange={(e) => onChange('aperturaCajaId', e.currentTarget.value)}
-                    />
-                    <NativeSelect
-                        label="Empleado que realiza el corte"
-                        withAsterisk
-                        value={form.empleadoId ?? ''}
-                        error={errors.empleadoId}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconUser size={16} stroke={1.5} />}
-                        data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
-                        onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
-                    />
-                </SimpleGrid>
-            </Box>
+            {/* ── Card 2: Conteo y Arqueo de Efectivo ── */}
+            <SectionCard
+                icon={<IconCash size={22} stroke={1.8} />}
+                iconBg="#FFF4EC"
+                iconColor="#FF6A00"
+                title="Conteo y Arqueo de Efectivo"
+                subtitle="Desglose por denominación de billetes y monedas"
+                collapsible={true}
+                defaultOpen={true}
+            >
+                <Stack gap="sm">
+                    <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                        <Table.Thead>
+                            <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                <Table.Th>Denominación</Table.Th>
+                                <Table.Th style={{ width: 120, textAlign: 'center' }}>Cantidad</Table.Th>
+                                <Table.Th style={{ textAlign: 'right', width: 140 }}>Subtotal</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {DENOMINACIONES.map((d) => {
+                                const cantStr = conteoCierre[d.valor] ?? '';
+                                const cantNum = cantStr === '' ? 0 : Number(cantStr);
+                                const subtotal = d.valor * cantNum;
 
-            {/* ── ARQUEO DE BILLETES: Izquierda (Inicio) vs Derecha (Cierre) ── */}
-            <Box>
-                <div style={sectionHeader}>
-                    <ThemeIcon size="md" radius="md" variant="light" color="apex">
-                        <IconCoins size={16} stroke={1.8} />
-                    </ThemeIcon>
-                    <Title order={5}>Conteo y Arqueo de Efectivo</Title>
-                </div>
+                                return (
+                                    <Table.Tr key={d.valor}>
+                                        <Table.Td fw={600} style={{ color: '#1E293B' }}>{d.label}</Table.Td>
+                                        <Table.Td style={{ padding: 4 }}>
+                                            <NumberInput
+                                                size="xs"
+                                                min={0}
+                                                max={1000}
+                                                clampBehavior="strict"
+                                                allowDecimal={false}
+                                                placeholder="0"
+                                                value={cantStr}
+                                                onChange={(v) => actualizarConteoCierre(d.valor, v)}
+                                                styles={{ input: { textAlign: 'center', fontWeight: 600 } }}
+                                            />
+                                        </Table.Td>
+                                        <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                            ${subtotal.toFixed(2)}
+                                        </Table.Td>
+                                    </Table.Tr>
+                                );
+                            })}
+                        </Table.Tbody>
+                    </Table>
 
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                    {/* ── Columna Izquierda: Billetes de Inicio del Día ── */}
-                    <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fdfdfe' }}>
-                        <Group justify="space-between" mb="xs">
-                            <Text fw={700} size="sm" c="dimmed">
-                                💵 Billetes de inicio (Fondo del día)
-                            </Text>
-                            <Badge color="blue" variant="light">
-                                Fondo: ${fondoInicial.toFixed(2)}
-                            </Badge>
+                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                        <Group justify="space-between" align="center">
+                            <Text fw={700} size="xs" c="#FF6A00">TOTAL EFECTIVO CONTADO:</Text>
+                            <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
                         </Group>
-                        <Text size="xs" c="dimmed" mb="md">
-                            Desglose con el que se aperturó la caja física.
-                        </Text>
-
-                        <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Denominación</Table.Th>
-                                    <Table.Th style={{ textAlign: 'center' }}>Cantidad</Table.Th>
-                                    <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {DENOMINACIONES.map((d) => {
-                                    const cant = desgloseInicio[d.valor] ?? 0;
-                                    return (
-                                        <Table.Tr key={d.valor}>
-                                            <Table.Td fw={600}>{d.label}</Table.Td>
-                                            <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
-                                            <Table.Td style={{ textAlign: 'right' }}>
-                                                ${(d.valor * cant).toFixed(2)}
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    );
-                                })}
-                            </Table.Tbody>
-                        </Table>
-
-                        <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#e8f4fd' }}>
-                            <Group justify="space-between">
-                                <Text fw={700} size="xs" c="blue">TOTAL FONDO INICIAL</Text>
-                                <Text fw={800} size="sm" c="blue">${fondoInicial.toFixed(2)}</Text>
-                            </Group>
-                        </Paper>
                     </Paper>
+                </Stack>
+            </SectionCard>
 
-                    {/* ── Columna Derecha: Billetes de Fin del Día ── */}
-                    <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#fffdfa', borderColor: '#ffd8a8' }}>
-                        <Group justify="space-between" mb="xs">
-                            <Text fw={700} size="sm" c="#FF6A00">
-                                🧮 Billetes con los que acaba el día
-                            </Text>
-                            <Badge color="apex" variant="filled">
-                                Arqueo Final
-                            </Badge>
+            {/* ── Card 3: Balance teórico del turno ── */}
+            <SectionCard
+                icon={<IconScale size={22} stroke={1.8} />}
+                iconBg="#FFF4EC"
+                iconColor="#FF6A00"
+                title="Balance teórico del turno"
+                subtitle="Diferencia entre el efectivo esperado y el contado"
+                rightAmount={`$${Math.abs(diferencia).toFixed(2)}`}
+                rightAmountColor={Math.abs(diferencia) < 0.01 ? '#2B8A3E' : (diferencia > 0 ? '#2B8A3E' : '#FF6A00')}
+                collapsible={true}
+                defaultOpen={true}
+            >
+                <Stack gap={6}>
+                    <Group justify="space-between">
+                        <Text size="xs" c="dimmed">Fondo Inicial de Caja:</Text>
+                        <Text fw={600} size="xs">${fondoInicial.toFixed(2)}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                        <Text size="xs" c="dimmed">(+) Entradas registradas:</Text>
+                        <Text fw={600} size="xs" c="green">+${totalEntradas.toFixed(2)}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                        <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
+                        <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                    </Group>
+                    {totalVentasEfectivo > 0 && (
+                        <Group justify="space-between">
+                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                            <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
                         </Group>
-                        <Text size="xs" c="dimmed" mb="md">
-                            Ingresa la cantidad física contada de cada denominación.
+                    )}
+                    <Divider my={2} />
+                    <Group justify="space-between">
+                        <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
+                        <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                        <Text fw={700} size="xs" c="#FF6A00">EFECTIVO CONTADO (FÍSICO):</Text>
+                        <Text fw={800} size="sm" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
+                    </Group>
+                    <Divider my={2} />
+                    <Group justify="space-between">
+                        <Text fw={700} size="xs" c={Math.abs(diferencia) < 0.01 ? 'green' : (diferencia > 0 ? 'green' : 'red')}>
+                            {Math.abs(diferencia) < 0.01
+                                ? 'Caja Cuadrada (Sin diferencia):'
+                                : (diferencia > 0 ? 'Sobrante en Caja (+):' : 'Faltante en Caja (-):')}
                         </Text>
+                        <Text fw={800} size="sm" c={Math.abs(diferencia) < 0.01 ? 'green' : (diferencia > 0 ? 'green' : 'red')}>
+                            {diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}
+                        </Text>
+                    </Group>
 
-                        <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Denominación</Table.Th>
-                                    <Table.Th style={{ width: 100, textAlign: 'center' }}>Cantidad</Table.Th>
-                                    <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {DENOMINACIONES.map((d) => {
-                                    const cantStr = conteoCierre[d.valor] ?? '';
-                                    const cantNum = cantStr === '' ? 0 : Number(cantStr);
-                                    const subtotal = d.valor * cantNum;
-
-                                    return (
-                                        <Table.Tr key={d.valor}>
-                                            <Table.Td fw={600}>{d.label}</Table.Td>
-                                            <Table.Td style={{ padding: 4 }}>
-                                                <NumberInput
-                                                    size="xs"
-                                                    min={0}
-                                                    max={100000}
-                                                    allowDecimal={false}
-                                                    placeholder="0"
-                                                    value={cantStr}
-                                                    onChange={(v) => actualizarConteoCierre(d.valor, v)}
-                                                    styles={{ input: { textAlign: 'center' } }}
-                                                />
-                                            </Table.Td>
-                                            <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
-                                                ${subtotal.toFixed(2)}
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    );
-                                })}
-                            </Table.Tbody>
-                        </Table>
-
-                        {/* Totales y Cálculo de Diferencia en Vivo */}
-                        <Paper p="xs" radius="md" mt="md" withBorder style={{ backgroundColor: '#fff9f5', borderColor: '#FF6A00' }}>
-                            <Stack gap={4}>
-                                <Group justify="space-between">
-                                    <Text size="xs" c="dimmed">Efectivo Teórico Esperado:</Text>
-                                    <Text fw={600} size="xs">${efectivoEsperado.toFixed(2)}</Text>
-                                </Group>
-                                <Group justify="space-between">
-                                    <Text fw={700} size="sm" c="#FF6A00">EFECTIVO CONTADO:</Text>
-                                    <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
-                                </Group>
-                                <Divider my={2} />
-                                <Group justify="space-between">
-                                    <Text fw={700} size="xs" c={diferencia >= 0 ? 'green' : 'red'}>
-                                        {diferencia >= 0 ? 'Sobrante / Cuadrado:' : 'Faltante en Caja:'}
-                                    </Text>
-                                    <Text fw={800} size="sm" c={diferencia >= 0 ? 'green' : 'red'}>
-                                        {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
-                                    </Text>
-                                </Group>
-                            </Stack>
-                        </Paper>
-                    </Paper>
-                </SimpleGrid>
-            </Box>
+                    {Math.abs(diferencia) > 0.01 && (
+                        <Alert
+                            icon={<IconAlertCircle size={16} />}
+                            color={diferencia < 0 ? 'red' : 'yellow'}
+                            variant="light"
+                            p="xs"
+                            radius="md"
+                            mt="xs"
+                        >
+                            <Text size="xs" fw={600}>
+                                {diferencia < 0
+                                    ? `Se detectó un faltante de $${Math.abs(diferencia).toFixed(2)}. Es obligatorio justificar el motivo en el campo de observaciones.`
+                                    : `Se detectó un sobrante de $${diferencia.toFixed(2)}. Es obligatorio justificar el motivo en el campo de observaciones.`}
+                            </Text>
+                        </Alert>
+                    )}
+                </Stack>
+            </SectionCard>
 
             {/* Observaciones */}
             <Textarea
                 label="Observaciones del corte"
-                placeholder="Notas o incidencias del turno (opcional)"
+                placeholder="Notas o justificación de diferencias (obligatorio si hay faltante o sobrante)"
                 value={form.observaciones ?? ''}
                 error={errors.observaciones}
                 maxLength={500}
@@ -753,14 +719,688 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 minRows={2}
                 onChange={(e) => onChange('observaciones', e.currentTarget.value)}
             />
+
+            {/* Banner de errores si los hay */}
+            {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
+                <Alert
+                    icon={<IconAlertCircle size={18} />}
+                    title="Campos que requieren atención"
+                    color="red"
+                    variant="light"
+                    radius="md"
+                >
+                    <Stack gap={2}>
+                        {Object.entries(errors)
+                            .filter(([, msg]) => Boolean(msg))
+                            .map(([key, msg]) => (
+                                <Text size="xs" key={key} fw={600} c="red">
+                                    • {msg}
+                                </Text>
+                            ))}
+                    </Stack>
+                </Alert>
+            )}
         </Stack>
+    );
+}
+
+/* ─── Drawer de Detalle y Auditoría del Corte de Caja ──────────────────────── */
+function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf }) {
+    const [detalleCorte, setDetalleCorte] = useState(null);
+    const [movimientos, setMovimientos] = useState([]);
+    const [cargando, setCargando] = useState(false);
+
+    const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
+
+    useEffect(() => {
+        if (!corte?.id || !opened) {
+            setDetalleCorte(null);
+            return;
+        }
+        api.corteCaja
+            .obtenerPorId(corte.id)
+            .then((r) => {
+                if (r.responseFlag === 0 && r.data) {
+                    setDetalleCorte(r.data);
+                }
+            })
+            .catch(() => setDetalleCorte(null));
+    }, [corte?.id, opened]);
+
+    useEffect(() => {
+        if (!aperturaId || !opened) return;
+        setCargando(true);
+        api.movimientoCaja
+            .obtenerPorApertura(aperturaId)
+            .then((r) => {
+                if (r.responseFlag === 0) setMovimientos(r.data ?? []);
+            })
+            .catch(() => setMovimientos([]))
+            .finally(() => setCargando(false));
+    }, [aperturaId, opened]);
+
+    if (!corte) return null;
+
+    const corteActual = detalleCorte || corte;
+    const montoInicial = Number(corteActual.aperturaCaja?.montoInicial ?? 0);
+    const totalEntradas = Number(corteActual.totalEntradas ?? 0);
+    const totalSalidas = Number(corteActual.totalSalidas ?? 0);
+
+    const esCorteSinDatosVentas = corteActual.totalVentas === null || corteActual.totalVentas === undefined;
+
+    const totalVentas = esCorteSinDatosVentas ? null : Number(corteActual.totalVentas ?? 0);
+    const totalVentasEfectivo = Number(corteActual.totalVentasEfectivo ?? 0);
+    const totalVentasCanceladas = Number(corteActual.totalVentasCanceladas ?? 0);
+    const metodosVenta = corteActual.ventasPorMetodoPago ?? [];
+
+    const efectivoContado = Number(corteActual.efectivoContado ?? 0);
+    const efectivoEsperado = corteActual.efectivoEsperado !== null && corteActual.efectivoEsperado !== undefined
+        ? Number(corteActual.efectivoEsperado)
+        : efectivoContado - Number(corteActual.diferencia ?? 0);
+    const diferencia = Number(corteActual.diferencia ?? (efectivoContado - efectivoEsperado));
+    const esValidado = corteActual.estado === 'VALIDADO';
+
+    let desgloseFin = null;
+    try {
+        if (corteActual.desgloseFin) {
+            desgloseFin = typeof corteActual.desgloseFin === 'string'
+                ? JSON.parse(corteActual.desgloseFin)
+                : corteActual.desgloseFin;
+        }
+    } catch {
+        desgloseFin = null;
+    }
+
+    let desgloseIni = null;
+    try {
+        if (corteActual.desgloseInicio) {
+            desgloseIni = typeof corteActual.desgloseInicio === 'string'
+                ? JSON.parse(corteActual.desgloseInicio)
+                : corteActual.desgloseInicio;
+        }
+    } catch {
+        desgloseIni = null;
+    }
+
+    // Totales de movimientos
+    const entradas = movimientos.filter((m) => m.tipo === 'ENTRADA');
+    const salidas = movimientos.filter((m) => m.tipo === 'SALIDA');
+
+    return (
+        <Drawer
+            opened={opened}
+            onClose={onClose}
+            position="right"
+            size={740}
+            zIndex={999999}
+            title={
+                <Group gap="sm">
+                    <ThemeIcon size={38} radius="md" variant="light" color="orange" style={{ backgroundColor: '#FFF4EC', color: '#FF6A00' }}>
+                        <IconReportAnalytics size={22} stroke={1.8} />
+                    </ThemeIcon>
+                    <div>
+                        <Title order={4} fw={700} c="#1E293B">Detalle del corte #{corteActual.id}</Title>
+                        <Text size="xs" c="dimmed">Detalle completo de arqueo y movimientos</Text>
+                    </div>
+                </Group>
+            }
+            styles={{
+                header: { borderBottom: '1px solid #E2E8F0', paddingBottom: 16, marginBottom: 0 },
+                body: { display: 'flex', flexDirection: 'column', padding: '16px 20px', minHeight: 'calc(100vh - 80px)' },
+            }}
+        >
+            <div style={{ flex: 1, paddingBottom: 16 }}>
+                {/* Header chips */}
+                <Group gap="xs" wrap="wrap" mb="md">
+                    <Badge variant="light" color="gray" leftSection={<IconCalendar size={13} />} size="md" radius="sm">
+                        Fecha de corte: {corteActual.fechaCorte ? new Date(corteActual.fechaCorte).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                    </Badge>
+                    <Badge variant="light" color="gray" leftSection={<IconUser size={13} />} size="md" radius="sm">
+                        Empleado: {corteActual.empleado ? `${corteActual.empleado.nombre} ${corteActual.empleado.apellidoPaterno}` : '—'}
+                    </Badge>
+                    <Badge variant="light" color="gray" leftSection={<IconCash size={13} />} size="md" radius="sm">
+                        Apertura: {corteActual.aperturaCaja?.caja?.nombre ?? 'Caja'} — Fondo: ${montoInicial.toFixed(2)}
+                    </Badge>
+                    <Badge color={esValidado ? 'green' : 'yellow'} variant="light" size="md" radius="sm">
+                        {corteActual.estado ?? 'PENDIENTE'}
+                    </Badge>
+                </Group>
+
+                {/* Tabs de navegación */}
+                <Tabs defaultValue="resumen" color="orange">
+                    <Tabs.List mb="md">
+                        <Tabs.Tab value="resumen">Resumen</Tabs.Tab>
+                        <Tabs.Tab value="ventas">Ventas ({esCorteSinDatosVentas ? 'N/D' : metodosVenta.length})</Tabs.Tab>
+                        <Tabs.Tab value="efectivo">Efectivo</Tabs.Tab>
+                        <Tabs.Tab value="billetes">Billetes y Monedas</Tabs.Tab>
+                        <Tabs.Tab value="movimientos">Movimientos ({movimientos.length})</Tabs.Tab>
+                    </Tabs.List>
+
+                    {/* ── Tab: Resumen ── */}
+                    <Tabs.Panel value="resumen">
+                        <Stack gap="md">
+                            {/* Card 1: Fondo Inicial */}
+                            <SectionCard
+                                icon={<IconCoins size={22} stroke={1.8} />}
+                                iconBg="#E7F5FF"
+                                iconColor="#1C7ED6"
+                                title="Fondo inicial"
+                                subtitle="Monto asignado al inicio del turno"
+                                rightAmount={`$${montoInicial.toFixed(2)}`}
+                                rightAmountColor="#1C7ED6"
+                                collapsible={false}
+                            />
+
+                            {/* Card Ventas del Turno en Resumen */}
+                            <SectionCard
+                                icon={<IconReportAnalytics size={22} stroke={1.8} />}
+                                iconBg="#FFF4EC"
+                                iconColor="#FF6A00"
+                                title="Ventas del Turno"
+                                subtitle="Cobros procesados por método y ventas canceladas"
+                                rightAmount={esCorteSinDatosVentas ? 'No disponible' : `$${(totalVentas || 0).toFixed(2)}`}
+                                rightAmountColor={esCorteSinDatosVentas ? '#868E96' : '#FF6A00'}
+                                collapsible={true}
+                                defaultOpen={true}
+                            >
+                                {esCorteSinDatosVentas ? (
+                                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC', textAlign: 'center' }}>
+                                        <Badge variant="light" color="gray" size="sm" mb={4}>No disponible</Badge>
+                                        <Text size="xs" c="dimmed">
+                                            Las métricas de ventas no están disponibles en cortes anteriores a la migración contable.
+                                        </Text>
+                                    </Paper>
+                                ) : (
+                                    <Stack gap="xs">
+                                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                                            <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                                <Text size="11px" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
+                                                <Text fw={800} size="md" c="#FF6A00">${(totalVentas || 0).toFixed(2)}</Text>
+                                            </Paper>
+                                            <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
+                                                <Text size="11px" c="#2B8A3E" fw={700} tt="uppercase">Ventas Efectivo</Text>
+                                                <Text fw={800} size="md" c="#2B8A3E">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                            </Paper>
+                                            <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                                <Text size="11px" c="#E03131" fw={700} tt="uppercase">Canceladas</Text>
+                                                <Text fw={800} size="md" c="#E03131">${totalVentasCanceladas.toFixed(2)}</Text>
+                                            </Paper>
+                                        </SimpleGrid>
+
+                                        {totalVentasCanceladas > 0 && (
+                                            <Group justify="space-between" p="xs" style={{ backgroundColor: '#FFF5F5', borderRadius: 8 }}>
+                                                <Group gap="xs">
+                                                    <ThemeIcon color="red" variant="light" size="sm" radius="md">
+                                                        <IconReceiptOff size={14} />
+                                                    </ThemeIcon>
+                                                    <Text size="xs" fw={600} c="#E03131">Ventas canceladas (registradas en egresos)</Text>
+                                                </Group>
+                                                <Text size="xs" fw={700} c="#E03131">-${totalVentasCanceladas.toFixed(2)}</Text>
+                                            </Group>
+                                        )}
+
+                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt={4}>
+                                            Desglose por método de pago
+                                        </Text>
+                                        {metodosVenta.length > 0 ? (
+                                            <Stack gap={6}>
+                                                {metodosVenta.map((m) => {
+                                                    const { icon, color } = getMetodoIcon(m.nombre);
+                                                    const totalNum = Number(m.total ?? m.monto ?? 0);
+                                                    const transaccionesMetodo = Number(m.cantidad ?? m.transacciones ?? 0);
+                                                    const baseVentas = (totalVentas || 0);
+                                                    const pct = baseVentas > 0 ? ((totalNum / baseVentas) * 100).toFixed(1) : '0.0';
+
+                                                    return (
+                                                        <Paper key={m.metodoPagoId ?? m.nombre} p="xs" radius="md" withBorder style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
+                                                            <Group justify="space-between" mb={2}>
+                                                                <Group gap="xs">
+                                                                    <ThemeIcon color={color} variant="light" radius="md" size="sm">
+                                                                        {icon}
+                                                                    </ThemeIcon>
+                                                                    <Text fw={600} size="xs" c="#1E293B">{m.nombre}</Text>
+                                                                </Group>
+                                                                <Group gap="xs">
+                                                                    <Badge color={color} variant="light" size="xs">{transaccionesMetodo} ventas</Badge>
+                                                                    <Text fw={700} size="xs">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                                </Group>
+                                                            </Group>
+                                                            <Progress value={Number(pct)} color={color} size="xs" radius="xl" />
+                                                        </Paper>
+                                                    );
+                                                })}
+                                            </Stack>
+                                        ) : (
+                                            <Text size="xs" c="dimmed" ta="center" py="xs">Sin ventas registradas en esta apertura.</Text>
+                                        )}
+                                    </Stack>
+                                )}
+                            </SectionCard>
+
+                            {/* Card 2: Conteo final de efectivo */}
+                            <SectionCard
+                                icon={<IconCash size={22} stroke={1.8} />}
+                                iconBg="#EBFBEE"
+                                iconColor="#2B8A3E"
+                                title="Conteo final de efectivo"
+                                subtitle="Efectivo físico reportado en el arqueo"
+                                rightAmount={`$${efectivoContado.toFixed(2)}`}
+                                rightAmountColor="#2B8A3E"
+                                collapsible={true}
+                                defaultOpen={true}
+                            >
+                                {desgloseFin && Object.values(desgloseFin).some((v) => Number(v) > 0) ? (
+                                    <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
+                                        <Table.Thead>
+                                            <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                <Table.Th>Denominación</Table.Th>
+                                                <Table.Th style={{ textAlign: 'center', width: 100 }}>Cantidad</Table.Th>
+                                                <Table.Th style={{ textAlign: 'right', width: 120 }}>Subtotal</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {DENOMINACIONES.map((d) => {
+                                                const cant = Number(desgloseFin[d.valor] ?? 0);
+                                                if (cant === 0) return null;
+                                                return (
+                                                    <Table.Tr key={d.valor}>
+                                                        <Table.Td fw={600}>{d.label}</Table.Td>
+                                                        <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                        <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                                            ${(d.valor * cant).toFixed(2)}
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                );
+                                            })}
+                                        </Table.Tbody>
+                                    </Table>
+                                ) : (
+                                    <Text size="xs" c="dimmed" ta="center">Sin desglose capturado.</Text>
+                                )}
+                            </SectionCard>
+
+                            {/* Card 3: Balance teórico del turno */}
+                            <SectionCard
+                                icon={<IconScale size={22} stroke={1.8} />}
+                                iconBg="#FFF4EC"
+                                iconColor="#FF6A00"
+                                title="Balance teórico del turno"
+                                subtitle="Diferencia entre el efectivo esperado y el contado"
+                                rightAmount={`$${Math.abs(diferencia).toFixed(2)}`}
+                                rightAmountColor={Math.abs(diferencia) < 0.01 ? '#2B8A3E' : (diferencia > 0 ? '#2B8A3E' : '#FF6A00')}
+                                collapsible={true}
+                                defaultOpen={true}
+                            >
+                                <Stack gap={6}>
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">Fondo Inicial de Caja:</Text>
+                                        <Text fw={600} size="xs">${montoInicial.toFixed(2)}</Text>
+                                    </Group>
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">(+) Entradas registradas:</Text>
+                                        <Text fw={600} size="xs" c="green">+${totalEntradas.toFixed(2)}</Text>
+                                    </Group>
+                                    <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
+                                        <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                    </Group>
+                                    {esCorteSinDatosVentas ? (
+                                        <Group justify="space-between">
+                                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                            <Badge variant="light" color="gray" size="xs">No disponible en corte anterior</Badge>
+                                        </Group>
+                                    ) : (
+                                        <Group justify="space-between">
+                                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                            <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                        </Group>
+                                    )}
+                                    {totalVentasCanceladas > 0 && (
+                                        <Group justify="space-between">
+                                            <Text size="xs" c="dimmed">(i) Ventas Canceladas (salida aplicada):</Text>
+                                            <Text fw={600} size="xs" c="red">-${totalVentasCanceladas.toFixed(2)}</Text>
+                                        </Group>
+                                    )}
+                                    <Divider my={2} />
+                                    <Group justify="space-between">
+                                        <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
+                                        <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
+                                    </Group>
+                                    <Group justify="space-between">
+                                        <Text fw={700} size="xs" c="#FF6A00">Efectivo Contado (Físico):</Text>
+                                        <Text fw={800} size="sm" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
+                                    </Group>
+                                    <Divider my={2} />
+                                    <Group justify="space-between">
+                                        <Text fw={700} size="xs" c={Math.abs(diferencia) < 0.01 ? 'green' : (diferencia > 0 ? 'green' : 'red')}>
+                                            {Math.abs(diferencia) < 0.01
+                                                ? 'Caja Cuadrada (Sin diferencia):'
+                                                : (diferencia > 0 ? 'Sobrante (+):' : 'Faltante (-):')}
+                                        </Text>
+                                        <Text fw={800} size="sm" c={Math.abs(diferencia) < 0.01 ? 'green' : (diferencia > 0 ? 'green' : 'red')}>
+                                            {diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}
+                                        </Text>
+                                    </Group>
+                                </Stack>
+                            </SectionCard>
+
+                            {/* Observaciones */}
+                            {corteActual.observaciones && (
+                                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F8FAFC' }}>
+                                    <Text size="xs" c="dimmed" fw={600} mb={2}>Observaciones registradas:</Text>
+                                    <Text size="sm">{corteActual.observaciones}</Text>
+                                </Paper>
+                            )}
+                        </Stack>
+                    </Tabs.Panel>
+
+                    {/* ── Tab: Ventas y Métodos ── */}
+                    <Tabs.Panel value="ventas">
+                        <Stack gap="md">
+                            {esCorteSinDatosVentas ? (
+                                <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: '#F8FAFC' }}>
+                                    <ThemeIcon size={42} radius="xl" variant="light" color="gray" mx="auto" mb="sm">
+                                        <IconReceiptOff size={24} />
+                                    </ThemeIcon>
+                                    <Title order={5} c="#475569" mb="xs">Métricas de ventas no disponibles</Title>
+                                    <Text size="sm" c="dimmed" maxW={460} mx="auto">
+                                        Este corte corresponde a un período previo a la integración contable de ventas en corte de caja.
+                                    </Text>
+                                </Paper>
+                            ) : (
+                                <>
+                                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                            <Text size="xs" c="#FF6A00" fw={700} tt="uppercase">Total Ventas</Text>
+                                            <Text fw={800} size="xl" c="#FF6A00">${(totalVentas || 0).toFixed(2)}</Text>
+                                            <Text size="xs" c="dimmed">No canceladas</Text>
+                                        </Paper>
+                                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
+                                            <Text size="xs" c="#2B8A3E" fw={700} tt="uppercase">Ventas en Efectivo</Text>
+                                            <Text fw={800} size="xl" c="#2B8A3E">${totalVentasEfectivo.toFixed(2)}</Text>
+                                            <Text size="xs" c="dimmed">Afecta arqueo físico</Text>
+                                        </Paper>
+                                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
+                                            <Text size="xs" c="#E03131" fw={700} tt="uppercase">Ventas Canceladas</Text>
+                                            <Text fw={800} size="xl" c="#E03131">${totalVentasCanceladas.toFixed(2)}</Text>
+                                            <Text size="xs" c="dimmed">Devoluciones egresadas</Text>
+                                        </Paper>
+                                    </SimpleGrid>
+
+                                    <SectionCard
+                                        icon={<IconCreditCard size={20} stroke={1.8} />}
+                                        iconBg="#FFF4EC"
+                                        iconColor="#FF6A00"
+                                        title="Desglose por Método de Pago"
+                                        subtitle="Distribución del total facturado por canal de cobro"
+                                        collapsible={false}
+                                    >
+                                        {metodosVenta.length > 0 ? (
+                                            <Stack gap="xs">
+                                                {metodosVenta.map((m) => {
+                                                    const { icon, color } = getMetodoIcon(m.nombre);
+                                                    const totalNum = Number(m.total ?? m.monto ?? 0);
+                                                    const transaccionesMetodo = Number(m.cantidad ?? m.transacciones ?? 0);
+                                                    const baseVentas = (totalVentas || 0);
+                                                    const pct = baseVentas > 0 ? ((totalNum / baseVentas) * 100).toFixed(1) : '0.0';
+
+                                                    return (
+                                                        <Paper key={m.metodoPagoId ?? m.nombre} p="sm" radius="md" withBorder style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
+                                                            <Group justify="space-between" mb={4}>
+                                                                <Group gap="xs">
+                                                                    <ThemeIcon color={color} variant="light" radius="md" size="md">
+                                                                        {icon}
+                                                                    </ThemeIcon>
+                                                                    <div>
+                                                                        <Text fw={600} size="sm" c="#1E293B">{m.nombre}</Text>
+                                                                        <Text size="11px" c="dimmed">{m.codigo ? `Código: ${m.codigo}` : 'Sin código'}</Text>
+                                                                    </div>
+                                                                </Group>
+                                                                <Group gap="xs">
+                                                                    <Badge color={color} variant="light" size="sm">{transaccionesMetodo} ventas</Badge>
+                                                                    <Text fw={700} size="sm">${totalNum.toFixed(2)} ({pct}%)</Text>
+                                                                </Group>
+                                                            </Group>
+                                                            <Progress value={Number(pct)} color={color} size="sm" radius="xl" />
+                                                        </Paper>
+                                                    );
+                                                })}
+                                            </Stack>
+                                        ) : (
+                                            <Text size="sm" c="dimmed" ta="center" py="md">Sin operaciones registradas.</Text>
+                                        )}
+                                    </SectionCard>
+                                </>
+                            )}
+                        </Stack>
+                    </Tabs.Panel>
+
+                    {/* ── Tab: Efectivo (Resumen detallado de flujo) ── */}
+                    <Tabs.Panel value="efectivo">
+                        <Stack gap="md">
+                            <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
+                                <Paper p="xs" radius="md" withBorder>
+                                    <Text size="xs" c="dimmed" fw={600}>Fondo Inicial</Text>
+                                    <Text fw={800} size="md">${montoInicial.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="xs" radius="md" withBorder>
+                                    <Text size="xs" c="dimmed" fw={600}>Entradas (+)</Text>
+                                    <Text fw={800} size="md" c="green">+${totalEntradas.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="xs" radius="md" withBorder>
+                                    <Text size="xs" c="dimmed" fw={600}>Salidas (-)</Text>
+                                    <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                </Paper>
+                                {totalVentasEfectivo > 0 && (
+                                    <Paper p="xs" radius="md" withBorder>
+                                        <Text size="xs" c="dimmed" fw={600}>Ventas Ef. (+)</Text>
+                                        <Text fw={800} size="md" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                    </Paper>
+                                )}
+                                <Paper p="xs" radius="md" withBorder>
+                                    <Text size="xs" c="dimmed" fw={600}>Ef. Esperado</Text>
+                                    <Text fw={800} size="md">${efectivoEsperado.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FF6A00' }}>
+                                    <Text size="xs" c="dimmed" fw={600}>Ef. Contado</Text>
+                                    <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
+                                </Paper>
+                            </SimpleGrid>
+
+                            <Paper p="sm" radius="md" withBorder style={{ backgroundColor: diferencia >= 0 ? '#F4FBF5' : '#FFF5F5' }}>
+                                <Group justify="space-between">
+                                    <Text fw={700} size="sm">Diferencia Neta de Arqueo:</Text>
+                                    <Text fw={800} size="lg" c={diferencia >= 0 ? 'green' : 'red'}>
+                                        {diferencia >= 0 ? '+' : ''}${diferencia.toFixed(2)}
+                                    </Text>
+                                </Group>
+                            </Paper>
+                        </Stack>
+                    </Tabs.Panel>
+
+                    {/* ── Tab: Billetes y Monedas (Comparativa Inicio vs Cierre) ── */}
+                    <Tabs.Panel value="billetes">
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                            {/* Billetes Inicio */}
+                            <Paper p="sm" radius="md" withBorder>
+                                <Group justify="space-between" mb="xs">
+                                    <Text fw={700} size="xs" c="blue" tt="uppercase">Billetes al Inicio</Text>
+                                    <Badge color="blue" variant="light" size="xs">${montoInicial.toFixed(2)}</Badge>
+                                </Group>
+                                <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>Denom.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'center' }}>Cant.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {DENOMINACIONES.map((d) => {
+                                            const cant = Number(desgloseIni?.[d.valor] ?? 0);
+                                            return (
+                                                <Table.Tr key={d.valor}>
+                                                    <Table.Td fw={600}>{d.label}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>${(d.valor * cant).toFixed(2)}</Table.Td>
+                                                </Table.Tr>
+                                            );
+                                        })}
+                                    </Table.Tbody>
+                                </Table>
+                            </Paper>
+
+                            {/* Billetes Cierre */}
+                            <Paper p="sm" radius="md" withBorder>
+                                <Group justify="space-between" mb="xs">
+                                    <Text fw={700} size="xs" c="#FF6A00" tt="uppercase">Billetes al Cierre</Text>
+                                    <Badge color="orange" variant="light" size="xs">${efectivoContado.toFixed(2)}</Badge>
+                                </Group>
+                                <Table withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>Denom.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'center' }}>Cant.</Table.Th>
+                                            <Table.Th style={{ textAlign: 'right' }}>Subtotal</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {DENOMINACIONES.map((d) => {
+                                            const cant = Number(desgloseFin?.[d.valor] ?? 0);
+                                            return (
+                                                <Table.Tr key={d.valor}>
+                                                    <Table.Td fw={600}>{d.label}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'center' }}>{cant}</Table.Td>
+                                                    <Table.Td style={{ textAlign: 'right' }}>${(d.valor * cant).toFixed(2)}</Table.Td>
+                                                </Table.Tr>
+                                            );
+                                        })}
+                                    </Table.Tbody>
+                                </Table>
+                            </Paper>
+                        </SimpleGrid>
+                    </Tabs.Panel>
+
+                    {/* ── Tab: Movimientos Manuales del Turno ── */}
+                    <Tabs.Panel value="movimientos">
+                        <Stack gap="sm">
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                                <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#F4FBF5' }}>
+                                    <Text size="xs" c="dimmed">Ingresos ({entradas.length})</Text>
+                                    <Text fw={800} size="sm" c="green">+${totalEntradas.toFixed(2)}</Text>
+                                </Paper>
+                                <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF5F5' }}>
+                                    <Text size="xs" c="dimmed">Egresos ({salidas.length})</Text>
+                                    <Text fw={800} size="sm" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                </Paper>
+                            </SimpleGrid>
+
+                            <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>#</Table.Th>
+                                        <Table.Th>Tipo</Table.Th>
+                                        <Table.Th>Concepto</Table.Th>
+                                        <Table.Th>Hora</Table.Th>
+                                        <Table.Th style={{ textAlign: 'right' }}>Monto</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {movimientos.length > 0 ? (
+                                        movimientos.map((m, idx) => (
+                                            <Table.Tr key={m.id}>
+                                                <Table.Td>{idx + 1}</Table.Td>
+                                                <Table.Td>
+                                                    <Badge color={m.tipo === 'ENTRADA' ? 'green' : 'red'} size="xs">
+                                                        {m.tipo}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Group gap="xs">
+                                                        <Text size="xs">{m.concepto}</Text>
+                                                        {m.devolucionId != null && (
+                                                            <Badge color="orange" variant="light" size="xs">
+                                                                Devolución #{m.devolucionId}
+                                                            </Badge>
+                                                        )}
+                                                    </Group>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    {(m.createdAt || m.created_at) ? new Date(m.createdAt || m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                </Table.Td>
+                                                <Table.Td style={{ textAlign: 'right' }} fw={700}>
+                                                    <Text size="xs" c={m.tipo === 'ENTRADA' ? 'green' : 'red'} fw={700}>
+                                                        {m.tipo === 'ENTRADA' ? '+' : '-'}${Number(m.monto).toFixed(2)}
+                                                    </Text>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))
+                                    ) : (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={5} style={{ textAlign: 'center', color: '#868e96' }}>
+                                                {cargando ? 'Cargando movimientos…' : 'No se registraron movimientos manuales.'}
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    )}
+                                </Table.Tbody>
+                            </Table>
+                        </Stack>
+                    </Tabs.Panel>
+                </Tabs>
+            </div>
+
+            {/* Footer sticky del Drawer */}
+            <Group
+                justify="space-between"
+                pt="md"
+                style={{
+                    borderTop: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--ag-color-surface, #ffffff)',
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 10,
+                }}
+            >
+                <Button
+                    variant="default"
+                    radius="md"
+                    leftSection={<IconArrowLeft size={16} />}
+                    onClick={onClose}
+                >
+                    Volver
+                </Button>
+                <Group gap="xs">
+                    {!esValidado && (
+                        <Button
+                            color="green"
+                            radius="md"
+                            leftSection={<IconShieldCheck size={16} />}
+                            onClick={() => {
+                                onValidar(corte);
+                                onClose();
+                            }}
+                        >
+                            Validar corte
+                        </Button>
+                    )}
+                    <Button
+                        color="orange"
+                        radius="md"
+                        leftSection={<IconFileDownload size={16} />}
+                        onClick={() => onDescargarPdf(corte, false)}
+                    >
+                        Descargar PDF
+                    </Button>
+                </Group>
+            </Group>
+        </Drawer>
     );
 }
 
 /* ─── Componente Principal ──────────────────────────────────────────────────── */
 export function CorteCaja() {
     const [corteSeleccionado, setCorteSeleccionado] = useState(null);
-    const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
+    const [drawerDetalleAbierto, setDrawerDetalleAbierto] = useState(false);
 
     const mapRecordToForm = useMemo(() => (record) => ({
         aperturaCajaId: record.aperturaCaja?.id
@@ -787,9 +1427,15 @@ export function CorteCaja() {
     const mapRecordToRow = (record) => {
         const diferencia = Number(record.diferencia ?? 0);
         const esValidado = record.estado === 'VALIDADO';
+        const esCorteSinDatosVentas = record.totalVentas === null || record.totalVentas === undefined;
 
         return {
             id:              record.id,
+            numero: (
+                <Badge variant="light" color="gray" size="sm" radius="sm">
+                    #{record.id}
+                </Badge>
+            ),
             apertura:        record.aperturaCaja?.caja?.nombre ?? '—',
             empleado:        record.empleado
                 ? `${record.empleado.nombre} ${record.empleado.apellidoPaterno}`
@@ -800,6 +1446,13 @@ export function CorteCaja() {
             fondoInicial:    `$${Number(record.aperturaCaja?.montoInicial ?? 0).toFixed(2)}`,
             entradas:        `+$${Number(record.totalEntradas ?? 0).toFixed(2)}`,
             salidas:         `-$${Number(record.totalSalidas ?? 0).toFixed(2)}`,
+            ventas:          esCorteSinDatosVentas ? (
+                <Badge variant="subtle" color="gray" size="sm">No disponible</Badge>
+            ) : (
+                <Text fw={600} size="xs" c="#FF6A00">
+                    ${Number(record.totalVentas).toFixed(2)}
+                </Text>
+            ),
             efectivoContado: `$${Number(record.efectivoContado ?? 0).toFixed(2)}`,
             diferencia: (
                 <Text fw={700} c={diferencia >= 0 ? 'green' : 'red'}>
@@ -814,7 +1467,54 @@ export function CorteCaja() {
         };
     };
 
-    const handleValidar = async (corte, { reload }) => {
+    const handleDescargarPdf = async (corte, esReimpresion = false) => {
+        if (!corte) return;
+        let movs = [];
+        let resumenApertura = null;
+        const aperturaId = corte?.aperturaCajaId ?? corte?.aperturaCaja?.id;
+        if (aperturaId) {
+            try {
+                const r = await api.movimientoCaja.obtenerPorApertura(aperturaId);
+                if (r.responseFlag === 0) movs = r.data ?? [];
+            } catch {
+                movs = [];
+            }
+            try {
+                const rRes = await api.movimientoCaja.obtenerResumenApertura(aperturaId);
+                if (rRes.responseFlag === 0) resumenApertura = rRes.data;
+            } catch {
+                resumenApertura = null;
+            }
+        }
+
+        let desglose = null;
+        try {
+            if (corte?.desgloseFin) {
+                desglose = typeof corte.desgloseFin === 'string'
+                    ? JSON.parse(corte.desgloseFin)
+                    : corte.desgloseFin;
+            }
+        } catch {
+            desglose = null;
+        }
+
+        let configuraciones = [];
+        try {
+            const resConfig = await api.configuracionSistema.obtenerTodos();
+            if (resConfig.responseFlag === 0) configuraciones = resConfig.data ?? [];
+        } catch {
+            configuraciones = [];
+        }
+
+        generarPdfCorte(corte, movs, desglose, configuraciones, {
+            esReimpresion,
+            totales: resumenApertura?.totales,
+        });
+    };
+
+    const handleValidar = async (corte, helpers = {}) => {
+        const reload = helpers?.reload;
+        if (!corte?.id) return;
         try {
             const res = await api.corteCaja.validar(corte.id);
             if (res.responseFlag === 0) {
@@ -824,7 +1524,9 @@ export function CorteCaja() {
                     color: 'green',
                     icon: <IconShieldCheck size={18} />,
                 });
-                reload?.();
+                if (typeof reload === 'function') {
+                    reload();
+                }
             } else {
                 throw new Error(res.message);
             }
@@ -837,19 +1539,83 @@ export function CorteCaja() {
         }
     };
 
+    const validateForm = async (form) => {
+        const errors = {};
+        if (!form.aperturaCajaId) errors.aperturaCajaId = 'Selecciona una apertura de caja';
+        if (!form.empleadoId) errors.empleadoId = 'Selecciona un empleado';
+        if (form.efectivoContado === undefined || form.efectivoContado === null || Number(form.efectivoContado) < 0) {
+            errors.efectivoContado = 'El efectivo contado debe ser mayor o igual a 0';
+        }
+        if (Number(form.efectivoContado) > 200000) {
+            errors.efectivoContado = 'El efectivo contado físico no puede exceder el límite de $200,000.00';
+        }
+
+        // Validación de movimientos pendientes y balance contable
+        if (form.aperturaCajaId) {
+            try {
+                const res = await api.movimientoCaja.obtenerResumenApertura(form.aperturaCajaId);
+                if (res.responseFlag === 0 && res.data) {
+                    const data = res.data;
+                    const movPendientes = Number(data.movimientosPendientes ?? 0);
+                    if (movPendientes > 0) {
+                        errors.aperturaCajaId = `No se puede realizar el corte: existen ${movPendientes} movimiento(s) pendientes de validar en este turno.`;
+                    }
+
+                    const fondo = Number(data.montoInicial ?? data.apertura?.montoInicial ?? 0);
+                    const entradas = Number(data.totalEntradas ?? 0);
+                    const salidas = Number(data.totalSalidas ?? 0);
+                    const ventasEf = Number(data.totalVentasEfectivoBruto ?? data.totalVentasEfectivo ?? 0);
+                    const esperado = data.saldoDisponible !== undefined
+                        ? Number(data.saldoDisponible)
+                        : (fondo + entradas - salidas + ventasEf);
+                    const contado = Number(form.efectivoContado || 0);
+                    const diff = contado - esperado;
+
+                    // Si hay dinero teórico esperado en caja pero el usuario dejó el conteo en 0 sin contar
+                    if (esperado > 0 && contado === 0) {
+                        const tieneConteo = form.desgloseFin && Object.values(form.desgloseFin).some((v) => v !== '' && Number(v) > 0);
+                        if (!tieneConteo) {
+                            errors.efectivoContado = `Debe realizar el conteo físico de billetes y monedas. El saldo teórico esperado en caja es de $${esperado.toFixed(2)}.`;
+                        }
+                    }
+
+                    // Justificación obligatoria si hay diferencia
+                    if (Math.abs(diff) > 0.01) {
+                        if (!form.observaciones || !form.observaciones.trim()) {
+                            errors.observaciones = `Existe una diferencia de ${diff < 0 ? 'faltante' : 'sobrante'} ($${Math.abs(diff).toFixed(2)}). Debe ingresar obligatoriamente una justificación detallada en las observaciones.`;
+                        }
+                    }
+                }
+            } catch {
+                // Validación respaldada en backend
+            }
+        }
+
+        if (form.observaciones?.trim().length > 500) {
+            errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
+        }
+
+        return errors;
+    };
+
     return (
-        <>
-            <ModalDetalleCorte
+        <div className={classes.corteCajaWrapper}>
+            <DrawerDetalleCorte
                 corte={corteSeleccionado}
-                opened={modalDetalleAbierto}
-                onClose={() => setModalDetalleAbierto(false)}
+                opened={drawerDetalleAbierto}
+                onClose={() => setDrawerDetalleAbierto(false)}
                 onValidar={(corte) => handleValidar(corte, { reload: () => window.location.reload() })}
+                onDescargarPdf={handleDescargarPdf}
             />
 
             <CrudCatalogo
                 titulo="Corte de Caja"
                 singular="Corte"
                 icon={IconCalculator}
+                headerVariant="unified"
+                tableHeaderVariant="neutral"
+                formMode="drawer"
+                drawerSize={740}
                 servicio={api.corteCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
@@ -858,22 +1624,28 @@ export function CorteCaja() {
                 mapFormToPayload={mapFormToPayload}
                 mapRecordToRow={mapRecordToRow}
                 renderForm={(props) => <CorteForm {...props} />}
+                validateForm={validateForm}
+                pageSizeOptions={[5, 10, 15, 20]}
+                initialSortBy="numero"
+                initialSortDirection="desc"
                 permitirEditar={false}
                 permitirEliminar={false}
-                renderAccionesFila={(fila, recordOriginal, { reload }) => {
-                    const esValidado = recordOriginal?.estado === 'VALIDADO';
+                renderAccionesFila={(fila, recordOriginal, helpers = {}) => {
+                    const reload = helpers?.reload;
+                    const corte = recordOriginal ?? fila?._recordOriginal ?? fila;
+                    const esValidado = corte?.estado === 'VALIDADO';
 
                     return (
                         <Group gap={6} wrap="nowrap">
-                            {/* 1. Ver Detalle con KPIs y Movimientos */}
+                            {/* 1. Ver Detalle y Auditoría en Drawer */}
                             <Tooltip label="Ver detalle y auditoría" withArrow openDelay={200}>
                                 <ActionIcon
                                     variant="light"
                                     color="blue"
                                     size="lg"
                                     onClick={() => {
-                                        setCorteSeleccionado(recordOriginal);
-                                        setModalDetalleAbierto(true);
+                                        setCorteSeleccionado(corte);
+                                        setDrawerDetalleAbierto(true);
                                     }}
                                 >
                                     <IconEye size={18} stroke={1.8} />
@@ -886,46 +1658,66 @@ export function CorteCaja() {
                                 withArrow
                                 openDelay={200}
                             >
-                                <ActionIcon
-                                    variant={esValidado ? 'subtle' : 'light'}
-                                    color={esValidado ? 'gray' : 'green'}
-                                    size="lg"
-                                    disabled={esValidado}
-                                    onClick={() => handleValidar(recordOriginal, { reload })}
-                                >
-                                    {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
-                                </ActionIcon>
+                                <span style={{ display: 'inline-block' }}>
+                                    <ActionIcon
+                                        variant={esValidado ? 'subtle' : 'light'}
+                                        color={esValidado ? 'gray' : 'green'}
+                                        size="lg"
+                                        disabled={esValidado}
+                                        onClick={() => handleValidar(corte, { reload })}
+                                    >
+                                        {esValidado ? <IconCheck size={18} stroke={2} /> : <IconShieldCheck size={18} stroke={1.8} />}
+                                    </ActionIcon>
+                                </span>
                             </Tooltip>
 
-                            {/* 3. Descargar PDF */}
-                            <Tooltip label="Descargar comprobante en PDF" withArrow openDelay={200}>
-                                <ActionIcon
-                                    variant="light"
-                                    color="apex"
-                                    size="lg"
-                                    onClick={async () => {
-                                        let movs = [];
-                                        try {
-                                            const r = await api.movimientoCaja.obtenerPorApertura(recordOriginal.aperturaCajaId);
-                                            if (r.responseFlag === 0) movs = r.data ?? [];
-                                        } catch (e) {}
-
-                                        let desglose = null;
-                                        try {
-                                            if (recordOriginal.desgloseFin) desglose = JSON.parse(recordOriginal.desgloseFin);
-                                        } catch (e) {}
-
-                                        generarPdfCorte(recordOriginal, movs, desglose);
-                                    }}
-                                >
-                                    <IconFileDownload size={18} stroke={1.8} />
-                                </ActionIcon>
-                            </Tooltip>
+                            {/* 3. Descargar PDF con menú de Original vs Copia */}
+                            <Menu
+                                shadow="md"
+                                width={240}
+                                position="bottom-end"
+                                radius="md"
+                                withArrow
+                                withinPortal
+                                disabled={!esValidado}
+                            >
+                                <Menu.Target>
+                                    <Tooltip
+                                        label={!esValidado ? 'Debe validar el corte para descargar el comprobante en PDF' : 'Descargar comprobante en PDF'}
+                                        withArrow
+                                        openDelay={200}
+                                    >
+                                        <ActionIcon
+                                            variant="light"
+                                            color={esValidado ? 'orange' : 'gray'}
+                                            size="lg"
+                                            disabled={!esValidado}
+                                        >
+                                            <IconFileDownload size={18} stroke={1.8} />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                </Menu.Target>
+                                <Menu.Dropdown>
+                                    <Menu.Label>Formato de Comprobante</Menu.Label>
+                                    <Menu.Item
+                                        leftSection={<IconFileCheck size={16} stroke={1.8} color="#FF6A00" />}
+                                        onClick={() => handleDescargarPdf(corte, false)}
+                                    >
+                                        Original (Sin marca de agua)
+                                    </Menu.Item>
+                                    <Menu.Item
+                                        leftSection={<IconCopy size={16} stroke={1.8} color="#868e96" />}
+                                        onClick={() => handleDescargarPdf(corte, true)}
+                                    >
+                                        Copia / Reimpresión
+                                    </Menu.Item>
+                                </Menu.Dropdown>
+                            </Menu>
                         </Group>
                     );
                 }}
             />
-        </>
+        </div>
     );
 }
 

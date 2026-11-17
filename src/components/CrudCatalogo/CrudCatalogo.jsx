@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import {
     Avatar,
     Button,
+    Drawer,
     FileInput,
     Group,
     Modal,
@@ -11,16 +12,28 @@ import {
     SimpleGrid,
     Stack,
     Switch,
+    Text,
     Textarea,
     TextInput,
+    ThemeIcon,
+    Divider,
+    ActionIcon,
     Title,
 } from '@mantine/core';
-import { IconUpload } from '@tabler/icons-react';
+import {
+    IconPlus, IconUpload,
+    IconX,
+    IconDeviceFloppy,
+} from '@tabler/icons-react';
 import { DropzoneImagen } from '../DropzoneImagen/DropzoneImagen.jsx';
 import { ModalConfirmacion } from '../ModalConfirmacion/ModalConfirmacion.jsx';
 import { TablaRegistros } from '../TablaRegistros/TablaRegistros.jsx';
 import { BarraAcciones } from '../BarraAcciones/BarraAcciones.jsx';
 import classes from './CrudCatalogo.module.css';
+
+const identityFilter = (records) => records;
+const EMPTY_FILTERS = [];
+const EMPTY_QUERY = {};
 
 function Field({ campo, value, options, error, onChange, form }) {
     const tipo = typeof campo.type === 'function' ? campo.type(form) : campo.type;
@@ -62,15 +75,18 @@ function Field({ campo, value, options, error, onChange, form }) {
     if (tipo === 'file' || tipo === 'image') {
         const handleFileChange = (file) => {
             if (!file) {
-                onChange('');
+                onChange(null);
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                onChange(e.target?.result ?? '');
-            };
-            reader.readAsDataURL(file);
+            onChange(file);
         };
+
+        const previewSrc =
+            value instanceof File
+                ? URL.createObjectURL(value)
+                : typeof value === 'string' && value
+                    ? value
+                    : null;
 
         return (
             <Stack gap="xs">
@@ -81,12 +97,13 @@ function Field({ campo, value, options, error, onChange, form }) {
                     accept={campo.accept ?? 'image/*'}
                     leftSection={<IconUpload size={18} />}
                     clearable
+                    value={value instanceof File ? value : null}
                     onChange={handleFileChange}
                 />
-                {value ? (
+                {previewSrc ? (
                     <Group gap="sm" align="center">
-                        <Avatar src={value} size="lg" radius="md" />
-                        <Button variant="subtle" color="red" size="xs" onClick={() => onChange('')}>
+                        <Avatar src={previewSrc} size="lg" radius="md" />
+                        <Button variant="subtle" color="red" size="xs" onClick={() => onChange(null)}>
                             Quitar imagen
                         </Button>
                     </Group>
@@ -100,7 +117,19 @@ function Field({ campo, value, options, error, onChange, form }) {
     }
 
     if (tipo === 'select') {
-        return <NativeSelect {...common} data={[{ value: '', label: campo.placeholder ?? `Selecciona ${campo.label.toLowerCase()}` }, ...(options ?? campo.options ?? [])]} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
+        const optionsForForm = options ?? campo.options ?? [];
+        const filteredOptions = campo.filterOptions
+            ? optionsForForm.filter((option) => campo.filterOptions(option, form))
+            : optionsForForm;
+        const data = [
+            { value: '', label: campo.placeholder ?? `Selecciona ${campo.label.toLowerCase()}` },
+            ...filteredOptions.map(({ value: optionValue, label, disabled }) => ({
+                value: optionValue,
+                label,
+                ...(disabled !== undefined && { disabled }),
+            })),
+        ];
+        return <NativeSelect {...common} data={data} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value)} />;
     }
 
     if (tipo === 'number') {
@@ -131,9 +160,27 @@ export function CrudCatalogo({
     renderForm,
     validateForm,
     formLayout = 'stack',
+    permitirAgregar = true,
     permitirEditar = true,
     permitirEliminar = true,
     renderAccionesFila,
+    filterRecords = identityFilter,
+    filters = EMPTY_FILTERS,
+    initialSortBy,
+    initialSortDirection,
+    modalFullScreen = true,
+    modalSize = 'lg',
+    formMode = 'modal',
+    drawerSize = 640,
+    headerVariant = 'classic',
+    tableHeaderVariant = 'classic',
+    pageSizeOptions,
+    tableMinWidth,
+    serverPagination,
+    createPersonalized = null,
+    updatePersonalized = null,
+    onCreateSuccess,
+    topContent,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -145,40 +192,105 @@ export function CrudCatalogo({
     const [pendingDelete, setPendingDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [fieldOptions, setFieldOptions] = useState({});
+    const [loadedFilterOptions, setLoadedFilterOptions] = useState({});
+    const [serverTotal, setServerTotal] = useState(0);
 
     const fieldsWithLoader = useMemo(() => campos.filter((campo) => campo.loadOptions), [campos]);
 
-    const fetchData = async () => {
+    const serverQuery = serverPagination?.query ?? EMPTY_QUERY;
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await servicio.obtenerTodos();
+            const response = await servicio.obtenerTodos(serverPagination
+                ? {
+                    ...serverQuery,
+                    pagina: serverPagination.page,
+                    limite: serverPagination.pageSize,
+                }
+                : undefined);
             if (response.responseFlag !== 0) throw new Error(response.message);
-            setRecords(response.data ?? []);
+            if (serverPagination) {
+                const resultado = response.data;
+                if (
+                    !Array.isArray(resultado?.registros) ||
+                    resultado.total === null ||
+                    resultado.total === undefined ||
+                    !Number.isSafeInteger(Number(resultado.total))
+                ) {
+                    throw new Error('El servidor devolvió un historial paginado no válido.');
+                }
+                const total = Number(resultado.total);
+                const paginas = Math.max(1, Math.ceil(total / serverPagination.pageSize));
+                if (serverPagination.page > paginas) {
+                    serverPagination.onPageChange(paginas);
+                    return;
+                }
+                setRecords(resultado.registros);
+                setServerTotal(total);
+            } else {
+                setRecords(response.data ?? []);
+            }
             setError(null);
         } catch (err) {
             setError(err.message || `Error al cargar ${titulo.toLowerCase()}`);
             setRecords([]);
+            if (serverPagination) setServerTotal(0);
         } finally {
             setLoading(false);
         }
-    };
+    }, [servicio, serverPagination, serverQuery, titulo]);
 
-    const fetchOptions = async () => {
+    const fetchOptions = useCallback(async () => {
         const loaded = await Promise.all(fieldsWithLoader.map(async (campo) => {
             try {
                 return [campo.key, await campo.loadOptions()];
-            } catch {
+            } catch (err) {
+                notifications.show({
+                    title: `No se pudo cargar ${campo.label.toLowerCase()}`,
+                    message: err.message || `Error al cargar las opciones de ${campo.label.toLowerCase()}.`,
+                    color: 'red',
+                });
                 return [campo.key, []];
             }
         }));
         setFieldOptions(Object.fromEntries(loaded));
-    };
+    }, [fieldsWithLoader]);
 
     useEffect(() => {
         fetchData();
         fetchOptions();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchData, fetchOptions]);
+
+    useEffect(() => {
+        let activo = true;
+        const cargarOpcionesFiltros = async () => {
+            const filtrosConCarga = filters.filter((filtro) => filtro.loadOptions);
+            if (filtrosConCarga.length === 0) {
+                setLoadedFilterOptions({});
+                return;
+            }
+
+            const opciones = await Promise.all(filtrosConCarga.map(async (filtro) => {
+                try {
+                    return [filtro.key, await filtro.loadOptions()];
+                } catch (err) {
+                    notifications.show({
+                        title: `No se pudo cargar ${filtro.label.toLowerCase()}`,
+                        message: err.message || `Error al cargar opciones para el filtro ${filtro.label.toLowerCase()}.`,
+                        color: 'red',
+                    });
+                    return [filtro.key, []];
+                }
+            }));
+
+            if (activo) setLoadedFilterOptions(Object.fromEntries(opciones));
+        };
+
+        cargarOpcionesFiltros();
+        return () => {
+            activo = false;
+        };
+    }, [filters]);
 
     const resetForm = () => {
         setForm(valoresIniciales);
@@ -187,31 +299,45 @@ export function CrudCatalogo({
     };
 
     const openCreate = () => {
+
         resetForm();
+
         setModalOpen(true);
     };
 
-    const openEdit = (record) => {
+    const openEdit = useCallback((record) => {
         setEditingId(record.id);
         setForm(mapRecordToForm(records.find((item) => item.id === record.id) ?? record));
         setErrors({});
         setModalOpen(true);
-    };
+    }, [mapRecordToForm, records]);
 
     const updateField = (key, value) => {
-        setForm((previous) => ({ ...previous, [key]: value }));
-        setErrors((previous) => ({ ...previous, [key]: null }));
+        const dependentFields = campos.filter((campo) => campo.dependsOn === key);
+        setForm((previous) => ({
+            ...previous,
+            [key]: value,
+            ...Object.fromEntries(dependentFields.map((campo) => [campo.key, ''])),
+        }));
+        setErrors((previous) => ({
+            ...previous,
+            [key]: null,
+            ...Object.fromEntries(dependentFields.map((campo) => [campo.key, null])),
+        }));
     };
 
     const save = async () => {
+
         const nextErrors = {};
+
         for (const campo of campos) {
             const value = form[campo.key];
+            
             if (campo.required && (value === undefined || value === null || String(value).trim() === '')) {
                 nextErrors[campo.key] = `${campo.label} es requerido`;
                 continue;
             }
-            if (value !== undefined && value !== null && value !== '') {
+            if (value !== undefined && value !== null && value !== '' && !(value instanceof File)) {
                 if (campo.maxLength && String(value).length > campo.maxLength) {
                     nextErrors[campo.key] = `${campo.label} no puede exceder ${campo.maxLength} caracteres`;
                 }
@@ -226,20 +352,47 @@ export function CrudCatalogo({
                 }
             }
         }
-        Object.assign(nextErrors, validateForm?.(form) ?? {});
+
+        const customErrors = (await validateForm?.(form, { editingId, fieldOptions })) ?? {};
+
+        Object.assign(nextErrors, customErrors);
+
         if (Object.keys(nextErrors).length) {
             setErrors(nextErrors);
-            notifications.show({ title: 'Formulario incompleto', message: 'Revisa los campos marcados.', color: 'red' });
+
+            const errorList = Object.values(nextErrors).filter(Boolean);
+            const msg = errorList.length === 1 ? errorList[0] : errorList.join(' — ');
+            notifications.show({ title: 'Formulario incompleto', message: msg, color: 'red', autoClose: 7000 });
             return;
         }
 
         try {
             setLoading(true);
+
             const payload = mapFormToPayload(form);
-            const response = editingId ? await servicio.actualizar(editingId, payload) : await servicio.crear(payload);
+            const callback = editingId ? updatePersonalized : createPersonalized
+
+            if (typeof callback === 'function'){
+                await callback ({
+                    form, 
+                    payload,
+                    editingId,
+                });
+                setModalOpen(false);
+                return;
+            }
+            
+            const response = editingId
+                ? await servicio.actualizar(editingId, payload)
+                : await servicio.crear(payload);
             if (response.responseFlag !== 0) throw new Error(response.message);
+
+            if (response.responseFlag !== 0) throw new Error(response.message);
+            
             notifications.show({ title: editingId ? 'Actualizado' : 'Agregado', message: `${singular} guardado correctamente.`, color: 'green' });
+
             await fetchData();
+            if (!editingId) onCreateSuccess?.(response.data);
             setModalOpen(false);
             resetForm();
         } catch (err) {
@@ -265,7 +418,46 @@ export function CrudCatalogo({
         }
     };
 
-    const tableData = useMemo(() => records.map(mapRecordToRow), [records, mapRecordToRow]);
+    const tableData = useMemo(() => filterRecords(records).map((record) => {
+        const row = mapRecordToRow(record);
+        return {
+            ...row,
+            _recordOriginal: record,
+        };
+    }), [records, mapRecordToRow, filterRecords]);
+
+    const filtrosTabla = useMemo(() => filters.map((filtro) => {
+        const opcionesPorRegistro = filtro.optionsFromRecords?.(records) ?? [];
+        const opciones = [
+            ...(filtro.options ?? []),
+            ...(loadedFilterOptions[filtro.key] ?? []),
+            ...opcionesPorRegistro,
+        ];
+        const opcionesUnicas = [...new Map(
+            opciones.map((opcion) => [String(opcion.value), opcion])
+        ).values()];
+        return { ...filtro, options: opcionesUnicas };
+    }), [filters, records, loadedFilterOptions]);
+
+    const handleRenderAcciones = useMemo(() => {
+        if (!renderAccionesFila) return undefined;
+        return (fila) => {
+            const recordOriginal = fila?._recordOriginal ?? records.find((r) => r.id === fila?.id) ?? fila;
+            const helpers = {
+                reload: () => Promise.all([fetchData(), fetchOptions()]),
+                openEdit: (rec = recordOriginal) => openEdit(rec),
+                setPendingDelete: (rec = recordOriginal) => setPendingDelete(rec),
+                deleteRecord: (rec = recordOriginal) => setPendingDelete(rec),
+            };
+
+            const segundoArg = {
+                ...recordOriginal,
+                ...helpers,
+            };
+
+            return renderAccionesFila(fila, segundoArg, helpers);
+        };
+    }, [renderAccionesFila, records, fetchData, fetchOptions, openEdit]);
 
     const leftFields = useMemo(() => campos.filter((c) => c.side !== 'right'), [campos]);
     const rightFields = useMemo(() => campos.filter((c) => c.side === 'right'), [campos]);
@@ -277,62 +469,254 @@ export function CrudCatalogo({
                 onClose={() => !deleting && setPendingDelete(null)}
                 onConfirm={confirmDelete}
                 loading={deleting}
-                title="Confirmar eliminación"
-                message={`¿Deseas eliminar el registro de ${pendingDelete?.nombre ?? pendingDelete?.clave ?? singular.toLowerCase()}? Esta acción no se puede deshacer.`}
+                title="Eliminar estado de cliente"
+                message={`¿Deseas eliminar el registro de '${pendingDelete?.nombreTexto ??
+                    (typeof pendingDelete?.nombre === 'string'
+                        ? pendingDelete.nombre
+                        : null) ??
+                    pendingDelete?.clave ??
+                    singular.toLowerCase()
+                    }'? Esta acción no se puede deshacer.`}
             />
 
-            <Modal
-                opened={modalOpen}
-                onClose={() => !loading && setModalOpen(false)}
-                title={
-                    <Group gap="sm">
-                        {IconoHeader && <IconoHeader size={22} stroke={1.8} />}
-                        <Title order={4} className={classes.modalTitle}>
-                            {editingId ? `Editar ${singular.toLowerCase()}` : `Agregar ${singular.toLowerCase()}`}
-                        </Title>
-                    </Group>
-                }
-                fullScreen
-                radius={0}
-                zIndex={999999}
-                transitionProps={{ transition: 'slide-up', duration: 200 }}
-            >
-                <Stack maw={renderForm ? 1200 : formLayout === 'columns' ? 980 : 780} mx="auto" mt="md" gap="md" className={classes.form}>
-                    {renderForm ? (
-                        renderForm({ form, errors, onChange: updateField, fieldOptions })
-                    ) : formLayout === 'columns' ? (
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
-                            <Stack gap="xs">
-                                {leftFields.map((campo) => (
-                                    <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
-                                ))}
-                            </Stack>
-                            <Stack gap="xs">
-                                {rightFields.map((campo) => (
+            {formMode === 'drawer' ? (
+                <Drawer
+                    opened={modalOpen}
+                    onClose={() => !loading && setModalOpen(false)}
+                    position="right"
+                    size={drawerSize}
+                    title={
+                        <Group gap="sm">
+                            {
+                                IconoHeader &&
+                                <>
+                                    <IconoHeader
+                                        size={32}
+                                        stroke={1.8}
+                                        color="var(--ag-color-secondary)"
+                                    />
+                                    <Divider orientation="vertical" color="secondary.9" size="2" />
+                                </>
+                            }
+                            <div>
+                                <Title order={4} fw={700} c="#1E293B">
+                                    {editingId
+                                        ? `Editar ${singular.toLowerCase()}`
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Nueva ${singular.toLowerCase()}`
+                                            : `Nuevo ${singular.toLowerCase()}`}
+                                </Title>
+                                <Text size="xs" c="dimmed">
+                                    {editingId
+                                        ? ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Modifica los datos de la ${singular.toLowerCase()} y guarda los cambios.`
+                                            : `Modifica los datos del ${singular.toLowerCase()} y guarda los cambios.`
+                                        : ['caja', 'membresía', 'área de trabajo', 'configuración', 'apertura'].some((w) => singular.toLowerCase().includes(w))
+                                            ? `Completa los campos para registrar una nueva ${singular.toLowerCase()}.`
+                                            : `Completa los campos para registrar un nuevo ${singular.toLowerCase()}.`}
+                                </Text>
+                            </div>
+                        </Group>
+                    }
+                    overlayProps={{ backgroundOpacity: 0.35, blur: 2 }}
+                    zIndex={999999}
+                    styles={{
+                        content: {
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflowY: 'auto',
+                        },
+                        header: {
+                            borderBottom: '1px solid #E2E8F0',
+                            paddingBottom: 16,
+                            marginBottom: 0,
+                        },
+                        body: {
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            padding: '20px 24px 0 24px',
+                        },
+                    }}
+                >
+                    <div style={{ flex: 1, paddingBottom: 20 }}>
+                        {renderForm ? (
+                            renderForm({ form, errors, onChange: updateField, fieldOptions })
+                        ) : formLayout === 'columns' ? (
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
+                                <Stack gap="xs">
+                                    {leftFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                </Stack>
+                                <Stack gap="xs">
+                                    {rightFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                    {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                                </Stack>
+                            </SimpleGrid>
+                        ) : (
+                            <Stack gap="md">
+                                {campos.map((campo) => (
                                     <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
                                 ))}
                                 {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
                             </Stack>
-                        </SimpleGrid>
-                    ) : (
-                        <Stack gap="md">
-                            {campos.map((campo) => (
-                                <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
-                            ))}
-                            {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
-                        </Stack>
-                    )}
-                    <Group grow mt="sm">
-                        <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading}>Cancelar</Button>
-                        <Button onClick={save} loading={loading}>{editingId ? 'Actualizar' : 'Guardar'}</Button>
+                        )}
+                    </div>
+                    <Group
+                        justify="flex-end"
+                        gap="sm"
+                        py="md"
+                        style={{
+                            borderTop: '1px solid #E2E8F0',
+                            backgroundColor: 'var(--ag-color-surface-elevated, #ffffff)',
+                            position: 'sticky',
+                            bottom: 0,
+                            zIndex: 10,
+                            marginTop: 'auto',
+                        }}
+                    >
+                        <Button
+                            variant="default"
+                            onClick={() => setModalOpen(false)}
+                            disabled={loading}
+                            radius="md"
+                            leftSection={<IconX size={16} />}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            color="apex"
+                            onClick={save}
+                            loading={loading}
+                            radius="md"
+                            styles={{ label: { color: '#ffffff', fontWeight: 600 } }}
+                            leftSection={<IconDeviceFloppy size={16} />}
+                        >
+                            {editingId ? 'Actualizar' : 'Guardar'}
+                        </Button>
                     </Group>
-                </Stack>
-            </Modal>
+                </Drawer>
+            ) : (
+                <Modal
+                    opened={modalOpen}
+                    onClose={() => !loading && setModalOpen(false)}
+                    title={
+                        <Group gap="sm">
+                            {IconoHeader && <IconoHeader size={22} stroke={1.8} />}
+                            <Title order={4} className={classes.modalTitle}>
+                                {editingId ? `Editar ${singular.toLowerCase()}` : `Agregar ${singular.toLowerCase()}`}
+                            </Title>
+                        </Group>
+                    }
+                    fullScreen={modalFullScreen}
+                    size={modalFullScreen ? undefined : modalSize}
+                    centered={!modalFullScreen}
+                    radius={modalFullScreen ? 0 : 'md'}
+                    zIndex={999999}
+                    transitionProps={{ transition: 'slide-up', duration: 200 }}
+                >
+                    <Stack maw={modalFullScreen ? (renderForm ? 1200 : formLayout === 'columns' ? 980 : 780) : '100%'} mx="auto" mt={modalFullScreen ? 'md' : 'xs'} gap="md" className={classes.form}>
+                        {renderForm ? (
+                            renderForm({ form, errors, onChange: updateField, fieldOptions })
+                        ) : formLayout === 'columns' ? (
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" verticalSpacing="xs">
+                                <Stack gap="xs">
+                                    {leftFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                </Stack>
+                                <Stack gap="xs">
+                                    {rightFields.map((campo) => (
+                                        <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                    ))}
+                                    {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                                </Stack>
+                            </SimpleGrid>
+                        ) : (
+                            <Stack gap="md">
+                                {campos.map((campo) => (
+                                    <Field key={campo.key} campo={campo} form={form} value={form[campo.key]} options={fieldOptions[campo.key]} error={errors[campo.key]} onChange={(value) => updateField(campo.key, value)} />
+                                ))}
+                                {renderFormExtra && renderFormExtra({ form, errors, onChange: updateField })}
+                            </Stack>
+                        )}
+                        <Group grow mt="sm">
+                            <Button variant="default" onClick={() => setModalOpen(false)} disabled={loading}>Cancelar</Button>
+                            <Button onClick={save} loading={loading}>{editingId ? 'Actualizar' : 'Guardar'}</Button>
+                        </Group>
+                    </Stack>
+                </Modal>
+            )}
 
             <div className={classes.layout}>
-                <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} />
+                {headerVariant === 'unified' ? (
+                    <div className={classes.unifiedHeader}>
+                        <Group gap="sm" align="center">
+                            {IconoHeader && (
+                                <>
+                                    <IconoHeader
+                                        size={38}
+                                        stroke={1.8}
+                                        color="var(--mantine-color-secondary-6)"
+                                    />
+                                    <Divider orientation="vertical" color="secondary.9" size="2" />
+                                </>
+                            )}
+                            <Title order={2} className={classes.unifiedTitle}>
+                                {titulo}
+                            </Title>
+                        </Group>
+                        {permitirAgregar && (
+                            <ActionIcon
+                                className={classes.addButtonUnified}
+                                onClick={openCreate}
+                                aria-label={`Agregar ${singular.toLowerCase()}`}
+                                size={42}
+                                radius="xl"
+                                color="apex"
+                                variant="filled"
+                            >
+                                <IconPlus size={20} stroke={2.5} />
+                            </ActionIcon>
+                        )}
+                    </div>
+                ) : (
+                    <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />
+                )}
                 {error && <div className={classes.error}>{error}</div>}
-                {loading && records.length === 0 ? <div className={classes.loading}>Cargando {titulo.toLowerCase()}…</div> : <TablaRegistros data={tableData} columns={columnas} onEditar={openEdit} onEliminar={setPendingDelete} renderAcciones={renderAccionesFila} entityLabel={singular.toLowerCase()} loading={loading} onReload={() => { fetchData(); fetchOptions(); }} />}</div>
+                {topContent}
+                <TablaRegistros
+                        data={tableData}
+                        columns={columnas}
+                        onEditar={permitirEditar ? openEdit : undefined}
+                        onEliminar={permitirEliminar ? setPendingDelete : undefined}
+                        renderAcciones={handleRenderAcciones}
+                        entityLabel={singular.toLowerCase()}
+                        loading={loading}
+                        onReload={() => {
+                            fetchData();
+                            fetchOptions();
+                        }}
+                        initialSortBy={initialSortBy}
+                        initialSortDirection={initialSortDirection}
+                        headerVariant={tableHeaderVariant}
+                        pageSizeOptions={pageSizeOptions}
+                        filters={filtrosTabla}
+                        tableMinWidth={tableMinWidth}
+                        serverPagination={serverPagination ? {
+                            page: serverPagination.page,
+                            pageSize: serverPagination.pageSize,
+                            total: serverTotal,
+                            onPageChange: serverPagination.onPageChange,
+                            onPageSizeChange: serverPagination.onPageSizeChange,
+                            onFiltersChange: serverPagination.onFiltersChange,
+                            onSearchChange: serverPagination.onSearchChange,
+                        } : undefined}
+                />
+            </div>
         </>
     );
 }

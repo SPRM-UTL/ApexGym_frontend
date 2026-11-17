@@ -7,9 +7,13 @@
 }
 
 .submitButton {
-    background-color: var(--ag-color-primary);
-}
+    background-color: var(--ag-color-primary) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    transition: background-color 150ms ease;
 
-.submitButton:hover {
-    background-color: #e55f00;
+    &:hover {
+        background-color: #d95800 !important;
+        transform: none !important;
+    }
 }
