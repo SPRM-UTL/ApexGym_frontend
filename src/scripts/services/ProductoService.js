@@ -53,6 +53,22 @@ export class ProductoService {
         }
     }
 
+    async obtenerDisponiblesParaVenta(sucursalId) {
+        try {
+            const response = await httpClient.get(`${this.urlApi}/venta/disponibles`, {
+                headers: { 'x-sucursal-id': String(sucursalId) },
+            });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener productos disponibles para venta',
+                error.response?.status || 500
+            );
+        }
+    }
+
     // Alias para compatibilidad si se llama obtenerTodas
     async obtenerTodas() {
         return this.obtenerTodos();

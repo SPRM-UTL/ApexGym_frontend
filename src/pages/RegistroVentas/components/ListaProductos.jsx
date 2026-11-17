@@ -32,12 +32,7 @@ export function ListaProductos({
                     </div>
                 ) : productos.length > 0 ? (
                     <SimpleGrid
-                        cols={{
-                            base: 1,
-                            sm: 2,
-                            md: 3,
-                            lg: 5,
-                        }}
+                        className={classes.productosGrid}
                         spacing="md"
                         pr="sm"
                     >

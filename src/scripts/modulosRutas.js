@@ -6,7 +6,6 @@ const RUTAS_POR_MODULO = {
     'Configuración del Sistema': '/configuracion-sistema',
     'Administración de roles': '/administracion-roles',
     'Ventas': '/ventas',
-    'Registro de Ventas': '/ventas',
     Cajas: '/cajas',
     'Áreas de Trabajo': '/areas-trabajo',
     Puestos: '/puestos',
@@ -27,7 +26,6 @@ const RUTAS_POR_MODULO = {
     'Pagos': '/pagos-experimentacion',
     'Simulador de Pagos': '/pagos-experimentacion',
     'Accesos y Visitas': '/accesos-y-visitas',
-    'Registro de ventas': '/ventas'
 };
 
 /**

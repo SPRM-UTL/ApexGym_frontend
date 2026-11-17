@@ -90,6 +90,7 @@ export function TablaRegistros({
     headerVariant = 'classic',
     filters = [],
     serverPagination,
+    tableMinWidth,
     title,
     icon,
     onAdd,
@@ -116,6 +117,7 @@ export function TablaRegistros({
                     headerVariant={headerVariant}
                     filters={filters}
                     serverPagination={serverPagination}
+                    tableMinWidth={tableMinWidth}
                 />
             )}
         </div>

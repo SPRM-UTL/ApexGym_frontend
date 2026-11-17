@@ -8,9 +8,11 @@ export class VentaService {
         this.urlApi = `${urlBase}/api/ventas`;
     }
 
-async crearVenta(datosVenta) {
+async crearVenta(datosVenta, sucursalId) {
     try {
-        const response = await httpClient.post(`${this.urlApi}/`, datosVenta);
+        const response = await httpClient.post(`${this.urlApi}/`, datosVenta, {
+            headers: { 'x-sucursal-id': String(sucursalId) },
+        });
         return response.data;
     } catch (error) {
         const respuestaError = error.response?.data;

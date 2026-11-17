@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 export function useTicketVenta(estadoInicial = {}) {
     const [listaProductos, setListaProductos] = useState(estadoInicial.listaProductos ?? []);
@@ -72,6 +72,16 @@ export function useTicketVenta(estadoInicial = {}) {
         setListaProductos([]);
     };
 
+    const filtrarArticulosDisponibles = useCallback((disponiblesPorTipo) => {
+        const conservarDisponibles = (lista) => lista.filter((item) => (
+            disponiblesPorTipo[item.tipoItem]?.has(String(item.id))
+        ));
+
+        setListaProductos(conservarDisponibles);
+        setCaja1(conservarDisponibles);
+        setCaja2(conservarDisponibles);
+    }, []);
+
     return {
         listaProductos,
         listaCaja1,
@@ -85,5 +95,6 @@ export function useTicketVenta(estadoInicial = {}) {
         eliminarProducto,
         eliminarTicket,
         limpiarTickets,
+        filtrarArticulosDisponibles,
     };
 }

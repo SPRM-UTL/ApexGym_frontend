@@ -175,6 +175,7 @@ export function CrudCatalogo({
     headerVariant = 'classic',
     tableHeaderVariant = 'classic',
     pageSizeOptions,
+    tableMinWidth,
     serverPagination,
     createPersonalized = null,
     updatePersonalized = null,
@@ -704,6 +705,7 @@ export function CrudCatalogo({
                         headerVariant={tableHeaderVariant}
                         pageSizeOptions={pageSizeOptions}
                         filters={filtrosTabla}
+                        tableMinWidth={tableMinWidth}
                         serverPagination={serverPagination ? {
                             page: serverPagination.page,
                             pageSize: serverPagination.pageSize,

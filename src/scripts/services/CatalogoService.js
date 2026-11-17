@@ -12,11 +12,16 @@ export class CatalogoService {
             const response = await peticion();
             return response.data;
         } catch (error) {
+            const respuestaError = error?.response?.data || null;
+            const mensajeError = respuestaError?.message
+                || (!error?.response && error?.message)
+                || mensaje;
+
             throw new ResponseModel(
-                error.response?.data || null,
+                respuestaError || null,
                 1,
-                error.response?.data?.message || mensaje,
-                error.response?.status || 500
+                mensajeError,
+                error?.response?.status || 500
             );
         }
     }

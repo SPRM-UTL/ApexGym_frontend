@@ -275,6 +275,7 @@ export function TableSort({
     headerVariant = 'classic',
     filters: configuredFilters = EMPTY_CONFIGURED_FILTERS,
     serverPagination,
+    tableMinWidth,
 }) {
     const isNeutral = headerVariant === 'neutral';
     const columns = useMemo(() => {
@@ -772,7 +773,13 @@ export function TableSort({
                 </div>
             )}
             <ScrollArea className={classes.scroll}>
-                <Table className={classes.table} horizontalSpacing="md" verticalSpacing={0} striped={false}>
+                <Table
+                    className={classes.table}
+                    style={tableMinWidth ? { minWidth: tableMinWidth } : undefined}
+                    horizontalSpacing="md"
+                    verticalSpacing={0}
+                    striped={false}
+                >
                     <Table.Thead>
                         <Table.Tr>
                             {enableSelection && (

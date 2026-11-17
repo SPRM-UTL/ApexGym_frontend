@@ -102,6 +102,7 @@ export function Nueva() {
         eliminarProducto,
         eliminarTicket,
         limpiarTickets,
+        filtrarArticulosDisponibles,
     } = useTicketVenta(ventaPendiente ?? {});
     const [tabCatalogo, setTabCatalogo] = useState('productos');
     const [busquedaCatalogo, setBusquedaCatalogo] = useState('');
@@ -120,6 +121,10 @@ export function Nueva() {
         productos,
         servicios,
         membresias,
+        catalogosDisponibles,
+        sucursalId,
+        catalogosSucursalId,
+        recargarCatalogosVenta,
         totalCatalogo,
         totalPaginasCatalogo,
         cargandoCatalogo,
@@ -155,6 +160,21 @@ export function Nueva() {
     useEffect(() => {
         triggerUpdate(listaProductos);
     }, [listaProductos]);
+
+    useEffect(() => {
+        if (!sucursalId || catalogosSucursalId !== sucursalId) return;
+
+        filtrarArticulosDisponibles({
+            PRODUCTO: new Set(catalogosDisponibles.productos.map((item) => String(item.id))),
+            SERVICIO: new Set(catalogosDisponibles.servicios.map((item) => String(item.id))),
+            MEMBRESIA: new Set(catalogosDisponibles.membresias.map((item) => String(item.id))),
+        });
+    }, [
+        sucursalId,
+        catalogosSucursalId,
+        catalogosDisponibles,
+        filtrarArticulosDisponibles,
+    ]);
 
     useEffect(() => {
         const actualizarHora = () => {
@@ -218,6 +238,20 @@ export function Nueva() {
     };
 
     const confirmarCobro = async () => {
+        if (!sucursalId) {
+            notifications.show({
+                color: 'red',
+                message: 'La apertura seleccionada no tiene una sucursal asignada. Regresa y selecciona una caja asociada a una sucursal.',
+            });
+            return;
+        }
+        if (catalogosSucursalId !== sucursalId) {
+            notifications.show({
+                color: 'red',
+                message: 'No se pudieron validar los artículos de esta sucursal. Recarga los catálogos antes de continuar.',
+            });
+            return;
+        }
         if (!asignacionValida || !empleadoId || !aperturaCajaId) {
             notifications.show({
                 color: 'red',
@@ -273,7 +307,7 @@ export function Nueva() {
             subtotal,
             total,
             detalleVenta
-        });
+        }, sucursalId);
         limpiarVentaPendiente();
 
         const registro = obtenerVenta(respuesta) ?? {};
@@ -351,10 +385,17 @@ export function Nueva() {
             return;
         }
 
+        const mensajeError = error.message || 'No se pudo crear la venta.';
         notifications.show({
             color: 'red',
-            message: error.message || 'No se pudo crear la venta.',
+            message: mensajeError,
         });
+        if (
+            error.statusCode === 400
+            && /producto|servicio|membres[ií]a|disponible|inactiv[oa]/i.test(mensajeError)
+        ) {
+            await recargarCatalogosVenta();
+        }
     } finally {
         setCobrando(false);
     }
@@ -430,58 +471,60 @@ export function Nueva() {
                                         Membresias
                                     </Tabs.Tab>
                                 </Tabs.List>
-                                <TextInput
-                                    aria-label={tabCatalogo === 'productos'
-                                        ? 'Buscar productos por nombre o código de barras'
-                                        : `Buscar ${tabCatalogo} por nombre`}
-                                    className={classes.busquedaCatalogo}
-                                    placeholder={tabCatalogo === 'productos'
-                                        ? 'Buscar por nombre o código de barras...'
-                                        : 'Buscar por nombre...'}
-                                    leftSection={<IconSearch size={17} />}
-                                    value={busquedaCatalogo}
-                                    onChange={(event) => {
-                                        setBusquedaCatalogo(event.currentTarget.value);
-                                        setPaginaCatalogo(1);
-                                    }}
-                                />
-                                <div className={classes.filtrosCatalogo}>
-                                <Select
-                                    aria-label="Ordenar catálogo"
-                                    className={classes.filtroCatalogo}
-                                    placeholder="Ordenar por"
-                                    data={[
-                                        { value: 'nombre-asc', label: 'Nombre: A-Z' },
-                                        { value: 'nombre-desc', label: 'Nombre: Z-A' },
-                                        { value: 'precio-asc', label: 'Precio: menor a mayor' },
-                                        { value: 'precio-desc', label: 'Precio: mayor a menor' },
-                                    ]}
-                                    value={ordenCatalogo}
-                                    onChange={(value) => {
-                                        setOrdenCatalogo(value);
-                                        setPaginaCatalogo(1);
-                                    }}
-                                    comboboxProps={{ zIndex: 1100 }}
-                                    clearable
-                                />
-                                    {tabCatalogo === 'productos' && (
-                                    <Select
-                                        aria-label="Filtrar por categoría"
-                                        className={classes.filtroCatalogo}
-                                        placeholder="Todas las categorías"
-                                        comboboxProps={{ zIndex: 1100 }}
-                                        clearable
-                                        value={categoriaSeleccionada}
-                                        onChange={(value) => {
-                                            setCategoriaSeleccionada(value);
+                                <div className={classes.catalogoFiltrosToolbar}>
+                                    <TextInput
+                                        aria-label={tabCatalogo === 'productos'
+                                            ? 'Buscar productos por nombre o código de barras'
+                                            : `Buscar ${tabCatalogo} por nombre`}
+                                        className={classes.busquedaCatalogo}
+                                        placeholder={tabCatalogo === 'productos'
+                                            ? 'Buscar por nombre o código de barras...'
+                                            : 'Buscar por nombre...'}
+                                        leftSection={<IconSearch size={17} />}
+                                        value={busquedaCatalogo}
+                                        onChange={(event) => {
+                                            setBusquedaCatalogo(event.currentTarget.value);
                                             setPaginaCatalogo(1);
                                         }}
-                                        data={categorias.map((categoria) => ({
-                                            value: String(categoria.id),
-                                            label: categoria.nombre,
-                                        }))}
                                     />
-                                    )}
+                                    <div className={classes.filtrosCatalogo}>
+                                        <Select
+                                            aria-label="Ordenar catálogo"
+                                            className={classes.filtroCatalogo}
+                                            placeholder="Ordenar por"
+                                            data={[
+                                                { value: 'nombre-asc', label: 'Nombre: A-Z' },
+                                                { value: 'nombre-desc', label: 'Nombre: Z-A' },
+                                                { value: 'precio-asc', label: 'Precio: menor a mayor' },
+                                                { value: 'precio-desc', label: 'Precio: mayor a menor' },
+                                            ]}
+                                            value={ordenCatalogo}
+                                            onChange={(value) => {
+                                                setOrdenCatalogo(value);
+                                                setPaginaCatalogo(1);
+                                            }}
+                                            comboboxProps={{ zIndex: 1100 }}
+                                            clearable
+                                        />
+                                        {tabCatalogo === 'productos' && (
+                                            <Select
+                                                aria-label="Filtrar por categoría"
+                                                className={classes.filtroCatalogo}
+                                                placeholder="Todas las categorías"
+                                                comboboxProps={{ zIndex: 1100 }}
+                                                clearable
+                                                value={categoriaSeleccionada}
+                                                onChange={(value) => {
+                                                    setCategoriaSeleccionada(value);
+                                                    setPaginaCatalogo(1);
+                                                }}
+                                                data={categorias.map((categoria) => ({
+                                                    value: String(categoria.id),
+                                                    label: categoria.nombre,
+                                                }))}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 

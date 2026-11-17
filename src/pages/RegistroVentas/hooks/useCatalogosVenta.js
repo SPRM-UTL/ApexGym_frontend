@@ -1,22 +1,54 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../../scripts/services/api.js';
 import {
     obtenerEmpleadoIdApertura,
 } from '../../../utils/ventaHelper/ventaHelpers.js';
-import { normalizar, obtenerLista, obtenerPagina } from '../utils/venta.utils.js';
+import {
+    normalizar,
+    normalizarTextoBusqueda,
+    obtenerLista,
+} from '../utils/venta.utils.js';
 
 const CATALOGOS = [
     ['Métodos de pago', () => api.metodosPago.obtenerActivos()],
     ['Categorías', () => api.categoriaProducto.obtenerParaVenta()],
 ];
 
-const CARGAR_CATALOGO = {
-    productos: (parametros) => api.producto.obtenerCatalogoPaginado(parametros),
-    servicios: (parametros) => api.servicio.obtenerCatalogoPaginado(parametros),
-    membresias: (parametros) => api.tipoMembresia.obtenerCatalogoPaginado(parametros),
-};
 const LIMITE_CATALOGO = 12;
+
+function filtrarCatalogo(registros, busqueda, categoriaId, orden) {
+    const termino = normalizarTextoBusqueda(busqueda);
+    const categoriaSeleccionada = categoriaId == null ? null : String(categoriaId);
+    const filtrados = registros.filter((registro) => {
+        const categoria = registro.categoria?.nombre
+            ?? (typeof registro.categoria === 'string' ? registro.categoria : '');
+        const textoRegistro = normalizarTextoBusqueda([
+            registro.nombre,
+            registro.codigoBarras,
+            categoria,
+        ].filter(Boolean).join(' '));
+        const categoriaRegistro = registro.categoriaProductoId
+            ?? registro.categoriaId
+            ?? registro.categoria?.id;
+
+        return (!termino || textoRegistro.includes(termino))
+            && (
+                categoriaSeleccionada === null
+                || String(categoriaRegistro ?? '') === categoriaSeleccionada
+            );
+    });
+
+    const [campo, direccion] = String(orden || 'nombre-asc').split('-');
+    filtrados.sort((a, b) => {
+        const comparacion = campo === 'precio'
+            ? Number(a.precio) - Number(b.precio)
+            : normalizarTextoBusqueda(a.nombre).localeCompare(normalizarTextoBusqueda(b.nombre), 'es');
+        return direccion === 'desc' ? -comparacion : comparacion;
+    });
+
+    return filtrados;
+}
 
 export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosCatalogo) {
     const {
@@ -29,14 +61,20 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
     } = filtrosCatalogo;
     const [metodosPago, setMetodosPago] = useState([]);
     const [categorias, setCategorias] = useState([]);
-    const [productos, setProductos] = useState([]);
-    const [servicios, setServicios] = useState([]);
-    const [membresias, setMembresias] = useState([]);
-    const [totalCatalogo, setTotalCatalogo] = useState(0);
+    const [productosDisponibles, setProductosDisponibles] = useState([]);
+    const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
+    const [membresiasDisponibles, setMembresiasDisponibles] = useState([]);
+    const [catalogosSucursalId, setCatalogosSucursalId] = useState(null);
     const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
     const [errorCatalogo, setErrorCatalogo] = useState('');
     const [aperturaAsignada, setAperturaAsignada] = useState(null);
     const [asignacionValida, setAsignacionValida] = useState(false);
+    const solicitudCatalogoRef = useRef(0);
+
+    const sucursalId = Number.isSafeInteger(Number(apertura?.sucursalId))
+        && Number(apertura?.sucursalId) > 0
+        ? String(Number(apertura.sucursalId))
+        : null;
 
     useEffect(() => {
         let cancelado = false;
@@ -85,6 +123,14 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
                 return;
             }
 
+            if (!sucursalId) {
+                notifications.show({
+                    color: 'red',
+                    message: 'La apertura seleccionada no tiene una sucursal asignada. Selecciona una apertura asociada a una sucursal.',
+                });
+                return;
+            }
+
             const nombreEmpleado = [
                 apertura.empleado?.nombre,
                 apertura.empleado?.apellidoPaterno,
@@ -101,89 +147,117 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
         return () => {
             cancelado = true;
         };
-    }, [empleadoId, aperturaCajaId, apertura]);
+    }, [empleadoId, aperturaCajaId, apertura, sucursalId]);
 
-    useEffect(() => {
-        let cancelado = false;
-        const cargarCatalogo = CARGAR_CATALOGO[tipoItem];
-
-        if (!cargarCatalogo) {
-            setCargandoCatalogo(false);
-            return undefined;
-        }
-
-        const termino = busqueda.trim();
-        const categoriaId = tipoItem === 'productos' && categoriaActual != null
-            ? Number(categoriaActual)
-            : null;
-        const parametros = {
-            q: termino,
-            pagina: paginaActual,
-            limite: LIMITE_CATALOGO,
-            orden: orden || 'nombre-asc',
-            ...(categoriaId !== null ? { categoriaId } : {}),
-        };
-
+    const recargarCatalogosVenta = useCallback(async () => {
+        const solicitud = ++solicitudCatalogoRef.current;
         setCargandoCatalogo(true);
         setErrorCatalogo('');
-        if (tipoItem === 'productos') setProductos([]);
-        if (tipoItem === 'servicios') setServicios([]);
-        if (tipoItem === 'membresias') setMembresias([]);
 
-        const timeout = setTimeout(async () => {
-            try {
-                const respuesta = await cargarCatalogo(parametros);
-                if (cancelado) return;
+        if (!sucursalId) {
+            setProductosDisponibles([]);
+            setServiciosDisponibles([]);
+            setMembresiasDisponibles([]);
+            setCatalogosSucursalId(null);
+            setErrorCatalogo('La apertura seleccionada no tiene una sucursal asignada.');
+            setCargandoCatalogo(false);
+            return false;
+        }
 
-                const pagina = obtenerPagina(respuesta);
-                const paginasTotales = Math.max(1, Math.ceil(pagina.total / LIMITE_CATALOGO));
-                if (paginaActual > paginasTotales) {
-                    onPaginaChange(paginasTotales);
-                    return;
-                }
+        try {
+            const [respuestaProductos, respuestaServicios, respuestaMembresias] = await Promise.all([
+                api.producto.obtenerDisponiblesParaVenta(sucursalId),
+                api.servicio.obtenerDisponiblesParaVenta(sucursalId),
+                api.tipoMembresia.obtenerDisponiblesParaVenta(sucursalId),
+            ]);
+            if (solicitud !== solicitudCatalogoRef.current) return false;
 
-                const registros = normalizar(pagina.registros);
-                if (tipoItem === 'productos') setProductos(registros);
-                if (tipoItem === 'servicios') setServicios(registros);
-                if (tipoItem === 'membresias') setMembresias(registros);
-                setTotalCatalogo(pagina.total);
-            } catch (error) {
-                if (cancelado) return;
-                setProductos([]);
-                setServicios([]);
-                setMembresias([]);
-                setTotalCatalogo(0);
-                setErrorCatalogo(error.message || 'No se pudo cargar el catálogo.');
-                notifications.show({
-                    color: 'red',
-                    message: error.message || 'No se pudo cargar el catálogo.',
-                });
-            } finally {
-                if (!cancelado) setCargandoCatalogo(false);
-            }
-        }, 300);
+            setProductosDisponibles(normalizar(obtenerLista(respuestaProductos)));
+            setServiciosDisponibles(normalizar(obtenerLista(respuestaServicios)));
+            setMembresiasDisponibles(normalizar(obtenerLista(respuestaMembresias)));
+            setCatalogosSucursalId(sucursalId);
+            return true;
+        } catch (error) {
+            if (solicitud !== solicitudCatalogoRef.current) return false;
 
+            setProductosDisponibles([]);
+            setServiciosDisponibles([]);
+            setMembresiasDisponibles([]);
+            setCatalogosSucursalId(null);
+            setErrorCatalogo(error.message || 'No se pudieron cargar los artículos disponibles para esta sucursal.');
+            notifications.show({
+                color: 'red',
+                message: error.message || 'No se pudieron cargar los artículos disponibles para esta sucursal.',
+            });
+            return false;
+        } finally {
+            if (solicitud === solicitudCatalogoRef.current) setCargandoCatalogo(false);
+        }
+    }, [sucursalId]);
+
+    useEffect(() => {
+        recargarCatalogosVenta();
         return () => {
-            cancelado = true;
-            clearTimeout(timeout);
+            solicitudCatalogoRef.current += 1;
         };
-    }, [
-        tipoItem,
-        busqueda,
-        paginaActual,
-        categoriaActual,
-        orden,
-        onPaginaChange,
-    ]);
+    }, [recargarCatalogosVenta]);
+
+    const catalogosDisponibles = useMemo(() => ({
+        productos: productosDisponibles,
+        servicios: serviciosDisponibles,
+        membresias: membresiasDisponibles,
+    }), [productosDisponibles, serviciosDisponibles, membresiasDisponibles]);
+
+    const registrosFiltrados = useMemo(
+        () => {
+            const registrosCatalogo = tipoItem === 'productos'
+                ? productosDisponibles
+                : tipoItem === 'servicios'
+                    ? serviciosDisponibles
+                    : tipoItem === 'membresias'
+                        ? membresiasDisponibles
+                        : [];
+            return filtrarCatalogo(
+                registrosCatalogo,
+                busqueda,
+                tipoItem === 'productos' ? categoriaActual : null,
+                orden
+            );
+        },
+        [
+            productosDisponibles,
+            serviciosDisponibles,
+            membresiasDisponibles,
+            busqueda,
+            categoriaActual,
+            tipoItem,
+            orden,
+        ]
+    );
+    const totalCatalogo = registrosFiltrados.length;
+    const totalPaginasCatalogo = Math.max(1, Math.ceil(totalCatalogo / LIMITE_CATALOGO));
+
+    useEffect(() => {
+        if (paginaActual > totalPaginasCatalogo) onPaginaChange(totalPaginasCatalogo);
+    }, [paginaActual, totalPaginasCatalogo, onPaginaChange]);
+
+    const registrosPagina = useMemo(
+        () => registrosFiltrados.slice((paginaActual - 1) * LIMITE_CATALOGO, paginaActual * LIMITE_CATALOGO),
+        [registrosFiltrados, paginaActual]
+    );
 
     return {
         metodosPago,
         categorias,
-        productos,
-        servicios,
-        membresias,
+        productos: tipoItem === 'productos' ? registrosPagina : [],
+        servicios: tipoItem === 'servicios' ? registrosPagina : [],
+        membresias: tipoItem === 'membresias' ? registrosPagina : [],
+        catalogosDisponibles,
+        sucursalId,
+        catalogosSucursalId,
+        recargarCatalogosVenta,
         totalCatalogo,
-        totalPaginasCatalogo: Math.max(1, Math.ceil(totalCatalogo / LIMITE_CATALOGO)),
+        totalPaginasCatalogo,
         cargandoCatalogo,
         errorCatalogo,
         aperturaAsignada,

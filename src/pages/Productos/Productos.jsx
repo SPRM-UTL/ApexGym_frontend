@@ -45,6 +45,7 @@ const CAMPOS = [
     { key: 'stockActual', label: 'Stock Actual', required: true, type: 'number', min: 0 },
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'estado', label: 'Estado', required: true },
     { key: 'disponibleCompra', label: 'Disponible' },
 ];
 
@@ -59,6 +60,7 @@ const INICIAL = {
     precioCompra: '',
     stockActual: '',
     stockMinimo: '',
+    estado: 'ACTIVO',
     disponibleCompra: true,
     imagenUrl: '',
     quitarImagen: false,
@@ -74,6 +76,7 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'precioCompraTexto', label: 'Precio Compra', sortable: true, filterable: false },
     { key: 'stockActual', label: 'Stock Actual', sortable: true, filterable: false },
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
+    { key: 'estadoBadge', label: 'Estado', sortable: true, filterable: false },
     { key: 'disponibleCompra', label: 'Disponible', sortable: true, filterable: false },
 ];
 
@@ -185,6 +188,18 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                             error={errors.categoriaProductoId}
                             onChange={(v) => onChange('categoriaProductoId', v)}
                         />
+                        <FSelect
+                            label="Estado"
+                            required
+                            placeholder="Selecciona un estado"
+                            options={[
+                                { value: 'ACTIVO', label: 'Activo' },
+                                { value: 'INACTIVO', label: 'Inactivo' },
+                            ]}
+                            value={form.estado}
+                            error={errors.estado}
+                            onChange={(v) => onChange('estado', v)}
+                        />
                     </SimpleGrid>
                     <FTextarea
                         label="Descripción"
@@ -274,6 +289,7 @@ export function Productos() {
         precioCompra: record.precioCompra ?? '',
         stockActual: record.stockActual ?? '',
         stockMinimo: record.stockMinimo ?? '',
+        estado: record.estado ?? 'ACTIVO',
         disponibleCompra: record.disponibleCompra,
         imagenUrl: record.imagenUrl ?? '',
         quitarImagen: false,
@@ -291,6 +307,7 @@ export function Productos() {
         precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
+        estado: form.estado || 'ACTIVO',
         disponibleCompra: form.disponibleCompra,
     });
 
@@ -306,6 +323,7 @@ export function Productos() {
         const stockActualNum = Number(record.stockActual ?? 0);
         const stockMinimoNum = Number(record.stockMinimo ?? 0);
         const disponible = record.disponibleCompra;
+        const estado = String(record.estado ?? 'ACTIVO').trim().toUpperCase();
         return {
             id: record.id,
             nombre: record.nombre ?? '',
@@ -327,6 +345,17 @@ export function Productos() {
                 </Badge>
             ),
             stockMinimo: stockMinimoNum,
+            estadoBadge: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={estado === 'ACTIVO' ? 'green' : estado === 'INACTIVO' ? 'red' : 'gray'}
+                    radius="sm"
+                    fw={700}
+                >
+                    {estado}
+                </Badge>
+            ),
             disponibleCompra: (<>
                 {disponible 
                     ? 
@@ -405,6 +434,7 @@ export function Productos() {
             drawerSize={580}
             headerVariant="unified"
             tableHeaderVariant="neutral"
+            tableMinWidth={1500}
         />
     );
 }
