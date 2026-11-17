@@ -692,7 +692,7 @@ export function SimuladorPagos() {
                                     variant="subtle"
                                     color="gray"
                                     size="xs"
-                                    onClick={() => navigate(`/movimientos-caja?aperturaId=${aperturaActiva.id}`)}
+                                    onClick={() => navigate(`/ventas-caja/movimientos-caja?aperturaId=${aperturaActiva.id}`)}
                                 >
                                     Ver Arqueo
                                 </Button>
@@ -716,7 +716,7 @@ export function SimuladorPagos() {
                             size="xs"
                             color="apex"
                             variant="filled"
-                            onClick={() => navigate('/apertura-caja')}
+                            onClick={() => navigate('/ventas-caja/apertura-caja')}
                             style={{ color: '#ffffff' }}
                         >
                             Abrir Caja
