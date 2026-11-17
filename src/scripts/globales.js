@@ -51,3 +51,21 @@ export const limpiarAlmacenamiento = () => {
     sessionStorage.clear();
     localStorage.clear();
 }
+
+export const prepararDatos = (datos) => {
+    const formData = new FormData();
+
+    for (const [campo, valor] of Object.entries(datos)) {
+        if (campo === 'imagen') {
+            if (typeof File !== 'undefined' && valor instanceof File) {
+                formData.append('imagen', valor);
+            }
+            continue;
+        }
+        if (valor === undefined) continue;
+
+        formData.append(campo, valor === null ? '' : String(valor));
+    }
+
+    return formData;
+}

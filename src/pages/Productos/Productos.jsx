@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import {useMemo} from 'react';
 import {
     ActionIcon,
     Badge,
@@ -14,12 +14,11 @@ import {
     IconPackage,
     IconTrash,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
+import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
@@ -80,37 +79,6 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'disponibleCompra', label: 'Disponible', sortable: true, filterable: false },
 ];
 
-
-function CampoImagenProducto({ imagen, onChange }) {
-    const [previewUrl, setPreviewUrl] = useState(null);
-
-    useEffect(() => {
-        if (imagen instanceof File) {
-            const url = URL.createObjectURL(imagen);
-            setPreviewUrl(url);
-            return () => URL.revokeObjectURL(url);
-        }
-
-        setPreviewUrl(imagen || null);
-        return undefined;
-    }, [imagen]);
-
-    return (
-        <DropzoneImagen
-            archivo={imagen instanceof File ? imagen : null}
-            preview={previewUrl}
-            h={180}
-            onDrop={(archivos) => onChange(archivos[0] ?? null)}
-            onReject={() => notifications.show({
-                title: 'Imagen no válida',
-                message: 'Selecciona una imagen válida de máximo 5 MB.',
-                color: 'red',
-            })}
-        />
-    );
-}
-
-
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
     return (
         <Stack gap="md" style={{ width: '100%' }}>
@@ -157,7 +125,7 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         >
                             Imagen del producto
                         </SectionTitle>
-                        <CampoImagenProducto
+                        <CampoImagen
                             imagen={form.imagen instanceof File
                                 ? form.imagen
                                 : form.quitarImagen

@@ -15,11 +15,9 @@ import {
     IconPhoto,
     IconTrash,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import {
     SectionTitle,
     FInput,
@@ -27,6 +25,7 @@ import {
     FTextarea,
     FCheckbox,
 } from '../../components/Controles/ControlesComponent.jsx';
+import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
 
 /* ─── Campos (para validación y payload) ─────────────────────────────────────── */
 const CAMPOS = [
@@ -55,7 +54,7 @@ const CAMPOS = [
     },
     { key: 'descripcion', label: 'Descripción' },
     { key: 'disponibleCompra', label: 'Disponible' },
-    { key: 'imagenUrl', label: 'Imagen del servicio', type: 'dropzone' },
+    { key: 'imagen', label: 'Imagen del servicio', type: 'image' },
 ];
 
 const INICIAL = {
@@ -64,6 +63,8 @@ const INICIAL = {
     estado: 'ACTIVO',
     descripcion: '',
     disponibleCompra: true,
+    quitarImagen: false,
+    imagen: null,
     imagenUrl: '',
 };
 
@@ -77,35 +78,22 @@ const COLUMNAS_SERVICIOS = [
 
 /* ─── Formulario personalizado ──────────────────────────────────────────────── */
 function ServicioForm({ form, errors, onChange }) {
-    const handleDrop = (archivos) => {
-        const archivo = archivos[0] ?? null;
-        if (!archivo) return;
-        const reader = new FileReader();
-        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
-        reader.readAsDataURL(archivo);
-    };
-
-    const handleReject = () => {
-        notifications.show({
-            title: 'Imagen no válida',
-            message: 'Selecciona una imagen válida de máximo 5 MB.',
-            color: 'red',
-        });
-    };
-
     return (
         <Stack gap="md" style={{ width: '100%' }}>
             <Box>
                 <SectionTitle
                     rightSection={
-                        form.imagenUrl ? (
+                        form.imagen instanceof File || (form.imagenUrl && !form.quitarImagen) ? (
                             <Button
                                 variant="outline"
                                 color="red"
                                 size="compact-xs"
                                 radius="md"
                                 leftSection={<IconTrash size={14} stroke={1.8} />}
-                                onClick={() => onChange('imagenUrl', '')}
+                                onClick={() => {
+                                    onChange('imagen', null);
+                                    onChange('quitarImagen', Boolean(form.imagenUrl));
+                                }}
                                 styles={{
                                     root: {
                                         border: '1px solid #EF4444',
@@ -125,15 +113,16 @@ function ServicioForm({ form, errors, onChange }) {
                 >
                     Imagen del servicio
                 </SectionTitle>
-                <DropzoneImagen
-                    variant="compact"
-                    archivo={null}
-                    preview={form.imagenUrl || null}
-                    onDrop={handleDrop}
-                    onReject={handleReject}
-                    icon={IconPhoto}
-                    loadedText="Imagen del servicio cargada"
-                    avatarRadius="md"
+                <CampoImagen
+                    imagen={form.imagen instanceof File
+                        ? form.imagen
+                        : form.quitarImagen
+                            ? null
+                            : form.imagenUrl}
+                    onChange={(imagen) => {
+                        onChange('imagen', imagen);
+                        onChange('quitarImagen', false);
+                    }}
                 />
             </Box>
 
@@ -208,7 +197,9 @@ export function Servicios() {
         estado: record.estado ?? 'ACTIVO',
         descripcion: record.descripcion ?? '',
         disponibleCompra: record.disponibleCompra ?? true,
+        imagen: null,
         imagenUrl: record.imagenUrl ?? '',
+        quitarImagen: false,
     }), []);
 
     const mapFormToPayload = (form) => ({
@@ -218,6 +209,8 @@ export function Servicios() {
         descripcion: form.descripcion || null,
         disponibleCompra: form.disponibleCompra ?? true,
         imagenUrl: form.imagenUrl || null,
+        imagen: form.imagen instanceof File ? form.imagen : null,
+        quitarImagen: Boolean(form.quitarImagen),
     });
 
     const mapRecordToRow = (record) => {
