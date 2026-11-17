@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
     Alert,
     Anchor,
@@ -26,7 +26,7 @@ import {
     IconRefresh,
     IconUsers,
 } from '@tabler/icons-react';
-import { isSession, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
@@ -37,6 +37,15 @@ import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { resolverModuloPorRuta, rutaModulo } from '../../scripts/modulosRutas.js';
 import { useSucursal } from '../../context/SucursalContext.jsx';
+import { useSecciones } from '../../context/SeccionesContext.jsx';
+import { obtenerUsuarioActual } from '../../scripts/constantes.js';
+import { cambioNombreWeb } from '../../scripts/globales.js';
+import {
+    resolverModuloPorRuta,
+    resolverSeccionPorRuta,
+    rutaModulo,
+    rutaSeccion,
+} from '../../scripts/modulosRutas.js';
 import classes from './Dashboard.module.css';
 import logoImg from '../../assets/apex_gym_large.png';
 
@@ -67,36 +76,16 @@ export function Dashboard({ children, onLogout }) {
         desconfirmarSucursal,
     } = useSucursal();
 
-    const [secciones, setSecciones] = useState([]);
-    const [cargando, setCargando] = useState(true);
-    const [errorCarga, setErrorCarga] = useState(null);
-    const [seccionActiva, setSeccionActiva] = useState(null);
+    const { secciones, cargandoSecciones: cargando, errorSecciones: errorCarga } = useSecciones();
+
+    const seccionActiva = useMemo(
+        () => resolverSeccionPorRuta(secciones, location.pathname),
+        [secciones, location.pathname]
+    );
 
     useEffect(() => {
         contentRef.current?.scrollTo(0, 0);
-    }, [location.pathname, seccionActiva]);
-
-    useEffect(() => {
-        const cargar = async () => {
-            try {
-                setErrorCarga(null);
-                const resp = await api.seccion.obtenerMisSecciones();
-
-                if (resp.responseFlag !== 0) {
-                    throw new Error(resp.message || 'No se pudieron cargar las secciones');
-                }
-
-                const lista = Array.isArray(resp.data) ? resp.data : [];
-                setSecciones(lista);
-            } catch (err) {
-                setSecciones([]);
-                setErrorCarga(err.message || 'Error al cargar secciones');
-            } finally {
-                setCargando(false);
-            }
-        };
-        cargar();
-    }, []);
+    }, [location.pathname]);
 
     const moduloEnRuta = useMemo(
         () => resolverModuloPorRuta(secciones, location.pathname),
@@ -104,7 +93,7 @@ export function Dashboard({ children, onLogout }) {
     );
 
     const mostrarChildren = !!children;
-    const enInicio = location.pathname === '/';
+    const enInicio = location.pathname === '/' || Boolean(seccionActiva);
 
     cambioNombreWeb(
         !sucursalConfirmada
@@ -115,12 +104,18 @@ export function Dashboard({ children, onLogout }) {
     );
 
     const irInicio = () => {
-        setSeccionActiva(null);
         navigate('/');
     };
 
+    const abrirSeccion = (seccion) => {
+        const ruta = rutaSeccion(seccion?.nombre);
+        if (ruta) {
+            navigate(ruta);
+        }
+    };
+
     const abrirModulo = (modulo) => {
-        const ruta = rutaModulo(modulo.nombre);
+        const ruta = rutaModulo(modulo.nombre, seccionActiva?.nombre);
         if (ruta) {
             navigate(ruta);
         }
@@ -141,13 +136,11 @@ export function Dashboard({ children, onLogout }) {
             label: 'Seleccionar Sucursal',
         });
     } else if (seccionContexto && (seccionActiva || moduloEnRuta)) {
+        const rutaSec = rutaSeccion(seccionContexto.nombre);
         migas.push({
             label: seccionContexto.nombre,
-            onClick: moduloEnRuta
-                ? () => {
-                    setSeccionActiva(seccionContexto);
-                    navigate('/');
-                }
+            onClick: moduloEnRuta && rutaSec
+                ? () => navigate(rutaSec)
                 : null,
         });
     }
@@ -266,7 +259,7 @@ export function Dashboard({ children, onLogout }) {
                                     <SeccionCard
                                         key={sec.id}
                                         seccion={sec}
-                                        onClick={(seccion) => setSeccionActiva(seccion)}
+                                        onClick={abrirSeccion}
                                     />
                                 ))}
                             </SimpleGrid>
