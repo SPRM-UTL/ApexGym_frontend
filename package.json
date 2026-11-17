@@ -12,7 +12,7 @@
   "dependencies": {
     "@mantine/carousel": "^9.6.2",
     "@mantine/core": "^9.6.2",
-    "@mantine/dropzone": "9.6.2",
+    "@mantine/dropzone": "^9.6.2",
     "@mantine/hooks": "^9.6.2",
     "@mantine/modals": "^9.6.2",
     "@mantine/notifications": "^9.6.2",

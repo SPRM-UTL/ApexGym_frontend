@@ -5,6 +5,7 @@
  * Módulo rediseñado con Drawer moderno de creación y detalle según especificación visual.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     ActionIcon,
     Alert,
@@ -12,6 +13,7 @@ import {
     Button,
     Divider,
     Drawer,
+    Grid,
     Group,
     NativeSelect,
     NumberInput,
@@ -952,8 +954,95 @@ function DrawerDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
 
 /* ─── Componente principal ───────────────────────────────────────────────── */
 export function MovimientosCaja() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const aperturaParam = searchParams.get('aperturaId');
+
     const [movimientoDetalle, setMovimientoDetalle] = useState(null);
     const recargarTablaRef = useRef(null);
+
+    const [aperturasAbiertas, setAperturasAbiertas] = useState([]);
+    const [aperturaSeleccionadaId, setAperturaSeleccionadaId] = useState(aperturaParam || '');
+    const [resumenApertura, setResumenApertura] = useState(null);
+    const [cargandoResumen, setCargandoResumen] = useState(false);
+
+    // Cargar sesiones de caja abiertas
+    const cargarAperturas = async () => {
+        try {
+            const resp = await api.aperturaCaja.obtenerTodos();
+            const abiertas = (resp?.data || []).filter((a) => a.estado === 'ABIERTA');
+            setAperturasAbiertas(abiertas);
+
+            setAperturaSeleccionadaId((prev) => {
+                if (prev) return prev;
+                if (aperturaParam) return aperturaParam;
+                if (abiertas.length > 0) return String(abiertas[0].id);
+                return 'TODAS';
+            });
+        } catch (err) {
+            console.error('Error cargando aperturas:', err);
+        }
+    };
+
+    useEffect(() => {
+        cargarAperturas();
+    }, []);
+
+    // Sincronizar si cambia el parámetro de búsqueda en URL
+    useEffect(() => {
+        if (aperturaParam && aperturaParam !== aperturaSeleccionadaId) {
+            setAperturaSeleccionadaId(aperturaParam);
+        }
+    }, [aperturaParam]);
+
+    // Cargar resumen financiero y de arqueo del turno seleccionado
+    const cargarResumen = async (idApertura) => {
+        if (!idApertura || idApertura === 'TODAS') {
+            setResumenApertura(null);
+            return;
+        }
+        try {
+            setCargandoResumen(true);
+            const resp = await api.movimientoCaja.obtenerResumenApertura(idApertura);
+            if (resp.responseFlag === 0) {
+                setResumenApertura(resp.data);
+            }
+        } catch (err) {
+            console.error('Error cargando resumen de apertura:', err);
+            setResumenApertura(null);
+        } finally {
+            setCargandoResumen(false);
+        }
+    };
+
+    useEffect(() => {
+        cargarResumen(aperturaSeleccionadaId);
+    }, [aperturaSeleccionadaId]);
+
+    const handleCambiarApertura = (nuevoId) => {
+        setAperturaSeleccionadaId(nuevoId);
+        if (nuevoId === 'TODAS') {
+            const params = new URLSearchParams(searchParams);
+            params.delete('aperturaId');
+            setSearchParams(params, { replace: true });
+        } else {
+            setSearchParams({ aperturaId: nuevoId }, { replace: true });
+        }
+    };
+
+    const aperturaActiva = useMemo(() => {
+        if (aperturaSeleccionadaId === 'TODAS') return null;
+        return aperturasAbiertas.find((a) => String(a.id) === String(aperturaSeleccionadaId)) || null;
+    }, [aperturasAbiertas, aperturaSeleccionadaId]);
+
+    const filterRecords = useMemo(() => {
+        if (aperturaSeleccionadaId === 'TODAS' || !aperturaSeleccionadaId) {
+            return (records) => records;
+        }
+        return (records) => records.filter((r) => {
+            const idApertura = r.aperturaCajaId ?? r.aperturaCaja?.id;
+            return String(idApertura) === String(aperturaSeleccionadaId);
+        });
+    }, [aperturaSeleccionadaId]);
 
     const mapRecordToForm = useMemo(() => (record) => {
         let desglose = null;
@@ -1145,6 +1234,137 @@ export function MovimientosCaja() {
         return errors;
     };
 
+    const renderTopContent = (
+        <Stack gap="md" mb="md">
+            {/* Indicador de Caja Activa y Selector de Turno */}
+            {aperturasAbiertas.length > 0 ? (
+                <Paper
+                    p="sm"
+                    radius="md"
+                    withBorder
+                    style={{
+                        backgroundColor: '#F8FAFC',
+                        borderColor: '#CBD5E1',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    }}
+                >
+                    <Group justify="space-between" wrap="wrap" gap="sm">
+                        <Group gap="sm">
+                            <ThemeIcon size={38} radius="md" color="teal" variant="light">
+                                <IconCash size={22} stroke={1.8} />
+                            </ThemeIcon>
+                            <div>
+                                <Group gap="xs" align="center">
+                                    <Text fw={700} size="sm" c="#1E293B">
+                                        {aperturaActiva
+                                            ? `Caja Activa: ${aperturaActiva?.caja?.nombre || 'Caja'}`
+                                            : 'Historial Global Consolidado'}
+                                    </Text>
+                                    {aperturaActiva ? (
+                                        <>
+                                            <Badge color="teal" variant="light" size="sm" radius="sm">
+                                                TURNO EN CURSO
+                                            </Badge>
+                                            <Badge color="green" variant="dot" size="sm">
+                                                ABIERTA
+                                            </Badge>
+                                        </>
+                                    ) : (
+                                        <Badge color="blue" variant="light" size="sm" radius="sm">
+                                            TODAS LAS CAJAS
+                                        </Badge>
+                                    )}
+                                </Group>
+                                <Text size="xs" c="dimmed">
+                                    {aperturaActiva
+                                        ? `Sesión #${aperturaActiva.id} · Cajero: ${aperturaActiva.empleado ? `${aperturaActiva.empleado.nombre} ${aperturaActiva.empleado.apellidoPaterno || ''}`.trim() : 'Asignado'} · Fondo inicial: ${Number(aperturaActiva.montoInicial || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`
+                                        : 'Visualizando entradas y salidas históricas de todos los turnos y terminales'}
+                                </Text>
+                            </div>
+                        </Group>
+
+                        <Group gap="xs">
+                            <NativeSelect
+                                size="xs"
+                                data={[
+                                    ...aperturasAbiertas.map((a) => ({
+                                        value: String(a.id),
+                                        label: `${a.caja?.nombre || 'Caja'} (Turno #${a.id}) - Turno Actual`,
+                                    })),
+                                    { value: 'TODAS', label: 'Historial Global (Todas las cajas y turnos)' },
+                                ]}
+                                value={aperturaSeleccionadaId || 'TODAS'}
+                                onChange={(e) => handleCambiarApertura(e.currentTarget.value)}
+                                style={{ minWidth: 260 }}
+                            />
+                        </Group>
+                    </Group>
+                </Paper>
+            ) : null}
+
+            {/* Métricas de Arqueo de Caja del Turno */}
+            {aperturaActiva && (
+                <Grid gutter="md">
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff', borderColor: '#E2E8F0' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+                                Fondo Inicial
+                            </Text>
+                            <Text size="xl" fw={800} c="#1E293B">
+                                ${Number(resumenApertura?.montoInicial || aperturaActiva.montoInicial || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                                Monto base al abrir turno
+                            </Text>
+                        </Paper>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff', borderColor: '#E2E8F0' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+                                Entradas en Efectivo
+                            </Text>
+                            <Text size="xl" fw={800} c="teal.7">
+                                +${Number(resumenApertura?.totalEntradas || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                                Cobros e ingresos validados
+                            </Text>
+                        </Paper>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#ffffff', borderColor: '#E2E8F0' }}>
+                            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+                                Salidas en Efectivo
+                            </Text>
+                            <Text size="xl" fw={800} c="red.7">
+                                -${Number(resumenApertura?.totalSalidas || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                                Gastos y retiros autorizados
+                            </Text>
+                        </Paper>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#F0FDF4', borderColor: '#86EFAC' }}>
+                            <Text size="xs" c="teal.9" fw={700} tt="uppercase">
+                                Saldo en Cajón (Arqueo)
+                            </Text>
+                            <Text size="xl" fw={800} c="teal.9">
+                                ${Number(resumenApertura?.saldoDisponible ?? ((Number(aperturaActiva.montoInicial || 0) + Number(resumenApertura?.totalEntradas || 0)) - Number(resumenApertura?.totalSalidas || 0))).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                            </Text>
+                            <Text size="xs" c="teal.8">
+                                Efectivo físico esperado
+                            </Text>
+                        </Paper>
+                    </Grid.Col>
+                </Grid>
+            )}
+        </Stack>
+    );
+
     return (
         <>
             <CrudCatalogo
@@ -1158,7 +1378,12 @@ export function MovimientosCaja() {
                 servicio={api.movimientoCaja}
                 columnas={COLUMNAS}
                 campos={CAMPOS}
-                valoresIniciales={INICIAL}
+                valoresIniciales={useMemo(() => ({
+                    ...INICIAL,
+                    aperturaCajaId: aperturaActiva ? String(aperturaActiva.id) : '',
+                }), [aperturaActiva])}
+                filterRecords={filterRecords}
+                topContent={renderTopContent}
                 mapRecordToForm={mapRecordToForm}
                 mapFormToPayload={mapFormToPayload}
                 mapRecordToRow={mapRecordToRow}
