@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { useSucursal } from '../../context/SucursalContext.jsx';
 import {
     Avatar,
     Button,
@@ -194,6 +195,7 @@ export function CrudCatalogo({
     const [fieldOptions, setFieldOptions] = useState({});
     const [loadedFilterOptions, setLoadedFilterOptions] = useState({});
     const [serverTotal, setServerTotal] = useState(0);
+    const { sucursalActiva } = useSucursal();
 
     const fieldsWithLoader = useMemo(() => campos.filter((campo) => campo.loadOptions), [campos]);
 
