@@ -35,6 +35,7 @@ import { Empresa } from './pages/Empresa/Empresa.jsx';
 import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
 import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
+import { SucursalProvider } from './context/SucursalContext.jsx';
 import { SeccionesProvider, useSecciones } from './context/SeccionesContext.jsx';
 import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
@@ -99,6 +100,7 @@ const RUTAS_MODULOS = [
   { seccion: 'administracion', modulo: 'configuracion-sistema', element: <ConfiguracionSistema /> },
   { seccion: 'administracion', modulo: 'administracion-roles', element: <AdministracionRoles /> },
   { seccion: 'administracion', modulo: 'empresa', element: <Empresa /> },
+  { seccion: 'administracion', modulo: 'sucursales', element: <Sucursales /> },
 
   // Gestión de Clientes
   { seccion: 'gestion-clientes', modulo: 'clientes', element: <Clientes /> },
@@ -134,6 +136,89 @@ const RUTAS_MODULOS = [
   // Ventas
   { seccion: 'ventas', modulo: 'registro-ventas', element: <SimuladorPagos /> },
 ];
+
+function RutasApp({ estaLogeadoEn, accionLogin, accionLogout }) {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
+        }
+      />
+
+      <Route
+        path="/seleccionar-sucursal"
+        element={
+          estaLogeadoEn ? <Dashboard onLogout={accionLogout} /> : <Navigate to="/login" replace />
+        }
+      />
+
+      {/* Ruta raíz: muestra el grid de secciones */}
+      <Route
+        path="/"
+        element={
+          estaLogeadoEn ? (
+            <Dashboard onLogout={accionLogout} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Rutas jerárquicas de módulos: /:seccion/:modulo */}
+      {RUTAS_MODULOS.map(({ seccion, modulo, element }) => (
+        <Route
+          key={`${seccion}/${modulo}`}
+          path={`/${seccion}/${modulo}`}
+          element={
+            <RutaModuloProtegida
+              estaLogeadoEn={estaLogeadoEn}
+              onLoginAceptado={accionLogin}
+              onLogout={accionLogout}
+              seccionSlug={seccion}
+              moduloSlug={modulo}
+            >
+              {element}
+            </RutaModuloProtegida>
+          }
+        />
+      ))}
+
+      {/* Rutas de error */}
+      <Route
+        path="/error"
+        element={<PaginaError estaLogeadoEn={estaLogeadoEn} />}
+      />
+      <Route
+        path="/403"
+        element={<PaginaError codigo={403} estaLogeadoEn={estaLogeadoEn} />}
+      />
+      <Route
+        path="/404"
+        element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
+      />
+
+      {/* Ruta dinámica de sección: /:seccionSlug */}
+      <Route
+        path="/:seccionSlug"
+        element={
+          <RutaSeccionProtegida
+            estaLogeadoEn={estaLogeadoEn}
+            onLoginAceptado={accionLogin}
+            onLogout={accionLogout}
+          />
+        }
+      />
+
+      {/* Cualquier otra ruta no reconocida muestra 404 */}
+      <Route
+        path="*"
+        element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
+      />
+    </Routes>
+  );
+}
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
@@ -201,79 +286,20 @@ function App() {
 
   return (
     <EmpresaProvider estaLogeadoEn={estaLogeadoEn}>
-      <SeccionesProvider estaLogeadoEn={estaLogeadoEn}>
-        <ApiLoading />
-        <BrowserRouter>
-          <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
-            <Routes>
-              <Route
-                path="/login"
-                element={
-                  estaLogeadoEn ? <Navigate to="/" replace /> : <Login onLoginAceptado={accionLogin} />
-                }
+      <SucursalProvider estaLogeadoEn={estaLogeadoEn}>
+        <SeccionesProvider estaLogeadoEn={estaLogeadoEn}>
+          <ApiLoading />
+          <BrowserRouter>
+            <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
+              <RutasApp
+                estaLogeadoEn={estaLogeadoEn}
+                accionLogin={accionLogin}
+                accionLogout={accionLogout}
               />
-
-              <Route
-                path="/"
-                element={
-                  estaLogeadoEn ? (
-                    <Dashboard onLogout={accionLogout} />
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                }
-              />
-
-              {RUTAS_MODULOS.map(({ seccion, modulo, element }) => (
-                <Route
-                  key={`${seccion}/${modulo}`}
-                  path={`/${seccion}/${modulo}`}
-                  element={
-                    <RutaModuloProtegida
-                      estaLogeadoEn={estaLogeadoEn}
-                      onLoginAceptado={accionLogin}
-                      onLogout={accionLogout}
-                      seccionSlug={seccion}
-                      moduloSlug={modulo}
-                    >
-                      {element}
-                    </RutaModuloProtegida>
-                  }
-                />
-              ))}
-
-              <Route
-                path="/error"
-                element={<PaginaError estaLogeadoEn={estaLogeadoEn} />}
-              />
-              <Route
-                path="/403"
-                element={<PaginaError codigo={403} estaLogeadoEn={estaLogeadoEn} />}
-              />
-              <Route
-                path="/404"
-                element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
-              />
-
-              <Route
-                path="/:seccionSlug"
-                element={
-                  <RutaSeccionProtegida
-                    estaLogeadoEn={estaLogeadoEn}
-                    onLoginAceptado={accionLogin}
-                    onLogout={accionLogout}
-                  />
-                }
-              />
-
-              <Route
-                path="*"
-                element={<PaginaError codigo={404} estaLogeadoEn={estaLogeadoEn} />}
-              />
-            </Routes>
-          </ErrorBoundary>
-        </BrowserRouter>
-      </SeccionesProvider>
+            </ErrorBoundary>
+          </BrowserRouter>
+        </SeccionesProvider>
+      </SucursalProvider>
     </EmpresaProvider>
   );
 }

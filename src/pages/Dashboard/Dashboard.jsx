@@ -32,12 +32,8 @@ import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
 import { SucursalCard } from '../../components/SucursalCard/SucursalCard.jsx';
 import { notifications } from '@mantine/notifications';
-import { api } from '../../scripts/services/api.js';
-import { obtenerUsuarioActual } from '../../scripts/constantes.js';
-import { cambioNombreWeb } from '../../scripts/globales.js';
-import { resolverModuloPorRuta, rutaModulo } from '../../scripts/modulosRutas.js';
-import { useSucursal } from '../../context/SucursalContext.jsx';
 import { useSecciones } from '../../context/SeccionesContext.jsx';
+import { useSucursal } from '../../context/SucursalContext.jsx';
 import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import {
@@ -145,7 +141,7 @@ export function Dashboard({ children, onLogout }) {
         });
     }
 
-    if (moduloEnRuta?.modulo) {
+    if (sucursalConfirmada && moduloEnRuta?.modulo) {
         migas.push({ label: moduloEnRuta.modulo.nombre, onClick: null });
     }
 

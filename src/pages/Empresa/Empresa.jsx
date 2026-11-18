@@ -323,7 +323,7 @@ export function Empresa() {
                                     className={classes.saveButton}
                                     radius="md"
                                     rightSection={<IconArrowRight size={16} />}
-                                    onClick={() => navigate('/sucursales')}
+                                    onClick={() => navigate('/administracion/sucursales')}
                                 >
                                     Administrar Sucursales
                                 </Button>

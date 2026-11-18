@@ -1,7 +1,8 @@
 const CONECTORES = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y']);
 
 /**
- * Convierte un nombre en un slug limpio
+ * Convierte un nombre en un slug limpio sin acentos ni conectores ("de", "y", etc.).
+ * Ej: "Gestión de Clientes" -> "gestion-clientes", "Ventas y Caja" -> "ventas-caja".
  * @param {string} texto
  * @returns {string}
  */
@@ -20,6 +21,7 @@ export function normalizarSlug(texto) {
         .replace(/^-|-$/g, '');
 }
 
+/** Mapa explícito nombre de sección (BD) → slug de sección */
 export const SLUGS_SECCION = {
     'Administración': 'administracion',
     'Gestión de Clientes': 'gestion-clientes',
@@ -30,11 +32,14 @@ export const SLUGS_SECCION = {
     'Ventas': 'ventas',
 };
 
+/** Mapa explícito nombre de módulo (BD) → { seccion: slugSeccion, modulo: slugModulo } */
 export const RUTAS_POR_MODULO = {
     'Usuarios': { seccion: 'administracion', modulo: 'usuarios' },
     'Configuración del Sistema': { seccion: 'administracion', modulo: 'configuracion-sistema' },
     'Administración de roles': { seccion: 'administracion', modulo: 'administracion-roles' },
     'Empresa': { seccion: 'administracion', modulo: 'empresa' },
+    'Sucursales': { seccion: 'administracion', modulo: 'sucursales' },
+    'Sucursal': { seccion: 'administracion', modulo: 'sucursales' },
 
     'Clientes': { seccion: 'gestion-clientes', modulo: 'clientes' },
     'Estados de Cliente': { seccion: 'gestion-clientes', modulo: 'estados-cliente' },
@@ -72,7 +77,7 @@ const SECCIONES_CONOCIDAS = new Set([
 ]);
 
 /**
- * Normaliza un pathname quitando barras finales
+ * Normaliza un pathname quitando barras finales redundantes.
  * @param {string} pathname
  * @returns {string}
  */
@@ -92,7 +97,7 @@ export function slugSeccion(nombreSeccion) {
 }
 
 /**
- * Devuelve la ruta de una sección.
+ * Devuelve la ruta de una sección (ej. "/administracion").
  * @param {string} nombreSeccion
  * @returns {string | null}
  */
@@ -112,7 +117,7 @@ export function slugModulo(nombreModulo) {
 }
 
 /**
- * Resuelve la ruta jerárquica completa de un módulo.
+ * Resuelve la ruta jerárquica completa de un módulo ("/seccion/modulo").
  * @param {string} nombreModulo
  * @param {string | null} [nombreSeccion]
  * @returns {string | null}
@@ -138,7 +143,7 @@ export function esSeccionConocida(seccionSlug) {
 }
 
 /**
- * Busca la sección permitida que corresponde a una ruta.
+ * Busca la sección permitida que corresponde a una ruta "/:seccion".
  * @param {Array} secciones
  * @param {string} pathname
  */
@@ -152,7 +157,7 @@ export function resolverSeccionPorRuta(secciones, pathname) {
 }
 
 /**
- * Busca sección y módulo permitidos que corresponden a una ruta.
+ * Busca sección y módulo permitidos que corresponden a una ruta "/:seccion/:modulo".
  * @param {Array} secciones
  * @param {string} pathname
  */
