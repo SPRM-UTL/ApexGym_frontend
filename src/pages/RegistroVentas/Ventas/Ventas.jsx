@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import {
     ActionIcon,
@@ -8,6 +8,7 @@ import {
 } from '@mantine/core';
 import {
     IconEye,
+    IconExternalLink,
     IconShoppingCart,
     IconTrash,
 } from '@tabler/icons-react';
@@ -47,6 +48,7 @@ const etiquetaEstadoVenta = (estado) => {
     const normalizado = normalizarEstadoVenta(estado);
     if (normalizado === 'cancelada') return 'Cancelada';
     if (normalizado === 'completada') return 'Completada';
+    if (normalizado === 'pendiente_pago') return 'Pendiente de pago';
     return normalizado ? normalizado[0].toLocaleUpperCase() + normalizado.slice(1) : '';
 };
 
@@ -96,6 +98,7 @@ const FILTROS = [
         placeholder: 'Todos los estados',
         options: [
             { value: 'completada', label: 'Completada' },
+            { value: 'pendiente_pago', label: 'Pendiente de pago' },
             { value: 'cancelada', label: 'Cancelada' },
         ],
         optionsFromRecords: (ventas) => [...new Set(ventas
@@ -180,6 +183,8 @@ export function Ventas() {
     cambioNombreWeb('Ventas');
 
     const navigate = useNavigate();
+    const location = useLocation();
+    const [versionListado, setVersionListado] = useState(0);
     const [detalleVenta, setDetalleVenta] = useState(null);
     const [cargandoDetalle, setCargandoDetalle] = useState(false);
     const [recargarDetalle, setRecargarDetalle] = useState(null);
@@ -219,6 +224,55 @@ export function Ventas() {
         onFiltersChange: cambiarFiltrosHistorial,
         onSearchChange: cambiarBusquedaHistorial,
     }), [pagina, limite, queryHistorial, cambiarFiltrosHistorial, cambiarBusquedaHistorial]);
+
+    useEffect(() => {
+        const parametros = new URLSearchParams(location.search);
+        if (parametros.get('mp_return') !== '1') return undefined;
+
+        const ventaId = Number(parametros.get('ventaId'));
+        const paymentId = parametros.get('payment_id') ?? parametros.get('collection_id');
+        let vigente = true;
+        const consultar = async () => {
+            try {
+                if (!Number.isSafeInteger(ventaId) || ventaId <= 0) {
+                    throw new Error('No se pudo identificar la venta del checkout.');
+                }
+                const respuesta = await api.venta.consultarEstadoPago(ventaId, paymentId);
+                if (respuesta.responseFlag !== 0) throw new Error(respuesta.message);
+                const resultado = respuesta.data;
+                const estadoVenta = normalizarEstadoVenta(resultado?.venta?.estado);
+                const estadoPago = String(resultado?.pago?.estado ?? '').toUpperCase();
+                if (estadoVenta === 'completada') {
+                    notifications.show({ color: 'green', message: 'Mercado Pago confirmó la venta.' });
+                } else if (estadoPago === 'RECHAZADO') {
+                    notifications.show({
+                        color: 'yellow',
+                        message: 'El pago fue rechazado. Puedes intentar nuevamente desde el mismo checkout mientras siga vigente.',
+                    });
+                } else if (resultado?.pago?.requiereReembolsoManual) {
+                    notifications.show({
+                        color: 'red',
+                        message: 'Se recibió un pago fuera de vigencia. Requiere revisión y reembolso manual.',
+                        autoClose: false,
+                    });
+                } else {
+                    notifications.show({ color: 'yellow', message: 'El pago sigue pendiente de confirmación.' });
+                }
+                if (vigente) setVersionListado((version) => version + 1);
+            } catch (error) {
+                if (vigente) {
+                    notifications.show({
+                        color: 'red',
+                        message: error.message || 'No se pudo consultar el estado del pago.',
+                    });
+                }
+            } finally {
+                if (vigente) navigate(location.pathname, { replace: true });
+            }
+        };
+        consultar();
+        return () => { vigente = false; };
+    }, [location.pathname, location.search, navigate]);
 
     const abrirAgregar = ({ form }) => {
         navigate('/registro-de-ventas/nueva', {
@@ -308,7 +362,8 @@ export function Ventas() {
                     const respuesta = await api.movimientoCaja.obtenerResumenApertura(aperturaCajaId);
                     if (respuesta.responseFlag !== 0) throw new Error(respuesta.message);
                     mensaje += ` Ventas activas por método de pago: ${resumirVentasPorMetodo(respuesta.data)}`;
-                    mensaje += ` Efectivo esperado en caja: $${Number(respuesta.data?.saldoDisponible ?? respuesta.data?.efectivoEsperado ?? 0).toFixed(2)} (fondo inicial + entradas - salidas + ventas en efectivo brutas; incluye movimientos pendientes).`;
+                    const formulaEfectivo = 'fondo inicial + entradas - salidas';
+                    mensaje += ` Efectivo esperado en caja: $${Number(respuesta.data?.saldoDisponible ?? respuesta.data?.efectivoEsperado ?? 0).toFixed(2)} (${formulaEfectivo}; incluye movimientos pendientes).`;
                 } catch (errorResumen) {
                     notifications.show({
                         color: 'yellow',
@@ -366,8 +421,40 @@ export function Ventas() {
         total: venta.total,
     });
 
+    const continuarPago = async (venta) => {
+        try {
+            const respuesta = await api.venta.obtenerCheckoutPago(venta.id);
+            if (respuesta.responseFlag !== 0) throw new Error(respuesta.message);
+            if (respuesta.data?.yaPagada) {
+                notifications.show({ color: 'green', message: 'Esta venta ya cuenta con un pago confirmado.' });
+                return;
+            }
+            if (!respuesta.data?.urlCheckout) {
+                throw new Error('Mercado Pago no devolvió un enlace de checkout.');
+            }
+            window.location.assign(respuesta.data.urlCheckout);
+        } catch (error) {
+            notifications.show({
+                color: 'red',
+                message: error.message || 'No se pudo recuperar el checkout.',
+            });
+        }
+    };
+
     const renderAcciones = (_fila, venta, { reload }) => (
         <Group gap={6} wrap="nowrap">
+            {normalizarEstadoVenta(venta.estado) === 'pendiente_pago' && (
+                    <Tooltip label="Continuar pago en Mercado Pago">
+                        <ActionIcon
+                            variant="light"
+                            color="blue"
+                            aria-label="Continuar pago en Mercado Pago"
+                            onClick={() => continuarPago(venta)}
+                        >
+                            <IconExternalLink size={18} />
+                        </ActionIcon>
+                    </Tooltip>
+            )}
             <Tooltip label="Ver detalle del ticket">
                 <ActionIcon
                     variant="light"
@@ -414,6 +501,7 @@ export function Ventas() {
     return (
         <>
             <CrudCatalogo
+                key={versionListado}
                 titulo="Registro de Ventas"
                 singular="Venta"
                 icon={IconShoppingCart}

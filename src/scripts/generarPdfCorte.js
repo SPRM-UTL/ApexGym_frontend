@@ -94,12 +94,20 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
           })
         : new Date().toLocaleString('es-MX');
 
+    const efectivoContado = Number(corte?.efectivoContado ?? 0);
     const montoInicial = Number(corte?.aperturaCaja?.montoInicial ?? 0);
     const totalEntradas = Number(corte?.totalEntradas ?? 0);
     const totalSalidas = Number(corte?.totalSalidas ?? 0);
     const totalVentasEfectivo = Number(corte?.totalVentasEfectivo ?? 0);
-    const efectivoEsperado = montoInicial + totalEntradas - totalSalidas + totalVentasEfectivo;
-    const efectivoContado = Number(corte?.efectivoContado ?? 0);
+    const mostrarVentasEfectivoSeparadas = false;
+    const efectivoEsperado = corte?.efectivoEsperado !== null && corte?.efectivoEsperado !== undefined
+        ? Number(corte.efectivoEsperado)
+        : corte?.diferencia !== null && corte?.diferencia !== undefined
+            ? efectivoContado - Number(corte.diferencia)
+            : null;
+    if (!Number.isFinite(efectivoEsperado)) {
+        throw new Error('El corte no contiene un efectivo esperado ni una diferencia guardada para reconstruirlo.');
+    }
     const diferenciaNum = Number(corte?.diferencia ?? (efectivoContado - efectivoEsperado));
 
     const difColor = diferenciaNum >= 0 ? '#2b8a3e' : '#c92a2a';
@@ -256,7 +264,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
         .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1B1F3A; margin: 16px 0 8px 0; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px; position: relative; z-index: 1; }
         
         /* ── Resumen Financiero en UNA SOLA FILA compacta ── */
-        .resumen-fila { display: grid; grid-template-columns: repeat(${totalVentasEfectivo > 0 ? 7 : 6}, 1fr); gap: 6px; margin-bottom: 14px; position: relative; z-index: 1; }
+        .resumen-fila { display: grid; grid-template-columns: repeat(${mostrarVentasEfectivoSeparadas ? 7 : 6}, 1fr); gap: 6px; margin-bottom: 14px; position: relative; z-index: 1; }
         .kpi-compact { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 7px 6px; text-align: center; }
         .kpi-compact.highlight { background: #fff9f5; border-color: #FF6A00; }
         .kpi-compact.diff { background: ${diferenciaNum >= 0 ? '#f4fbf5' : '#fff5f5'}; border-color: ${difColor}; }
@@ -389,7 +397,7 @@ export function generarPdfCorte(corte, movimientos = [], desglose = null, config
             <span class="kpi-compact-value" style="color: #c92a2a;">-$${totalSalidas.toFixed(2)}</span>
         </div>
         ${
-            totalVentasEfectivo > 0
+            mostrarVentasEfectivoSeparadas
                 ? `<div class="kpi-compact">
             <span class="kpi-compact-label">Ventas Ef. (+)</span>
             <span class="kpi-compact-value" style="color: #2b8a3e;">+$${totalVentasEfectivo.toFixed(2)}</span>

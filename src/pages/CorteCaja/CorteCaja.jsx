@@ -493,13 +493,9 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         : 0;
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
-    const totalVentasEfectivo = resumenApertura ? Number(resumenApertura.totalVentasEfectivo ?? 0) : 0;
-    const totalVentasEfectivoBruto = resumenApertura
-        ? Number(resumenApertura.totalVentasEfectivoBruto ?? resumenApertura.totalVentasEfectivo ?? 0)
-        : 0;
     const efectivoEsperado = resumenApertura?.saldoDisponible !== undefined
         ? Number(resumenApertura.saldoDisponible)
-        : (fondoInicial + totalEntradas - totalSalidas + totalVentasEfectivoBruto);
+        : fondoInicial + totalEntradas - totalSalidas;
     const efectivoContado = Number(form.efectivoContado || 0);
     const diferencia = efectivoContado - efectivoEsperado;
 
@@ -660,12 +656,6 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                         <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
                         <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
                     </Group>
-                    {totalVentasEfectivo > 0 && (
-                        <Group justify="space-between">
-                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
-                            <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
-                        </Group>
-                    )}
                     <Divider my={2} />
                     <Group justify="space-between">
                         <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
@@ -1044,17 +1034,18 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                         <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
                                         <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
                                     </Group>
-                                    {esCorteSinDatosVentas ? (
-                                        <Group justify="space-between">
-                                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
-                                            <Badge variant="light" color="gray" size="xs">No disponible en corte anterior</Badge>
-                                        </Group>
-                                    ) : (
-                                        <Group justify="space-between">
-                                            <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
-                                            <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
-                                        </Group>
-                                    )}
+                                    {corteActual.aperturaCaja?.usaMovimientosCobro !== true
+                                        && (esCorteSinDatosVentas ? (
+                                            <Group justify="space-between">
+                                                <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                                <Badge variant="light" color="gray" size="xs">No disponible en corte anterior</Badge>
+                                            </Group>
+                                        ) : (
+                                            <Group justify="space-between">
+                                                <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
+                                                <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
+                                            </Group>
+                                        ))}
                                     {totalVentasCanceladas > 0 && (
                                         <Group justify="space-between">
                                             <Text size="xs" c="dimmed">(i) Ventas Canceladas (salida aplicada):</Text>
@@ -1118,7 +1109,11 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                         <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#EBFBEE', borderColor: '#B7EBD0' }}>
                                             <Text size="xs" c="#2B8A3E" fw={700} tt="uppercase">Ventas en Efectivo</Text>
                                             <Text fw={800} size="xl" c="#2B8A3E">${totalVentasEfectivo.toFixed(2)}</Text>
-                                            <Text size="xs" c="dimmed">Afecta arqueo físico</Text>
+                                            <Text size="xs" c="dimmed">
+                                                {corteActual.aperturaCaja?.usaMovimientosCobro
+                                                    ? 'Registradas como entradas de caja'
+                                                    : 'Incluidas por separado en el corte'}
+                                            </Text>
                                         </Paper>
                                         <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF5F5', borderColor: '#FAD1CE' }}>
                                             <Text size="xs" c="#E03131" fw={700} tt="uppercase">Ventas Canceladas</Text>
@@ -1191,7 +1186,7 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                     <Text size="xs" c="dimmed" fw={600}>Salidas (-)</Text>
                                     <Text fw={800} size="md" c="red">-${totalSalidas.toFixed(2)}</Text>
                                 </Paper>
-                                {totalVentasEfectivo > 0 && (
+                                {corteActual.aperturaCaja?.usaMovimientosCobro !== true && totalVentasEfectivo > 0 && (
                                     <Paper p="xs" radius="md" withBorder>
                                         <Text size="xs" c="dimmed" fw={600}>Ventas Ef. (+)</Text>
                                         <Text fw={800} size="md" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
@@ -1564,10 +1559,9 @@ export function CorteCaja() {
                     const fondo = Number(data.montoInicial ?? data.apertura?.montoInicial ?? 0);
                     const entradas = Number(data.totalEntradas ?? 0);
                     const salidas = Number(data.totalSalidas ?? 0);
-                    const ventasEf = Number(data.totalVentasEfectivoBruto ?? data.totalVentasEfectivo ?? 0);
                     const esperado = data.saldoDisponible !== undefined
                         ? Number(data.saldoDisponible)
-                        : (fondo + entradas - salidas + ventasEf);
+                        : fondo + entradas - salidas;
                     const contado = Number(form.efectivoContado || 0);
                     const diff = contado - esperado;
 

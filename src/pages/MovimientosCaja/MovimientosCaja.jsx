@@ -1360,7 +1360,11 @@ export function MovimientosCaja() {
                                 Saldo en Cajón (Arqueo)
                             </Text>
                             <Text size="xl" fw={800} c="teal.9">
-                                ${Number(resumenApertura?.saldoDisponible ?? ((Number(aperturaActiva.montoInicial || 0) + Number(resumenApertura?.totalEntradas || 0)) - Number(resumenApertura?.totalSalidas || 0))).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                                ${Number(resumenApertura?.saldoDisponible ?? (
+                                    Number(aperturaActiva.montoInicial || 0)
+                                    + Number(resumenApertura?.totalEntradas || 0)
+                                    - Number(resumenApertura?.totalSalidas || 0)
+                                )).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
                             </Text>
                             <Text size="xs" c="teal.8">
                                 Efectivo físico esperado

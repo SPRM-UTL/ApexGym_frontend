@@ -8,22 +8,57 @@ export class VentaService {
         this.urlApi = `${urlBase}/api/ventas`;
     }
 
-async crearVenta(datosVenta, sucursalId) {
-    try {
-        const response = await httpClient.post(`${this.urlApi}/`, datosVenta, {
-            headers: { 'x-sucursal-id': String(sucursalId) },
-        });
-        return response.data;
-    } catch (error) {
-        const respuestaError = error.response?.data;
-        throw new ResponseModel(
-            respuestaError?.data ?? respuestaError ?? null,
-            1,
-            respuestaError?.message || 'Error al crear la venta',
-            error.response?.status || 500
-        );
+    async crearVenta(datosVenta, sucursalId, uuidIdempotencia = null) {
+        try {
+            const response = await httpClient.post(`${this.urlApi}/`, datosVenta, {
+                headers: {
+                    'x-sucursal-id': String(sucursalId),
+                    ...(uuidIdempotencia ? { 'x-idempotency-key': uuidIdempotencia } : {}),
+                },
+            });
+            return response.data;
+        } catch (error) {
+            const respuestaError = error.response?.data;
+            throw new ResponseModel(
+                respuestaError?.data ?? respuestaError ?? null,
+                1,
+                respuestaError?.message || 'Error al crear la venta',
+                error.response?.status || 500
+            );
+        }
     }
-}
+
+    async consultarEstadoPago(id, paymentId = null) {
+        try {
+            const response = await httpClient.get(`${this.urlApi}/${id}/pago`, {
+                params: paymentId ? { payment_id: paymentId } : {},
+            });
+            return response.data;
+        } catch (error) {
+            const respuestaError = error.response?.data;
+            throw new ResponseModel(
+                respuestaError?.data ?? respuestaError ?? null,
+                1,
+                respuestaError?.message || 'Error al consultar el estado del pago',
+                error.response?.status || 500
+            );
+        }
+    }
+
+    async obtenerCheckoutPago(id) {
+        try {
+            const response = await httpClient.post(`${this.urlApi}/${id}/pago/checkout`);
+            return response.data;
+        } catch (error) {
+            const respuestaError = error.response?.data;
+            throw new ResponseModel(
+                respuestaError?.data ?? respuestaError ?? null,
+                1,
+                respuestaError?.message || 'Error al recuperar el checkout del pago',
+                error.response?.status || 500
+            );
+        }
+    }
     async obtenerTodos(parametros = {}) {
         try {
             const response = await httpClient.get(`${this.urlApi}/`, { params: parametros });

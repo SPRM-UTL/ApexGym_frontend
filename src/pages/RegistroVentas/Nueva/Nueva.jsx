@@ -25,7 +25,7 @@ import ExportarDocumento from '../../../components/exportar-documento/ExportarDo
 import { ListaProductos } from '../components/ListaProductos.jsx';
 import { ModalCobroVenta } from '../components/ModalCobroVenta.jsx';
 import { Ticket } from '../components/Ticket.jsx';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTicketVenta } from '../hooks/useTicketVenta.js';
 import { useCatalogosVenta } from '../hooks/useCatalogosVenta.js';
@@ -156,6 +156,7 @@ export function Nueva() {
     const [cobrando, setCobrando] = useState(false);
     const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
     const [montoRecibido, setMontoRecibido] = useState(ventaPendiente?.montoRecibido ?? 0);
+    const llaveIdempotenciaRef = useRef(null);
 
     useEffect(() => {
         triggerUpdate(listaProductos);
@@ -273,6 +274,7 @@ export function Nueva() {
 
     const {subtotal, total } = calcularMontos(listaProductos);
     const pagoEfectivo = metodoPagoSeleccionado?.codigo === 'EFECTIVO';
+    const pagoMercadoPago = metodoPagoSeleccionado?.codigo === 'MERCADO_PAGO';
     const montoPagado = Number(montoRecibido) || 0;
     if (pagoEfectivo && montoPagado < total) {
         notifications.show({ color: 'yellow', message: 'El monto recibido no cubre el total de la venta.' });
@@ -298,6 +300,9 @@ export function Nueva() {
     setCobrando(true);
 
     try {
+        const uuidIdempotencia = pagoMercadoPago
+            ? (llaveIdempotenciaRef.current ??= window.crypto.randomUUID())
+            : null;
         const respuesta = await api.venta.crearVenta({
             empleadoId: Number(empleadoId),
             aperturaCajaId: Number(aperturaCajaId),
@@ -307,10 +312,30 @@ export function Nueva() {
             subtotal,
             total,
             detalleVenta
-        }, sucursalId);
-        limpiarVentaPendiente();
+        }, sucursalId, uuidIdempotencia);
 
         const registro = obtenerVenta(respuesta) ?? {};
+        if (pagoMercadoPago) {
+            if (registro.pagoDigital?.yaPagada) {
+                limpiarVentaPendiente();
+                limpiarTickets();
+                llaveIdempotenciaRef.current = null;
+                notifications.show({ color: 'green', message: 'Esta venta ya cuenta con un pago confirmado.' });
+                navigate('/registro-de-ventas', { replace: true });
+                return;
+            }
+            const urlCheckout = registro.pagoDigital?.urlCheckout;
+            if (!urlCheckout) {
+                throw new Error('La venta quedó pendiente, pero Mercado Pago no devolvió el enlace de pago. Reintenta sin cambiar el carrito.');
+            }
+            limpiarVentaPendiente();
+            limpiarTickets();
+            llaveIdempotenciaRef.current = null;
+            window.location.assign(urlCheckout);
+            return;
+        }
+        limpiarVentaPendiente();
+
         const detalleRegistrado = Array.isArray(registro.detalleVenta)
             ? registro.detalleVenta
             : listaProductos.map((item) => {
@@ -358,6 +383,9 @@ export function Nueva() {
             message: 'Venta creada correctamente.',
         });
     } catch (error) {
+        if (pagoMercadoPago && error.statusCode && error.statusCode < 500) {
+            llaveIdempotenciaRef.current = null;
+        }
         if (esErrorCajaCerrada(error)) {
             try {
                 sessionStorage.setItem(VENTA_PENDIENTE_KEY, JSON.stringify({
