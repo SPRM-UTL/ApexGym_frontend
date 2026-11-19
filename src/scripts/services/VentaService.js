@@ -73,6 +73,20 @@ export class VentaService {
         }
     }
 
+    async obtenerResumen(parametros = {}) {
+        try {
+            const response = await httpClient.get(`${this.urlApi}/resumen`, { params: parametros });
+            return response.data;
+        } catch (error) {
+            throw new ResponseModel(
+                error.response?.data || null,
+                1,
+                error.response?.data?.message || 'Error al obtener el resumen de ventas',
+                error.response?.status || 500
+            );
+        }
+    }
+
     async obtenerPorId(id) {
         try {
             const response = await httpClient.get(`${this.urlApi}/${id}`);
@@ -137,7 +151,7 @@ export class VentaService {
         }
     }
 
-    async cancelar(id, motivoCancelacion) {
+    async cancelar(id, motivoCancelacion, datosReembolso = {}) {
         const motivo = typeof motivoCancelacion === 'string'
             ? motivoCancelacion.trim()
             : '';
@@ -148,7 +162,11 @@ export class VentaService {
         try {
             const response = await httpClient.post(
                 `${this.urlApi}/${id}/cancelar`,
-                { motivoCancelacion: motivo }
+                {
+                    motivoCancelacion: motivo,
+                    folioCancelacion: datosReembolso.folioCancelacion,
+                    confirmacionTerminal: datosReembolso.confirmacionTerminal,
+                }
             );
 
             return response.data;

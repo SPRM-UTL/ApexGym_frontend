@@ -14,6 +14,7 @@ import {
 
 import {
     IconBottle,
+    IconCheck,
     IconClipboardList,
     IconCash,
     IconShoppingCart,
@@ -24,6 +25,7 @@ import { EncabezadoTabla } from '../../../components/TablaRegistros/TablaRegistr
 import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
 import { ListaProductos } from '../components/ListaProductos.jsx';
 import { ModalCobroVenta } from '../components/ModalCobroVenta.jsx';
+import { ModalEsperaPagoMercadoPago } from '../components/ModalEsperaPagoMercadoPago.jsx';
 import { Ticket } from '../components/Ticket.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -37,7 +39,11 @@ import {
     calcularSubtotalLinea,
     redondear,
 } from '../utils/venta.utils.js';
-import { esErrorCajaCerrada, obtenerVenta } from '../../../utils/ventaHelper/ventaHelpers.js';
+import {
+    esErrorCajaCerrada,
+    obtenerMensajeSeguroVenta,
+    obtenerVenta,
+} from '../../../utils/ventaHelper/ventaHelpers.js';
 
 
 const channel = new BroadcastChannel('app_sync_channel');
@@ -90,6 +96,7 @@ export function Nueva() {
     const [ventaPendiente] = useState(leerVentaPendiente);
     const [hora, setHora] = useState('');
     const [ventaCreada, setVentaCreada] = useState(null);
+    const [esperaMp, setEsperaMp] = useState(null);
     const {
         listaProductos,
         listaCaja1,
@@ -110,8 +117,13 @@ export function Nueva() {
     const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
     const [paginaCatalogo, setPaginaCatalogo] = useState(1);
     const { state } = location;
-    const empleadoId = state?.empleadoId != null ? String(state.empleadoId) : null;
-    const aperturaCajaId = state?.aperturaCajaId != null ? String(state.aperturaCajaId) : null;
+    const aperturaFallback = aperturas.length === 1 ? aperturas[0] : null;
+    const aperturaCajaId = state?.aperturaCajaId != null
+        ? String(state.aperturaCajaId)
+        : (aperturaFallback ? String(aperturaFallback.id) : null);
+    const empleadoId = state?.empleadoId != null
+        ? String(state.empleadoId)
+        : (aperturaFallback ? String(aperturaFallback.empleadoId ?? aperturaFallback.empleado?.id ?? '') : null);
     const aperturaSeleccionada = aperturas.find(
         (apertura) => String(apertura.id) === String(aperturaCajaId)
     );
@@ -128,7 +140,6 @@ export function Nueva() {
         totalCatalogo,
         totalPaginasCatalogo,
         cargandoCatalogo,
-        errorCatalogo,
         aperturaAsignada,
         asignacionValida,
     } = useCatalogosVenta(empleadoId, aperturaCajaId, aperturaSeleccionada, {
@@ -145,6 +156,7 @@ export function Nueva() {
         pagina: paginaClientes,
         setPagina: setPaginaClientes,
         clientes,
+        clienteDefault,
         total: totalClientes,
         totalPaginas: totalPaginasClientes,
         cargando: cargandoClientes,
@@ -153,10 +165,27 @@ export function Nueva() {
     const [clienteId, setClienteId] = useState(ventaPendiente?.clienteId ?? null);
     const [clienteSeleccionado, setClienteSeleccionado] = useState(ventaPendiente?.clienteSeleccionado ?? null);
     const [metodoPago, setMetodoPago] = useState(ventaPendiente?.metodoPago ?? null);
+    const [datosTarjeta, setDatosTarjeta] = useState({
+        folioVoucher: '',
+        tipoTarjeta: 'DEBITO',
+        marcaTarjeta: 'VISA',
+        ultimosDigitos: '',
+    });
+    const [datosTransferencia, setDatosTransferencia] = useState({
+        referencia: '',
+        confirmada: false,
+    });
     const [cobrando, setCobrando] = useState(false);
     const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
     const [montoRecibido, setMontoRecibido] = useState(ventaPendiente?.montoRecibido ?? 0);
     const llaveIdempotenciaRef = useRef(null);
+
+    useEffect(() => {
+        if (!clienteId && !clienteSeleccionado && clienteDefault) {
+            setClienteId(String(clienteDefault.id));
+            setClienteSeleccionado(clienteDefault);
+        }
+    }, [clienteId, clienteSeleccionado, clienteDefault]);
 
     useEffect(() => {
         triggerUpdate(listaProductos);
@@ -191,9 +220,102 @@ export function Nueva() {
 
     useEffect(() => {
         if (!empleadoId || !aperturaCajaId || !aperturaSeleccionada) {
+            notifications.show({
+                color: 'yellow',
+                message: 'Selecciona una caja abierta para iniciar una nueva venta.',
+            });
             navigate('/registro-de-ventas', { replace: true });
         }
     }, [empleadoId, aperturaCajaId, aperturaSeleccionada, navigate]);
+
+    const finalizarVentaCompletada = ({ registro, detalleRegistrado, metodoPagoUsado, totalVenta, montoRecibidoVenta, cambioVenta }) => {
+        setVentaCreada({
+            ...registro,
+            cliente: registro.cliente ?? clienteSeleccionado,
+            empleado: registro.empleado ?? {
+                nombre: aperturaAsignada?.label?.split(' — ')[1] ?? 'Empleado',
+            },
+            aperturaCaja: registro.aperturaCaja ?? {
+                id: Number(aperturaCajaId),
+                caja: { nombre: aperturaAsignada?.label?.split(' — ')[0] ?? 'Caja' },
+            },
+            metodoPago: registro.metodoPago ?? metodoPagoUsado ?? { nombre: 'Mercado Pago' },
+            detalleVenta: detalleRegistrado,
+            subtotal: registro.subtotal ?? totalVenta,
+            total: registro.total ?? totalVenta,
+            montoRecibido: registro.montoRecibido ?? montoRecibidoVenta,
+            cambio: registro.cambio ?? cambioVenta,
+            createdAt: registro.createdAt ?? new Date().toISOString(),
+            estado: 'completada',
+        });
+        setModalCobroAbierto(false);
+        setCobrando(false);
+        setMontoRecibido(0);
+        setClienteId(clienteDefault ? String(clienteDefault.id) : null);
+        setClienteSeleccionado(clienteDefault ?? null);
+        setMetodoPago(null);
+        setDatosTarjeta({ folioVoucher: '', tipoTarjeta: 'DEBITO', marcaTarjeta: 'VISA', ultimosDigitos: '' });
+        setDatosTransferencia({ referencia: '', confirmada: false });
+        limpiarVentaPendiente();
+        limpiarTickets();
+        llaveIdempotenciaRef.current = null;
+    };
+
+    const manejarPagoAprobadoMp = (ventaActualizada) => {
+        if (!esperaMp) return;
+        const ventaFinal = ventaActualizada ? { ...esperaMp.registro, ...ventaActualizada } : esperaMp.registro;
+        const detalleFinal = esperaMp.detalleRegistrado;
+        const metodoFinal = esperaMp.metodoPagoUsado;
+        const totalFinal = esperaMp.total;
+        setEsperaMp(null);
+        finalizarVentaCompletada({
+            registro: ventaFinal,
+            detalleRegistrado: detalleFinal,
+            metodoPagoUsado: metodoFinal,
+            totalVenta: totalFinal,
+            montoRecibidoVenta: totalFinal,
+            cambioVenta: 0,
+        });
+    };
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('mp_return') !== '1') return undefined;
+
+        const ventaId = Number(params.get('ventaId'));
+        const paymentId = params.get('payment_id') ?? params.get('collection_id');
+        if (!ventaId) return undefined;
+
+        let cancelado = false;
+        const verificarRetorno = async () => {
+            try {
+                const res = await api.venta.consultarEstadoPago(ventaId, paymentId);
+                if (cancelado) return;
+                const estadoVenta = String(res.data?.venta?.estado ?? '').toLowerCase();
+                if (estadoVenta === 'completada') {
+                    notifications.show({
+                        color: 'green',
+                        title: '¡Pago Confirmado!',
+                        message: `Venta #${res.data?.venta?.folioVentaId ?? ventaId} confirmada con éxito.`,
+                    });
+                    if (res.data?.venta) {
+                        setVentaCreada({
+                            ...res.data.venta,
+                            estado: 'completada',
+                        });
+                        limpiarVentaPendiente();
+                        limpiarTickets();
+                    }
+                }
+            } catch (err) {
+                console.error('[Mercado Pago Retorno]:', err);
+            } finally {
+                if (!cancelado) navigate(location.pathname, { replace: true });
+            }
+        };
+        verificarRetorno();
+        return () => { cancelado = true; };
+    }, [location.pathname, location.search, navigate]);
 
     const cambiarMetodoPago = (value) => {
         setMetodoPago(value);
@@ -214,7 +336,11 @@ export function Nueva() {
             return;
         }
 
-        const cliente = clientes.find((registro) => String(registro.id) === String(id));
+        const todosLosClientes = [
+            ...(clienteDefault ? [clienteDefault] : []),
+            ...clientes,
+        ];
+        const cliente = todosLosClientes.find((registro) => String(registro.id) === String(id));
         setClienteSeleccionado(cliente ?? null);
         cambiarBusquedaClientes('');
     };
@@ -272,69 +398,67 @@ export function Nueva() {
             return;
         }
 
-    const {subtotal, total } = calcularMontos(listaProductos);
-    const pagoEfectivo = metodoPagoSeleccionado?.codigo === 'EFECTIVO';
-    const pagoMercadoPago = metodoPagoSeleccionado?.codigo === 'MERCADO_PAGO';
-    const montoPagado = Number(montoRecibido) || 0;
-    if (pagoEfectivo && montoPagado < total) {
-        notifications.show({ color: 'yellow', message: 'El monto recibido no cubre el total de la venta.' });
-        return;
-    }
+        const { subtotal, total } = calcularMontos(listaProductos);
+        const metodoActual = metodosPago.find((item) => String(item.id) === String(metodoPago));
+        const pagoEfectivo = metodoActual?.codigo === 'EFECTIVO';
+        const pagoMercadoPago = metodoActual?.codigo === 'MERCADO_PAGO';
+        const pagoTarjeta = metodoActual?.codigo === 'TARJETA';
+        const pagoTransferencia = metodoActual?.codigo === 'TRANSFERENCIA';
+        const montoPagado = Number(montoRecibido) || 0;
 
-    const detalleVenta = listaProductos.map((item) => {
-        const precioUnitario = Number(item.precio);
-        const linea = {
-            tipoItem: item.tipoItem,
-            cantidad: item.cantidad,
-            precioUnitario,
-            descuentoUnitario: calcularDescuentoUnitario(item),
-            subtotal: calcularSubtotalLinea(item),
-        };
-
-        if (item.tipoItem === 'PRODUCTO') linea.productoId = item.id;
-        if (item.tipoItem === 'SERVICIO') linea.servicioId = item.id;
-        if (item.tipoItem === 'MEMBRESIA') linea.tipoMembresiaId = item.id;
-
-        return linea;
-    });
-    setCobrando(true);
-
-    try {
-        const uuidIdempotencia = pagoMercadoPago
-            ? (llaveIdempotenciaRef.current ??= window.crypto.randomUUID())
-            : null;
-        const respuesta = await api.venta.crearVenta({
-            empleadoId: Number(empleadoId),
-            aperturaCajaId: Number(aperturaCajaId),
-            clienteId: Number(clienteId),
-            metodoPagoId: Number(metodoPago),
-            ...(pagoEfectivo ? { montoRecibido: montoPagado } : {}),
-            subtotal,
-            total,
-            detalleVenta
-        }, sucursalId, uuidIdempotencia);
-
-        const registro = obtenerVenta(respuesta) ?? {};
-        if (pagoMercadoPago) {
-            if (registro.pagoDigital?.yaPagada) {
-                limpiarVentaPendiente();
-                limpiarTickets();
-                llaveIdempotenciaRef.current = null;
-                notifications.show({ color: 'green', message: 'Esta venta ya cuenta con un pago confirmado.' });
-                navigate('/registro-de-ventas', { replace: true });
-                return;
-            }
-            const urlCheckout = registro.pagoDigital?.urlCheckout;
-            if (!urlCheckout) {
-                throw new Error('La venta quedó pendiente, pero Mercado Pago no devolvió el enlace de pago. Reintenta sin cambiar el carrito.');
-            }
-            limpiarVentaPendiente();
-            limpiarTickets();
-            llaveIdempotenciaRef.current = null;
-            window.location.assign(urlCheckout);
+        if (pagoEfectivo && montoPagado < total) {
+            notifications.show({ color: 'yellow', message: 'El monto recibido no cubre el total de la venta.' });
             return;
         }
-        limpiarVentaPendiente();
+
+        const pagoPayload = pagoTarjeta
+            ? {
+                folioVoucher: datosTarjeta.folioVoucher?.trim() || null,
+                tipoTarjeta: datosTarjeta.tipoTarjeta || 'DEBITO',
+                marcaTarjeta: datosTarjeta.marcaTarjeta || 'VISA',
+                ultimosDigitos: datosTarjeta.ultimosDigitos?.trim() ? String(datosTarjeta.ultimosDigitos).trim() : null,
+            }
+            : (pagoTransferencia
+                ? {
+                    referenciaTransferencia: datosTransferencia.referencia?.trim() || null,
+                }
+                : undefined);
+
+        const detalleVenta = listaProductos.map((item) => {
+            const precioUnitario = Number(item.precio);
+            const linea = {
+                tipoItem: item.tipoItem,
+                cantidad: item.cantidad,
+                precioUnitario,
+                descuentoUnitario: calcularDescuentoUnitario(item),
+                subtotal: calcularSubtotalLinea(item),
+            };
+
+            if (item.tipoItem === 'PRODUCTO') linea.productoId = item.id;
+            if (item.tipoItem === 'SERVICIO') linea.servicioId = item.id;
+            if (item.tipoItem === 'MEMBRESIA') linea.tipoMembresiaId = item.id;
+
+            return linea;
+        });
+        setCobrando(true);
+
+        try {
+            const uuidIdempotencia = pagoMercadoPago
+                ? (llaveIdempotenciaRef.current ??= window.crypto.randomUUID())
+                : null;
+            const respuesta = await api.venta.crearVenta({
+                empleadoId: Number(empleadoId),
+                aperturaCajaId: Number(aperturaCajaId),
+                clienteId: Number(clienteId),
+                metodoPagoId: Number(metodoPago),
+                ...(pagoEfectivo ? { montoRecibido: montoPagado } : {}),
+                subtotal,
+                total,
+                detalleVenta,
+                ...(pagoPayload ? { pago: pagoPayload } : {}),
+            }, sucursalId, uuidIdempotencia);
+
+        const registro = obtenerVenta(respuesta) ?? {};
 
         const detalleRegistrado = Array.isArray(registro.detalleVenta)
             ? registro.detalleVenta
@@ -353,31 +477,52 @@ export function Nueva() {
                     tipoItem: item.tipoItem,
                 };
             });
-        setVentaCreada({
-            ...registro,
-            cliente: registro.cliente ?? clienteSeleccionado,
-            empleado: registro.empleado ?? {
-                nombre: aperturaAsignada?.label?.split(' — ')[1] ?? 'Empleado',
-            },
-            aperturaCaja: registro.aperturaCaja ?? {
-                id: Number(aperturaCajaId),
-                caja: { nombre: aperturaAsignada?.label?.split(' — ')[0] ?? 'Caja' },
-            },
-            metodoPago: registro.metodoPago ?? metodosPago.find((metodo) => String(metodo.id) === metodoPago),
-            detalleVenta: detalleRegistrado,
-            subtotal: registro.subtotal ?? subtotal,
-            total: registro.total ?? total,
-            montoRecibido: registro.montoRecibido ?? (pagoEfectivo ? montoPagado : total),
-            cambio: registro.cambio ?? (pagoEfectivo ? Math.max(0, redondear(montoPagado - total)) : 0),
-            createdAt: registro.createdAt ?? new Date().toISOString(),
-            estado: registro.estado ?? 'completada',
+
+        if (pagoMercadoPago) {
+            if (registro.pagoDigital?.yaPagada || registro.estado === 'completada') {
+                notifications.show({ color: 'green', message: 'Esta venta ya cuenta con un pago confirmado.' });
+                finalizarVentaCompletada({
+                    registro,
+                    detalleRegistrado,
+                    metodoPagoUsado: metodoActual,
+                    totalVenta: total,
+                    montoRecibidoVenta: total,
+                    cambioVenta: 0,
+                });
+                return;
+            }
+            const urlCheckout = registro.pagoDigital?.urlCheckout;
+            if (!urlCheckout) {
+                throw new Error('La venta quedó pendiente, pero Mercado Pago no devolvió el enlace de pago. Reintenta sin cambiar el carrito.');
+            }
+
+            // Abrir pasarela de pago en ventana/pestaña nueva para que el cajero permanezca en Nueva Venta
+            window.open(urlCheckout, '_blank');
+
+            // Abrir modal de espera en tiempo real en Nueva Venta
+            setEsperaMp({
+                ventaId: registro.id,
+                folio: registro.folioVentaId ?? registro.id,
+                total,
+                urlCheckout,
+                registro,
+                detalleRegistrado,
+                metodoPagoUsado: metodoActual,
+                estado: 'ESPERANDO',
+            });
+            setModalCobroAbierto(false);
+            setCobrando(false);
+            return;
+        }
+
+        finalizarVentaCompletada({
+            registro,
+            detalleRegistrado,
+            metodoPagoUsado: metodoActual,
+            totalVenta: total,
+            montoRecibidoVenta: pagoEfectivo ? montoPagado : total,
+            cambioVenta: pagoEfectivo ? Math.max(0, redondear(montoPagado - total)) : 0,
         });
-        setModalCobroAbierto(false);
-        setMontoRecibido(0);
-        setClienteId(null);
-        setClienteSeleccionado(null);
-        setMetodoPago(null);
-        limpiarTickets();
         notifications.show({
             color: 'green',
             message: 'Venta creada correctamente.',
@@ -413,14 +558,15 @@ export function Nueva() {
             return;
         }
 
-        const mensajeError = error.message || 'No se pudo crear la venta.';
+        const detalleError = String(error.message ?? '');
         notifications.show({
             color: 'red',
-            message: mensajeError,
+            title: 'No se pudo completar la venta',
+            message: obtenerMensajeSeguroVenta(error, 'la venta'),
         });
         if (
             error.statusCode === 400
-            && /producto|servicio|membres[ií]a|disponible|inactiv[oa]/i.test(mensajeError)
+            && /producto|servicio|membres[ií]a|disponible|inactiv[oa]/i.test(detalleError)
         ) {
             await recargarCatalogosVenta();
         }
@@ -567,7 +713,6 @@ export function Nueva() {
                                     totalPaginas={totalPaginasCatalogo}
                                     total={totalCatalogo}
                                     cargando={cargandoCatalogo}
-                                    error={errorCatalogo}
                                     onPaginaChange={setPaginaCatalogo}
                                 />
                             </Tabs.Panel>
@@ -582,7 +727,6 @@ export function Nueva() {
                                     totalPaginas={totalPaginasCatalogo}
                                     total={totalCatalogo}
                                     cargando={cargandoCatalogo}
-                                    error={errorCatalogo}
                                     onPaginaChange={setPaginaCatalogo}
                                 />
                             </Tabs.Panel>
@@ -597,7 +741,6 @@ export function Nueva() {
                                     totalPaginas={totalPaginasCatalogo}
                                     total={totalCatalogo}
                                     cargando={cargandoCatalogo}
-                                    error={errorCatalogo}
                                     onPaginaChange={setPaginaCatalogo}
                                 />
                             </Tabs.Panel>
@@ -622,6 +765,7 @@ export function Nueva() {
                 }}
                 asignacionValida={asignacionValida}
                 clientes={clientes}
+                clienteDefault={clienteDefault}
                 clienteSeleccionado={clienteSeleccionado}
                 clienteId={clienteId}
                 busquedaCliente={busquedaClientes}
@@ -641,9 +785,19 @@ export function Nueva() {
                 onMontoRecibidoChange={setMontoRecibido}
                 esPagoEfectivo={esPagoEfectivo}
                 cambio={cambio}
+                datosTarjeta={datosTarjeta}
+                onDatosTarjetaChange={setDatosTarjeta}
+                datosTransferencia={datosTransferencia}
+                onDatosTransferenciaChange={setDatosTransferencia}
                 cobrando={cobrando}
                 onConfirm={confirmarCobro}
-            />            {ventaCreada && (
+            />
+            <ModalEsperaPagoMercadoPago
+                datosPago={esperaMp}
+                onPagoAprobado={manejarPagoAprobadoMp}
+                onClose={() => setEsperaMp(null)}
+            />
+            {ventaCreada && (
                 <ExportarDocumento
                     crearDocumento={async () => {
                         const { default: DocumentoTicketVenta } = await import(

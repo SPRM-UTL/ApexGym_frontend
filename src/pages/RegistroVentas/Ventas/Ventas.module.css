@@ -108,3 +108,78 @@
     background: rgba(255, 107, 0, 0.12);
     border-color: #e55f00 !important;
 }
+
+.salesOverview {
+    width: 100%;
+    min-width: 0;
+}
+
+.cashBanner {
+    background: var(--ag-color-surface-elevated, #ffffff);
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.cashEyebrow {
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
+}
+
+.cashTitle {
+    color: #1E293B;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.cashSelect {
+    min-width: 240px;
+}
+
+.summaryCard {
+    height: 100%;
+    background: var(--ag-color-surface-elevated, #ffffff);
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.summaryCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.summaryLabel {
+    color: #64748B;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.summaryValue {
+    color: #1E293B;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-top: 6px;
+}
+
+@media (max-width: 600px) {
+    .cashTitle {
+        font-size: 1rem;
+    }
+
+    .cashSelect {
+        min-width: 190px;
+        flex: 1;
+    }
+
+    .summaryValue {
+        font-size: 1.35rem;
+    }
+}

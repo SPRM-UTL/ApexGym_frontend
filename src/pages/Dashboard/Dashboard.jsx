@@ -265,17 +265,23 @@ export function Dashboard({ children, onLogout }) {
             );
         }
 
+        const modulosVisibles = (seccionActiva.modulos ?? []).filter((modulo) => (
+            !['pagos', 'simulador de pagos'].includes(
+                String(modulo?.nombre ?? '').trim().toLocaleLowerCase()
+            )
+        ));
+
         return (
             <>
                 <Text className={classes.pageTitle}>{seccionActiva.nombre}</Text>
                 {seccionActiva.descripcion && (
                     <Text className={classes.pageSubtitle}>{seccionActiva.descripcion}</Text>
                 )}
-                {seccionActiva.modulos?.length === 0 ? (
+                {modulosVisibles.length === 0 ? (
                     <Text c="dimmed">Esta sección no tiene módulos disponibles.</Text>
                 ) : (
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
-                        {seccionActiva.modulos.map((mod) => {
+                        {modulosVisibles.map((mod) => {
                             const Icono = iconoModulo(mod.nombre);
                             const tieneRuta = !!rutaModulo(mod.nombre);
 

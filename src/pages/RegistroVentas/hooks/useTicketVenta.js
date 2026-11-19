@@ -1,10 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { notifications } from '@mantine/notifications';
 
 export function useTicketVenta(estadoInicial = {}) {
-    const [listaProductos, setListaProductos] = useState(estadoInicial.listaProductos ?? []);
+    const [listaProductos, setListaProductosState] = useState(estadoInicial.listaProductos ?? []);
+    const listaProductosRef = useRef(listaProductos);
     const [listaCaja1, setCaja1] = useState(estadoInicial.listaCaja1 ?? []);
     const [listaCaja2, setCaja2] = useState(estadoInicial.listaCaja2 ?? []);
     const [cajaActual, setCajaActual] = useState(estadoInicial.cajaActual ?? 1);
+
+    const setListaProductos = useCallback((actualizar) => {
+        const siguienteLista = typeof actualizar === 'function'
+            ? actualizar(listaProductosRef.current)
+            : actualizar;
+        listaProductosRef.current = siguienteLista;
+        setListaProductosState(siguienteLista);
+    }, []);
 
     const cambiarCaja = (caja) => {
         if (caja === cajaActual) return;
@@ -17,12 +27,28 @@ export function useTicketVenta(estadoInicial = {}) {
     };
 
     const agregarProducto = (producto) => {
+        const listaActual = listaProductosRef.current;
+        const itemExistente = listaActual.find(
+            (item) => item.id === producto.id && item.tipoItem === producto.tipoItem
+        );
+
+        if (producto.tipoItem === 'PRODUCTO' && producto.stockActual !== undefined && producto.stockActual !== null) {
+            const stockDisponible = Number(producto.stockActual);
+            const cantidadActual = itemExistente ? itemExistente.cantidad : 0;
+            if (cantidadActual + 1 > stockDisponible) {
+                notifications.show({
+                    color: 'orange',
+                    message: `Stock insuficiente. Solo hay ${stockDisponible} disponible(s) de ${producto.nombre}.`,
+                });
+                return;
+            }
+        }
+
         setListaProductos((listaAnterior) => {
-            const existe = listaAnterior.some(
+            const articuloExistente = listaAnterior.find(
                 (item) => item.id === producto.id && item.tipoItem === producto.tipoItem
             );
-
-            if (existe) {
+            if (articuloExistente) {
                 return listaAnterior.map((item) => (
                     item.id === producto.id && item.tipoItem === producto.tipoItem
                         ? { ...item, cantidad: item.cantidad + 1 }
@@ -35,11 +61,30 @@ export function useTicketVenta(estadoInicial = {}) {
     };
 
     const sumar = (producto) => {
-        setListaProductos((listaAnterior) => listaAnterior.map((item) => (
-            item.id === producto.id && item.tipoItem === producto.tipoItem
-                ? { ...item, cantidad: item.cantidad + 1 }
-                : item
-        )));
+        const itemExistente = listaProductosRef.current.find(
+            (item) => item.id === producto.id && item.tipoItem === producto.tipoItem
+        );
+        if (!itemExistente) return;
+
+        const stock = itemExistente.stockActual ?? producto.stockActual;
+        if (itemExistente.tipoItem === 'PRODUCTO' && stock !== undefined && stock !== null) {
+            const stockDisponible = Number(stock);
+            if (itemExistente.cantidad + 1 > stockDisponible) {
+                notifications.show({
+                    color: 'orange',
+                    message: `No puedes agregar más de ${stockDisponible} unidades de ${itemExistente.nombre}.`,
+                });
+                return;
+            }
+        }
+
+        setListaProductos((listaAnterior) => {
+            return listaAnterior.map((item) => (
+                item.id === producto.id && item.tipoItem === producto.tipoItem
+                    ? { ...item, cantidad: item.cantidad + 1 }
+                    : item
+            ));
+        });
     };
 
     const restar = (producto) => {
@@ -80,7 +125,7 @@ export function useTicketVenta(estadoInicial = {}) {
         setListaProductos(conservarDisponibles);
         setCaja1(conservarDisponibles);
         setCaja2(conservarDisponibles);
-    }, []);
+    }, [setListaProductos]);
 
     return {
         listaProductos,

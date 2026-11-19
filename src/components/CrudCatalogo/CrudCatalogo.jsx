@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { notifications } from '@mantine/notifications';
-import { useSucursal } from '../../context/SucursalContext.jsx';
 import {
     Avatar,
     Button,
@@ -179,8 +178,10 @@ export function CrudCatalogo({
     tableMinWidth,
     serverPagination,
     createPersonalized = null,
+    createButtonLabel = null,
     updatePersonalized = null,
     onCreateSuccess,
+    onFetchError,
     topContent,
 }) {
     const [records, setRecords] = useState([]);
@@ -195,7 +196,6 @@ export function CrudCatalogo({
     const [fieldOptions, setFieldOptions] = useState({});
     const [loadedFilterOptions, setLoadedFilterOptions] = useState({});
     const [serverTotal, setServerTotal] = useState(0);
-    const { sucursalActiva } = useSucursal();
 
     const fieldsWithLoader = useMemo(() => campos.filter((campo) => campo.loadOptions), [campos]);
 
@@ -234,13 +234,18 @@ export function CrudCatalogo({
             }
             setError(null);
         } catch (err) {
-            setError(err.message || `Error al cargar ${titulo.toLowerCase()}`);
+            if (onFetchError) {
+                onFetchError(err);
+                setError(null);
+            } else {
+                setError(err.message || `Error al cargar ${titulo.toLowerCase()}`);
+            }
             setRecords([]);
             if (serverPagination) setServerTotal(0);
         } finally {
             setLoading(false);
         }
-    }, [servicio, serverPagination, serverQuery, titulo]);
+    }, [servicio, serverPagination, serverQuery, titulo, onFetchError]);
 
     const fetchOptions = useCallback(async () => {
         const loaded = await Promise.all(fieldsWithLoader.map(async (campo) => {
@@ -387,8 +392,6 @@ export function CrudCatalogo({
             const response = editingId
                 ? await servicio.actualizar(editingId, payload)
                 : await servicio.crear(payload);
-            if (response.responseFlag !== 0) throw new Error(response.message);
-
             if (response.responseFlag !== 0) throw new Error(response.message);
             
             notifications.show({ title: editingId ? 'Actualizado' : 'Agregado', message: `${singular} guardado correctamente.`, color: 'green' });
@@ -672,17 +675,29 @@ export function CrudCatalogo({
                             </Title>
                         </Group>
                         {permitirAgregar && (
-                            <ActionIcon
-                                className={classes.addButtonUnified}
-                                onClick={openCreate}
-                                aria-label={`Agregar ${singular.toLowerCase()}`}
-                                size={42}
-                                radius="xl"
-                                color="apex"
-                                variant="filled"
-                            >
-                                <IconPlus size={20} stroke={2.5} />
-                            </ActionIcon>
+                            createButtonLabel ? (
+                                <Button
+                                    onClick={openCreate}
+                                    color="apex"
+                                    size="sm"
+                                    radius="md"
+                                    leftSection={<IconPlus size={18} stroke={2.5} />}
+                                >
+                                    {createButtonLabel}
+                                </Button>
+                            ) : (
+                                <ActionIcon
+                                    className={classes.addButtonUnified}
+                                    onClick={openCreate}
+                                    aria-label={`Agregar ${singular.toLowerCase()}`}
+                                    size={42}
+                                    radius="xl"
+                                    color="apex"
+                                    variant="filled"
+                                >
+                                    <IconPlus size={20} stroke={2.5} />
+                                </ActionIcon>
+                            )
                         )}
                     </div>
                 ) : (

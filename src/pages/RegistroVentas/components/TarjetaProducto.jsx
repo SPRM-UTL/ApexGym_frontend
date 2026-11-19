@@ -2,10 +2,13 @@ import classes from '../Nueva/Nueva.module.css';
 import { Badge, Card, Group, Image, NumberFormatter, Stack, Text } from '@mantine/core';
 import { calcularPrecioUnitarioNeto } from '../utils/venta.utils.js';
 
-export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
+export function TarjetaProducto({ producto, tipoItem, agregarProducto }) {
     const categoriaNombre = producto.categoria?.nombre ?? (typeof producto.categoria === 'string' ? producto.categoria : null);
     const descuentoPorcentaje = tipoItem === 'PRODUCTO' ? Number(producto.descuentoPorcentaje ?? 0) : 0;
     const precioConDescuento = calcularPrecioUnitarioNeto({ ...producto, tipoItem });
+    const stockActual = tipoItem === 'PRODUCTO' ? Number(producto.stockActual ?? 0) : null;
+    const sinStock = stockActual !== null && stockActual <= 0;
+
     return (
         <Card
             shadow="sm"
@@ -13,7 +16,8 @@ export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
             radius="md"
             withBorder
             className={classes.producto}
-            onClick={() => agregarProducto({ ...producto, tipoItem })}
+            style={sinStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+            onClick={() => !sinStock && agregarProducto({ ...producto, tipoItem })}
         >
             <Card.Section className={!producto.imagen ? classes.productoImagenFallback : undefined}>
                 {producto.imagen && (
@@ -27,11 +31,23 @@ export function TarjetaProducto({ producto,tipoItem, agregarProducto }) {
             </Card.Section>
 
             <Stack gap={5} mt="sm">
-                {categoriaNombre && (
-                    <Badge size="xs" variant="light" color="orange" radius="sm" style={{ alignSelf: 'flex-start' }}>
-                        {categoriaNombre}
-                    </Badge>
-                )}
+                <Group justify="space-between" align="center">
+                    {categoriaNombre && (
+                        <Badge size="xs" variant="light" color="orange" radius="sm">
+                            {categoriaNombre}
+                        </Badge>
+                    )}
+                    {stockActual !== null && (
+                        <Badge
+                            size="xs"
+                            variant="light"
+                            color={stockActual > 5 ? 'teal' : stockActual > 0 ? 'yellow' : 'red'}
+                            radius="sm"
+                        >
+                            Stock: {stockActual}
+                        </Badge>
+                    )}
+                </Group>
 
                 <Group justify="space-between" align="flex-start">
                     <Text fw={650} size="md" lineClamp={2} className={classes.productoNombre}

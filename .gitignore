@@ -67,3 +67,8 @@ media_*
 *.webp
 *.gif
 .aider*
+
+# Scripts y pruebas locales en raíz (sin afectar src/scripts/)
+/scripts/
+/test/
+/tests/

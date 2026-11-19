@@ -64,12 +64,23 @@ export function DetalleVentaModal({ venta, cargando, onClose, onReturn }) {
     const cantidadDevuelta = detalles.reduce((acumulado, detalle) => (
         acumulado + Number(detalle.cantidadDevuelta ?? 0)
     ), 0);
-    const hayDevoluciones = cantidadDevuelta > 0 || devoluciones.length > 0;
-    const estadoDevolucion = !hayDevoluciones
-        ? null
-        : cantidadVendida > 0 && cantidadDevuelta >= cantidadVendida
-            ? 'Devuelta totalmente'
-            : 'Devuelta parcialmente';
+    const devolucionesPendientes = devoluciones.filter(
+        (devolucion) => String(devolucion.estadoReembolso ?? '').toUpperCase() === 'PENDIENTE_REEMBOLSO'
+    );
+    const devolucionesCompletadas = devoluciones.filter(
+        (devolucion) => String(devolucion.estadoReembolso ?? '').toUpperCase() === 'COMPLETADA'
+    );
+    const totalDevuelto = devolucionesCompletadas.reduce(
+        (acumulado, devolucion) => acumulado + Number(devolucion.monto ?? 0),
+        0
+    );
+    const estadoDevolucion = devolucionesPendientes.length > 0
+        ? 'Reembolso pendiente'
+        : cantidadDevuelta === 0
+            ? null
+            : cantidadVendida > 0 && cantidadDevuelta >= cantidadVendida
+                ? 'Devuelta totalmente'
+                : 'Devuelta parcialmente';
     const puedeRegistrarDevolucion = detalles.some((detalle) => {
         const tipoItem = String(detalle.tipoItem ?? '').toUpperCase();
         const esMembresia = tipoItem === 'MEMBRESIA'
@@ -83,11 +94,7 @@ export function DetalleVentaModal({ venta, cargando, onClose, onReturn }) {
             && Number.isFinite(cantidadDisponible)
             && cantidadDisponible > 0;
     });
-    const totalDevuelto = Number(
-        venta?.resumenDevoluciones?.totalDevuelto
-        ?? devoluciones.reduce((acumulado, devolucion) => acumulado + Number(devolucion.monto ?? 0), 0)
-    );
-    const neto = Number(venta?.resumenDevoluciones?.neto ?? total - totalDevuelto);
+    const neto = total - totalDevuelto;
 
     return (
         <Modal
@@ -129,10 +136,31 @@ export function DetalleVentaModal({ venta, cargando, onClose, onReturn }) {
                                 {venta.aperturaCaja?.caja?.nombre ?? '—'} · Apertura #{venta.aperturaCajaId ?? venta.aperturaCaja?.id ?? '—'}
                             </Dato>
                             <Dato icon={IconCreditCard} label="Método de pago">{venta.metodoPago?.nombre}</Dato>
-                            <Dato icon={IconCheck} label="Estado">{estado}</Dato>
+                            <Dato icon={IconCheck} label="Estado">
+                                <Badge
+                                    color={
+                                        ['completada', 'completado'].includes(String(estado).toLowerCase())
+                                            ? 'green'
+                                            : ['pendiente_pago', 'pendiente'].includes(String(estado).toLowerCase())
+                                                ? 'yellow'
+                                                : ['cancelada', 'cancelado'].includes(String(estado).toLowerCase())
+                                                    ? 'red'
+                                                    : 'gray'
+                                    }
+                                    variant="light"
+                                >
+                                    {String(estado).toUpperCase()}
+                                </Badge>
+                            </Dato>
                             {estadoDevolucion && (
                                 <Dato icon={IconRefresh} label="Estado de devolución">
-                                    <Badge color={estadoDevolucion === 'Devuelta totalmente' ? 'teal' : 'orange'}>
+                                    <Badge color={
+                                        estadoDevolucion === 'Devuelta totalmente'
+                                            ? 'teal'
+                                            : estadoDevolucion === 'Reembolso pendiente'
+                                                ? 'yellow'
+                                                : 'orange'
+                                    }>
                                         {estadoDevolucion}
                                     </Badge>
                                 </Dato>
@@ -189,28 +217,44 @@ export function DetalleVentaModal({ venta, cargando, onClose, onReturn }) {
                             <Paper className={classes.devoluciones} radius="md" p="md" withBorder>
                                 <Stack gap="sm">
                                     <Group justify="space-between" align="center">
-                                        <Text fw={700} c="dark.8">Reembolsos registrados</Text>
+                                        <Text fw={700} c="dark.8">Solicitudes de devolución</Text>
                                         <Badge color="orange" variant="light">
-                                            {devoluciones.length} {devoluciones.length === 1 ? 'devolución' : 'devoluciones'}
+                                            {devoluciones.length} {devoluciones.length === 1 ? 'solicitud' : 'solicitudes'}
                                         </Badge>
                                     </Group>
                                     <Stack gap={0}>
-                                        {devoluciones.map((devolucion) => (
-                                            <Group
-                                                key={devolucion.id}
-                                                justify="space-between"
-                                                align="center"
-                                                className={classes.devolucionFila}
-                                            >
-                                                <div>
-                                                    <Text fw={600}>{formatearFecha(devolucion.createdAt)}</Text>
-                                                    <Text size="sm" c="dimmed">
-                                                        Empleado: {nombreEmpleadoDevolucion(devolucion)}
-                                                    </Text>
-                                                </div>
-                                                <Text fw={700}>{moneda(devolucion.monto)}</Text>
-                                            </Group>
-                                        ))}
+                                        {devoluciones.map((devolucion) => {
+                                            const estadoReembolso = String(devolucion.estadoReembolso ?? '').toUpperCase();
+                                            const etiqueta = {
+                                                COMPLETADA: 'Completada',
+                                                PENDIENTE_REEMBOLSO: 'Pendiente',
+                                                FALLIDA: 'Fallida',
+                                            }[estadoReembolso] ?? 'Estado no disponible';
+                                            const color = {
+                                                COMPLETADA: 'green',
+                                                PENDIENTE_REEMBOLSO: 'yellow',
+                                                FALLIDA: 'red',
+                                            }[estadoReembolso] ?? 'gray';
+                                            return (
+                                                <Group
+                                                    key={devolucion.id}
+                                                    justify="space-between"
+                                                    align="center"
+                                                    className={classes.devolucionFila}
+                                                >
+                                                    <div>
+                                                        <Group gap="xs">
+                                                            <Text fw={600}>{formatearFecha(devolucion.createdAt)}</Text>
+                                                            <Badge color={color} variant="light" size="sm">{etiqueta}</Badge>
+                                                        </Group>
+                                                        <Text size="sm" c="dimmed">
+                                                            Empleado: {nombreEmpleadoDevolucion(devolucion)}
+                                                        </Text>
+                                                    </div>
+                                                    <Text fw={700}>{moneda(devolucion.monto)}</Text>
+                                                </Group>
+                                            );
+                                        })}
                                     </Stack>
                                     <Divider color="#e2e8f0" />
                                     <Group justify="space-between">
@@ -221,6 +265,11 @@ export function DetalleVentaModal({ venta, cargando, onClose, onReturn }) {
                                         <Text>Neto restante</Text>
                                         <Text fw={800} c="orange.8">{moneda(neto)}</Text>
                                     </Group>
+                                    {devolucionesPendientes.length > 0 && (
+                                        <Text size="xs" c="yellow.8">
+                                            Hay reembolsos pendientes; todavía no se incluyen en el total devuelto.
+                                        </Text>
+                                    )}
                                 </Stack>
                             </Paper>
                         )}

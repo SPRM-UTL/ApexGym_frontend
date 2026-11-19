@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { modals } from '@mantine/modals';
+import { notifications } from '@mantine/notifications';
 import {
-    Alert,
     Badge,
     Button,
     Checkbox,
@@ -14,11 +15,15 @@ import {
     Stack,
     Table,
     Text,
+    TextInput,
     Textarea,
 } from '@mantine/core';
-import { IconAlertCircle, IconArrowBackUp, IconCashBanknote, IconPackage } from '@tabler/icons-react';
+import { IconArrowBackUp, IconCashBanknote, IconPackage } from '@tabler/icons-react';
 import { api } from '../../../scripts/services/api.js';
-import { obtenerRegistros } from '../../../utils/ventaHelper/ventaHelpers.js';
+import {
+    obtenerMensajeSeguroVenta,
+    obtenerRegistros,
+} from '../../../utils/ventaHelper/ventaHelpers.js';
 import classes from './DetalleVentaModal.module.css';
 
 const moneda = (valor) => `$${Number(valor ?? 0).toLocaleString('es-MX', {
@@ -80,13 +85,15 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
     const [aperturaCajaId, setAperturaCajaId] = useState('');
     const [cargandoAperturas, setCargandoAperturas] = useState(false);
     const [cargandoDevolucion, setCargandoDevolucion] = useState(false);
-    const [errorAperturas, setErrorAperturas] = useState('');
     const [motivo, setMotivo] = useState('');
+    const [folioCancelacion, setFolioCancelacion] = useState('');
+    const [confirmacionTerminal, setConfirmacionTerminal] = useState(false);
     const [seleccion, setSeleccion] = useState({});
     const [previsualizacion, setPrevisualizacion] = useState(null);
     const [cargandoPrevisualizacion, setCargandoPrevisualizacion] = useState(false);
-    const [errorPrevisualizacion, setErrorPrevisualizacion] = useState('');
+    const [errorPrevisualizacion, setErrorPrevisualizacion] = useState(false);
     const [intentoPrevisualizacion, setIntentoPrevisualizacion] = useState(0);
+    const ejecucionEnCurso = useRef(false);
 
     const detalles = useMemo(() => (disponibilidad?.detalles ?? []).map((detalle) => ({
         ...detalle,
@@ -113,6 +120,10 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
         (total, detalle) => total + Number(detalle.descuentoUnitario ?? 0) * Number(detalle.cantidad ?? 0),
         0
     );
+    const metodoPago = disponibilidad?.metodoPago ?? venta?.metodoPago;
+    const codigoMetodoPago = String(metodoPago?.codigo ?? '').toUpperCase();
+    const esMercadoPago = codigoMetodoPago === 'MERCADO_PAGO';
+    const esTerminal = codigoMetodoPago === 'TARJETA';
 
     useEffect(() => {
         let activo = true;
@@ -122,19 +133,21 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
             setAperturaCajaId('');
             setMotivo('');
             setSeleccion({});
-            setErrorAperturas('');
+            setFolioCancelacion('');
+            setConfirmacionTerminal(false);
             setPrevisualizacion(null);
             setCargandoPrevisualizacion(false);
-            setErrorPrevisualizacion('');
+            setErrorPrevisualizacion(false);
             return undefined;
         }
 
         setCargandoAperturas(true);
-        setErrorAperturas('');
+        setFolioCancelacion('');
+        setConfirmacionTerminal(false);
         setDisponibilidad(null);
         setPrevisualizacion(null);
         setCargandoPrevisualizacion(false);
-        setErrorPrevisualizacion('');
+        setErrorPrevisualizacion(false);
         Promise.all([
             api.aperturaCaja.obtenerAbiertas(),
             api.venta.obtenerDisponibilidadDevolucion(ventaId),
@@ -153,8 +166,23 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
             setAperturaCajaId(listaAperturas.length === 1 ? String(listaAperturas[0].id) : '');
             setDisponibilidad(respuestaDisponibilidad.data);
             setSeleccion(crearSeleccionInicial(detallesDisponibles));
-        }).catch((error) => {
-            if (activo) setErrorAperturas(error.message || 'No se pudieron cargar los datos de devolución.');
+            if (listaAperturas.length === 0) {
+                notifications.show({
+                    color: 'yellow',
+                    title: 'No hay caja abierta',
+                    message: 'Abre una caja antes de registrar la devolución.',
+                });
+            }
+        }).catch(() => {
+            if (activo) {
+                setAperturas([]);
+                setDisponibilidad(null);
+                notifications.show({
+                    color: 'red',
+                    title: 'No se pudieron cargar los datos de devolución',
+                    message: 'Intenta abrir nuevamente la devolución.',
+                });
+            }
         }).finally(() => {
             if (activo) setCargandoAperturas(false);
         });
@@ -168,13 +196,13 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
         let activo = true;
         if (!ventaId || !disponibilidad || detallesSolicitados.length === 0) {
             setCargandoPrevisualizacion(false);
-            setErrorPrevisualizacion('');
+            setErrorPrevisualizacion(false);
             return undefined;
         }
 
         const solicitudActual = JSON.stringify(detallesSolicitados);
         setCargandoPrevisualizacion(true);
-        setErrorPrevisualizacion('');
+        setErrorPrevisualizacion(false);
         api.venta.previsualizarDevolucion(ventaId, detallesSolicitados)
             .then((respuesta) => {
                 if (!activo) return;
@@ -191,7 +219,12 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
             })
             .catch((error) => {
                 if (activo) {
-                    setErrorPrevisualizacion(error.message || 'No se pudo calcular la devolución.');
+                    setErrorPrevisualizacion(true);
+                    notifications.show({
+                        color: 'red',
+                        title: 'No se pudo calcular la devolución',
+                        message: obtenerMensajeSeguroVenta(error, 'la devolución'),
+                    });
                 }
             })
             .finally(() => {
@@ -209,16 +242,18 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
             [detalleId]: { ...actual[detalleId], ...cambios },
         }));
         setPrevisualizacion(null);
-        setErrorPrevisualizacion('');
-        setErrorAperturas('');
+        setErrorPrevisualizacion(false);
     };
 
-    const confirmar = async () => {
+    const ejecutarDevolucion = async () => {
         if (!aperturaCajaId) return;
         if (!motivo.trim()) return;
         if (cantidadesNoDisponibles || lineasSeleccionadas.length === 0) return;
         if (!cotizacionVigente || cargandoPrevisualizacion) return;
+        if (esTerminal && (!folioCancelacion.trim() || !confirmacionTerminal)) return;
+        if (ejecucionEnCurso.current) return;
 
+        ejecucionEnCurso.current = true;
         setCargandoDevolucion(true);
         try {
             const respuesta = await api.venta.crearDevolucion(venta.id, {
@@ -227,6 +262,8 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
                 detalles: detallesSolicitados,
                 montoPrevisualizado: cotizacionVigente.desglose.montoTotal,
                 cantidadesDevueltasPrevisualizadas: cotizacionVigente.cantidadesDevueltasPrevisualizadas,
+                folioCancelacion: esTerminal ? folioCancelacion.trim() : null,
+                confirmacionTerminal,
             });
             if (respuesta.responseFlag !== 0) {
                 throw new Error(respuesta.message || 'No se pudo registrar la devolución.');
@@ -247,21 +284,55 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
                     const detallesDisponibles = obtenerDetallesDisponibles(respuestaDisponibilidad);
                     setDisponibilidad(respuestaDisponibilidad.data);
                     setSeleccion(crearSeleccionInicial(detallesDisponibles));
-                    setErrorAperturas(
-                        'La disponibilidad cambió. Se actualizaron las cantidades; vuelve a seleccionar las líneas para confirmar.'
-                    );
-                } catch (errorDisponibilidad) {
-                    setErrorAperturas(
-                        errorDisponibilidad.message
-                        || 'La cotización cambió y no se pudo actualizar la disponibilidad.'
-                    );
+                    notifications.show({
+                        color: 'yellow',
+                        title: 'La disponibilidad cambió',
+                        message: 'Se actualizaron las cantidades; vuelve a seleccionar las líneas para confirmar.',
+                    });
+                } catch {
+                    notifications.show({
+                        color: 'red',
+                        title: 'No se pudo actualizar la disponibilidad',
+                        message: 'Vuelve a cargar los datos de devolución e inténtalo nuevamente.',
+                    });
                 }
             } else {
-                setErrorAperturas(error.message || 'No se pudo registrar la devolución.');
+                const mensajeSeguro = obtenerMensajeSeguroVenta(error, 'la devolución');
+                notifications.show({
+                    color: 'red',
+                    title: 'No se pudo completar la devolución',
+                    message: mensajeSeguro,
+                    autoClose: 8000,
+                });
             }
         } finally {
+            ejecucionEnCurso.current = false;
             setCargandoDevolucion(false);
         }
+    };
+
+    const confirmar = () => {
+        if (ejecucionEnCurso.current || !aperturaCajaId || !motivo.trim() || !lineasSeleccionadas.length
+            || cantidadesNoDisponibles || !cotizacionVigente || cargandoPrevisualizacion
+            || (esTerminal && (!folioCancelacion.trim() || !confirmacionTerminal))) {
+            return;
+        }
+
+        modals.openConfirmModal({
+            centered: true,
+            zIndex: 1000002,
+            title: '¿Confirmas la devolución?',
+            children: (
+                <Stack gap="xs">
+                    <Text size="sm">Monto: <strong>{moneda(cotizacionVigente.desglose.montoTotal)}</strong></Text>
+                    <Text size="sm">Método de devolución: <strong>{esMercadoPago ? 'Efectivo' : metodoPago?.nombre ?? 'No identificado'}</strong></Text>
+                    <Text size="sm" c="red" fw={500}>Esta acción no se puede deshacer.</Text>
+                </Stack>
+            ),
+            labels: { confirm: 'Confirmar devolución', cancel: 'Volver' },
+            confirmProps: { color: 'orange' },
+            onConfirm: ejecutarDevolucion,
+        });
     };
 
     const lineasCotizadas = new Map(
@@ -305,38 +376,6 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
             ) : venta ? (
                 <Stack gap={0}>
                     <div className={classes.content}>
-                        {errorAperturas && <Alert color="red" title="No se pudo completar la operación">{errorAperturas}</Alert>}
-                        {errorPrevisualizacion && (
-                            <Alert color="red" title="No se pudo calcular la devolución">
-                                <Group justify="space-between" align="center">
-                                    <Text size="sm">{errorPrevisualizacion}</Text>
-                                    <Button
-                                        size="xs"
-                                        variant="light"
-                                        color="red"
-                                        onClick={() => setIntentoPrevisualizacion((actual) => actual + 1)}
-                                    >
-                                        Reintentar
-                                    </Button>
-                                </Group>
-                            </Alert>
-                        )}
-                        {aperturas.length === 0 && !errorAperturas && (
-                            <Alert color="red" icon={<IconAlertCircle size={18} />} title="No hay caja abierta">
-                                Abre una caja antes de registrar la devolución.
-                            </Alert>
-                        )}
-                        {cantidadesNoDisponibles && (
-                            <Alert color="yellow" title="Faltan datos de devolución">
-                                No se recibieron cantidades disponibles válidas. No se puede confirmar la devolución.
-                            </Alert>
-                        )}
-                        {cargandoPrevisualizacion && (
-                            <Alert color="blue" title="Calculando devolución">
-                                El servidor está calculando el desglose y el importe del reembolso.
-                            </Alert>
-                        )}
-
                         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                             {aperturas.length > 0 && (
                                 <Select
@@ -346,7 +385,6 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
                                     value={aperturaCajaId}
                                     onChange={(value) => {
                                         setAperturaCajaId(value);
-                                        setErrorAperturas('');
                                     }}
                                     disabled={aperturas.length === 1}
                                     searchable
@@ -356,16 +394,44 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
                             <Paper p="sm" radius="md" withBorder>
                                 <Group gap="xs">
                                     <IconCashBanknote size={19} />
-                                    <Text size="sm" c="dimmed">Método de pago original</Text>
+                                    <Text size="sm" c="dimmed">Método de devolución</Text>
                                     <Badge color="blue" variant="light">
-                                        {disponibilidad?.metodoPago?.nombre ?? venta.metodoPago?.nombre ?? 'No identificado'}
+                                        {esMercadoPago
+                                            ? 'Efectivo'
+                                            : disponibilidad?.metodoPago?.nombre ?? venta.metodoPago?.nombre ?? 'No identificado'}
                                     </Badge>
                                 </Group>
                                 <Text size="xs" c="dimmed" mt={4}>
-                                    El reembolso usa el método original. Si es tarjeta, procesa también el reembolso en la terminal o proveedor de pago.
+                                    {esMercadoPago
+                                        ? 'Se entregará efectivo y se registrará la salida en caja. No se solicitará un reembolso a Mercado Pago.'
+                                        : esTerminal
+                                            ? 'La devolución requiere cancelar primero el cobro en la terminal.'
+                                            : 'El reembolso se registra mediante el método de pago original.'}
                                 </Text>
                             </Paper>
                         </SimpleGrid>
+
+                        {esTerminal && (
+                            <Paper p="sm" radius="md" withBorder>
+                                <Stack gap="xs">
+                                    <TextInput
+                                        label="Folio de cancelación de la terminal"
+                                        placeholder="Ingresa el folio del voucher cancelado"
+                                        required
+                                        maxLength={100}
+                                        value={folioCancelacion}
+                                        onChange={(event) => setFolioCancelacion(event.currentTarget.value)}
+                                        disabled={cargandoDevolucion}
+                                    />
+                                    <Checkbox
+                                        label="Confirmo que ya cancelé este cobro en la terminal y devolví el dinero al cliente."
+                                        checked={confirmacionTerminal}
+                                        onChange={(event) => setConfirmacionTerminal(event.currentTarget.checked)}
+                                        disabled={cargandoDevolucion}
+                                    />
+                                </Stack>
+                            </Paper>
+                        )}
 
                         <div className={classes.tabla}>
                             <Table horizontalSpacing="sm" verticalSpacing="xs" miw={1050}>
@@ -489,6 +555,15 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
 
                     <div className={classes.footer}>
                         <Group justify="flex-end">
+                            {errorPrevisualizacion && (
+                                <Button
+                                    variant="light"
+                                    disabled={cargandoPrevisualizacion}
+                                    onClick={() => setIntentoPrevisualizacion((actual) => actual + 1)}
+                                >
+                                    Reintentar cálculo
+                                </Button>
+                            )}
                             <Button variant="default" disabled={cargandoDevolucion} onClick={onClose}>Cancelar</Button>
                             <Button
                                 color="orange"
@@ -498,14 +573,14 @@ export function FormularioDevolucionModal({ venta, cargando, onClose, onSuccess 
                                     || !motivo.trim()
                                     || !lineasSeleccionadas.length
                                     || cantidadesNoDisponibles
-                                    || Boolean(errorAperturas)
-                                    || Boolean(errorPrevisualizacion)
+                                    || errorPrevisualizacion
                                     || !cotizacionVigente
                                     || cargandoPrevisualizacion
+                                    || (esTerminal && (!folioCancelacion.trim() || !confirmacionTerminal))
                                 }
                                 onClick={confirmar}
                             >
-                                Confirmar devolución
+                                {esMercadoPago && cargandoDevolucion ? 'Reembolsando…' : 'Confirmar devolución'}
                             </Button>
                         </Group>
                     </div>

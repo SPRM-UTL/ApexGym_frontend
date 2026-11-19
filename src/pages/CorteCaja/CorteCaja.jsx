@@ -5,7 +5,7 @@
  *
  * Módulo rediseñado con Drawer moderno de creación y detalle según especificación visual.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Accordion,
     ActionIcon,
@@ -61,6 +61,24 @@ import { generarPdfCorte } from '../../scripts/generarPdfCorte.js';
 import { DENOMINACIONES, desglosarMonto } from '../../scripts/cajaUtils.js';
 import { SectionCard } from '../../components/SectionCard/SectionCard.jsx';
 import classes from './CorteCaja.module.css';
+
+const ETIQUETAS_METODO_PAGO = {
+    EFECTIVO: 'Efectivo',
+    MERCADO_PAGO: 'Mercado Pago',
+    TARJETA: 'Tarjeta',
+    TERMINAL_MANUAL: 'Tarjeta',
+    TRANSFERENCIA: 'Transferencia',
+};
+
+function obtenerEtiquetaMetodoPagoMovimiento(movimiento) {
+    const metodoPago = movimiento?.venta?.metodoPago ?? movimiento?.devolucion?.metodoPago;
+    const codigo = String(metodoPago?.codigo ?? movimiento?.transaccionPago?.proveedor ?? '')
+        .trim()
+        .toUpperCase();
+    return ETIQUETAS_METODO_PAGO[codigo]
+        ?? metodoPago?.nombre
+        ?? (movimiento?.afectaEfectivo ? 'Efectivo' : 'Sin método');
+}
 
 /* ─── Campos (para validación y payload) ────────────────────────────────────── */
 const CAMPOS = [
@@ -305,7 +323,7 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                 <Accordion.Item value="entradas" style={{ borderColor: '#E2E8F0' }}>
                                     <Accordion.Control icon={<ThemeIcon color="green" variant="light" radius="md" size="sm"><IconCash size={14} /></ThemeIcon>}>
                                         <Group justify="space-between" w="100%" pr="sm">
-                                            <Text fw={600} size="xs" c="#1E293B">Ingresos de Efectivo (+)</Text>
+                                            <Text fw={600} size="xs" c="#1E293B">Ingresos Registrados (+)</Text>
                                             <Badge color="green" variant="light" size="xs">+${totalEntradas.toFixed(2)}</Badge>
                                         </Group>
                                     </Accordion.Control>
@@ -316,19 +334,32 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                                     <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
                                                         <Table.Th style={{ width: 60 }}>#</Table.Th>
                                                         <Table.Th>Concepto</Table.Th>
+                                                        <Table.Th style={{ width: 130, textAlign: 'center' }}>Método de pago</Table.Th>
                                                         <Table.Th style={{ textAlign: 'right', width: 120 }}>Monto</Table.Th>
                                                     </Table.Tr>
                                                 </Table.Thead>
                                                 <Table.Tbody>
-                                                    {entradas.map((m) => (
-                                                        <Table.Tr key={m.id}>
-                                                            <Table.Td fw={600}>#{m.id}</Table.Td>
-                                                            <Table.Td>{m.concepto}</Table.Td>
-                                                            <Table.Td style={{ textAlign: 'right' }}>
-                                                                <Text fw={700} size="xs" c="green">+${Number(m.monto).toFixed(2)}</Text>
-                                                            </Table.Td>
-                                                        </Table.Tr>
-                                                    ))}
+                                                    {entradas.map((m) => {
+                                                        const metodoPago = obtenerEtiquetaMetodoPagoMovimiento(m);
+                                                        return (
+                                                            <Table.Tr key={m.id}>
+                                                                <Table.Td fw={600}>#{m.id}</Table.Td>
+                                                                <Table.Td>{m.concepto}</Table.Td>
+                                                                <Table.Td style={{ textAlign: 'center' }}>
+                                                                    <Badge
+                                                                        color={metodoPago === 'Efectivo' ? 'green' : 'blue'}
+                                                                        size="xs"
+                                                                        variant="light"
+                                                                    >
+                                                                        {metodoPago}
+                                                                    </Badge>
+                                                                </Table.Td>
+                                                                <Table.Td style={{ textAlign: 'right' }}>
+                                                                    <Text fw={700} size="xs" c="green">+${Number(m.monto).toFixed(2)}</Text>
+                                                                </Table.Td>
+                                                            </Table.Tr>
+                                                        );
+                                                    })}
                                                 </Table.Tbody>
                                             </Table>
                                         ) : (
@@ -340,7 +371,7 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                 <Accordion.Item value="salidas" style={{ borderColor: '#E2E8F0' }}>
                                     <Accordion.Control icon={<ThemeIcon color="red" variant="light" radius="md" size="sm"><IconArrowsExchange size={14} /></ThemeIcon>}>
                                         <Group justify="space-between" w="100%" pr="sm">
-                                            <Text fw={600} size="xs" c="#1E293B">Egresos de Efectivo (-)</Text>
+                                            <Text fw={600} size="xs" c="#1E293B">Egresos Registrados (-)</Text>
                                             <Badge color="red" variant="light" size="xs">-${totalSalidas.toFixed(2)}</Badge>
                                         </Group>
                                     </Accordion.Control>
@@ -351,28 +382,41 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
                                                     <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
                                                         <Table.Th style={{ width: 60 }}>#</Table.Th>
                                                         <Table.Th>Concepto</Table.Th>
+                                                        <Table.Th style={{ width: 130, textAlign: 'center' }}>Método de pago</Table.Th>
                                                         <Table.Th style={{ textAlign: 'right', width: 120 }}>Monto</Table.Th>
                                                     </Table.Tr>
                                                 </Table.Thead>
                                                 <Table.Tbody>
-                                                    {salidas.map((m) => (
-                                                        <Table.Tr key={m.id}>
-                                                            <Table.Td fw={600}>#{m.id}</Table.Td>
-                                                            <Table.Td>
-                                                                <Group gap="xs">
-                                                                    <Text size="xs">{m.concepto}</Text>
-                                                                    {m.devolucionId != null && (
-                                                                        <Badge color="orange" variant="light" size="xs">
-                                                                            Devolución #{m.devolucionId}
-                                                                        </Badge>
-                                                                    )}
-                                                                </Group>
-                                                            </Table.Td>
-                                                            <Table.Td style={{ textAlign: 'right' }}>
-                                                                <Text fw={700} size="xs" c="red">-${Number(m.monto).toFixed(2)}</Text>
-                                                            </Table.Td>
-                                                        </Table.Tr>
-                                                    ))}
+                                                    {salidas.map((m) => {
+                                                        const metodoPago = obtenerEtiquetaMetodoPagoMovimiento(m);
+                                                        return (
+                                                            <Table.Tr key={m.id}>
+                                                                <Table.Td fw={600}>#{m.id}</Table.Td>
+                                                                <Table.Td>
+                                                                    <Group gap="xs">
+                                                                        <Text size="xs">{m.concepto}</Text>
+                                                                        {m.devolucionId != null && (
+                                                                            <Badge color="orange" variant="light" size="xs">
+                                                                                Devolución #{m.devolucionId}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </Group>
+                                                                </Table.Td>
+                                                                <Table.Td style={{ textAlign: 'center' }}>
+                                                                    <Badge
+                                                                        color={metodoPago === 'Efectivo' ? 'red' : 'gray'}
+                                                                        size="xs"
+                                                                        variant="light"
+                                                                    >
+                                                                        {metodoPago}
+                                                                    </Badge>
+                                                                </Table.Td>
+                                                                <Table.Td style={{ textAlign: 'right' }}>
+                                                                    <Text fw={700} size="xs" c="red">-${Number(m.monto).toFixed(2)}</Text>
+                                                                </Table.Td>
+                                                            </Table.Tr>
+                                                        );
+                                                    })}
                                                 </Table.Tbody>
                                             </Table>
                                         ) : (
@@ -415,6 +459,7 @@ function DrawerDetalleVentas({ opened, onClose, resumenApertura }) {
 function CorteForm({ form, errors, onChange, fieldOptions }) {
     const [modalVentasAbierto, setModalVentasAbierto] = useState(false);
     const [resumenApertura, setResumenApertura] = useState(null);
+    const onChangeRef = useRef(onChange);
 
     // Estado local para conteo de billetes de cierre
     const [conteoCierre, setConteoCierre] = useState(() => {
@@ -425,6 +470,10 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         for (const d of DENOMINACIONES) init[d.valor] = '';
         return init;
     });
+
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
 
     // Cargar datos de la apertura cuando cambia
     useEffect(() => {
@@ -461,9 +510,9 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
 
     useEffect(() => {
         if (desgloseInicio) {
-            onChange('desgloseInicio', desgloseInicio);
+            onChangeRef.current('desgloseInicio', desgloseInicio);
         }
-    }, [desgloseInicio, onChange]);
+    }, [desgloseInicio]);
 
     // Actualizar conteo de denominación y recalcular total
     const actualizarConteoCierre = (valor, cantidad) => {
@@ -493,9 +542,18 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
         : 0;
     const totalEntradas = resumenApertura ? Number(resumenApertura.totalEntradas ?? 0) : 0;
     const totalSalidas = resumenApertura ? Number(resumenApertura.totalSalidas ?? 0) : 0;
+    const totalEntradasEfectivo = resumenApertura
+        ? Number(resumenApertura.totalEntradasEfectivo ?? resumenApertura.totalVentasEfectivo ?? 0)
+        : 0;
+    const totalSalidasEfectivo = resumenApertura
+        ? Number(resumenApertura.totalSalidasEfectivo ?? 0)
+        : 0;
+    const totalEntradasDigitales = Math.max(0, totalEntradas - totalEntradasEfectivo);
+    const totalSalidasDigitales = Math.max(0, totalSalidas - totalSalidasEfectivo);
+
     const efectivoEsperado = resumenApertura?.saldoDisponible !== undefined
         ? Number(resumenApertura.saldoDisponible)
-        : fondoInicial + totalEntradas - totalSalidas;
+        : fondoInicial + totalEntradasEfectivo - totalSalidasEfectivo;
     const efectivoContado = Number(form.efectivoContado || 0);
     const diferencia = efectivoContado - efectivoEsperado;
 
@@ -636,8 +694,8 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                 icon={<IconScale size={22} stroke={1.8} />}
                 iconBg="#FFF4EC"
                 iconColor="#FF6A00"
-                title="Balance teórico del turno"
-                subtitle="Diferencia entre el efectivo esperado y el contado"
+                title="Balance teórico de efectivo en caja"
+                subtitle="Arqueo del dinero físico en cajón vs cobros en efectivo registrados"
                 rightAmount={`$${Math.abs(diferencia).toFixed(2)}`}
                 rightAmountColor={Math.abs(diferencia) < 0.01 ? '#2B8A3E' : (diferencia > 0 ? '#2B8A3E' : '#FF6A00')}
                 collapsible={true}
@@ -649,16 +707,16 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                         <Text fw={600} size="xs">${fondoInicial.toFixed(2)}</Text>
                     </Group>
                     <Group justify="space-between">
-                        <Text size="xs" c="dimmed">(+) Entradas registradas:</Text>
-                        <Text fw={600} size="xs" c="green">+${totalEntradas.toFixed(2)}</Text>
+                        <Text size="xs" c="dimmed">(+) Entradas en Efectivo:</Text>
+                        <Text fw={600} size="xs" c="green">+${totalEntradasEfectivo.toFixed(2)}</Text>
                     </Group>
                     <Group justify="space-between">
-                        <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
-                        <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                        <Text size="xs" c="dimmed">(-) Salidas en Efectivo:</Text>
+                        <Text fw={600} size="xs" c="red">-${totalSalidasEfectivo.toFixed(2)}</Text>
                     </Group>
                     <Divider my={2} />
                     <Group justify="space-between">
-                        <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
+                        <Text fw={700} size="xs">(=) Efectivo Físico Esperado en Cajón:</Text>
                         <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
                     </Group>
                     <Group justify="space-between">
@@ -676,6 +734,38 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
                             {diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}
                         </Text>
                     </Group>
+
+                    {/* Resumen informativo de cobros digitales y totales generales */}
+                    <Paper p="xs" radius="sm" withBorder style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }} mt="xs">
+                        <Text size="xs" fw={700} c="#1E293B" mb={4}>Resumen Global del Turno (Todos los medios de pago)</Text>
+                        <Group justify="space-between">
+                            <Text size="xs" c="dimmed">Ingresos Totales (Efectivo + Digitales):</Text>
+                            <Text fw={600} size="xs">${totalEntradas.toFixed(2)}</Text>
+                        </Group>
+                        <Group justify="space-between" pl="sm">
+                            <Text size="xs" c="dimmed">• En Efectivo (Caja):</Text>
+                            <Text fw={600} size="xs" c="green">${totalEntradasEfectivo.toFixed(2)}</Text>
+                        </Group>
+                        <Group justify="space-between" pl="sm">
+                            <Text size="xs" c="dimmed">• Digitales (Mercado Pago, Tarjeta, Transf.):</Text>
+                            <Text fw={600} size="xs" c="blue">${totalEntradasDigitales.toFixed(2)}</Text>
+                        </Group>
+                        {totalSalidas > 0 && (
+                            <>
+                                <Divider my={4} />
+                                <Group justify="space-between">
+                                    <Text size="xs" c="dimmed">Egresos / Devoluciones Totales:</Text>
+                                    <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                </Group>
+                                {totalSalidasDigitales > 0 && (
+                                    <Group justify="space-between" pl="sm">
+                                        <Text size="xs" c="dimmed">• Digitales (Mercado Pago):</Text>
+                                        <Text fw={600} size="xs" c="red">-${totalSalidasDigitales.toFixed(2)}</Text>
+                                    </Group>
+                                )}
+                            </>
+                        )}
+                    </Paper>
 
                     {Math.abs(diferencia) > 0.01 && (
                         <Alert
@@ -773,8 +863,13 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
 
     const corteActual = detalleCorte || corte;
     const montoInicial = Number(corteActual.aperturaCaja?.montoInicial ?? 0);
-    const totalEntradas = Number(corteActual.totalEntradas ?? 0);
-    const totalSalidas = Number(corteActual.totalSalidas ?? 0);
+    const totalEntradas = Number(corteActual.totalEntradasGenerales ?? corteActual.totalEntradas ?? 0);
+    const totalSalidas = Number(corteActual.totalSalidasGenerales ?? corteActual.totalSalidas ?? 0);
+    const totalEntradasEfectivo = Number(
+        corteActual.totalEntradasEfectivo ?? corteActual.totalVentasEfectivo ?? corteActual.totalEntradas ?? 0
+    );
+    const totalSalidasEfectivo = Number(corteActual.totalSalidasEfectivo ?? 0);
+    const totalEntradasDigitales = Math.max(0, totalEntradas - totalEntradasEfectivo);
 
     const esCorteSinDatosVentas = corteActual.totalVentas === null || corteActual.totalVentas === undefined;
 
@@ -1027,34 +1122,16 @@ function DrawerDetalleCorte({ corte, opened, onClose, onValidar, onDescargarPdf 
                                         <Text fw={600} size="xs">${montoInicial.toFixed(2)}</Text>
                                     </Group>
                                     <Group justify="space-between">
-                                        <Text size="xs" c="dimmed">(+) Entradas registradas:</Text>
-                                        <Text fw={600} size="xs" c="green">+${totalEntradas.toFixed(2)}</Text>
+                                        <Text size="xs" c="dimmed">(+) Entradas en Efectivo:</Text>
+                                        <Text fw={600} size="xs" c="green">+${totalEntradasEfectivo.toFixed(2)}</Text>
                                     </Group>
                                     <Group justify="space-between">
-                                        <Text size="xs" c="dimmed">(-) Salidas autorizadas:</Text>
-                                        <Text fw={600} size="xs" c="red">-${totalSalidas.toFixed(2)}</Text>
+                                        <Text size="xs" c="dimmed">(-) Salidas en Efectivo:</Text>
+                                        <Text fw={600} size="xs" c="red">-${totalSalidasEfectivo.toFixed(2)}</Text>
                                     </Group>
-                                    {corteActual.aperturaCaja?.usaMovimientosCobro !== true
-                                        && (esCorteSinDatosVentas ? (
-                                            <Group justify="space-between">
-                                                <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
-                                                <Badge variant="light" color="gray" size="xs">No disponible en corte anterior</Badge>
-                                            </Group>
-                                        ) : (
-                                            <Group justify="space-between">
-                                                <Text size="xs" c="dimmed">(+) Ventas en Efectivo:</Text>
-                                                <Text fw={600} size="xs" c="green">+${totalVentasEfectivo.toFixed(2)}</Text>
-                                            </Group>
-                                        ))}
-                                    {totalVentasCanceladas > 0 && (
-                                        <Group justify="space-between">
-                                            <Text size="xs" c="dimmed">(i) Ventas Canceladas (salida aplicada):</Text>
-                                            <Text fw={600} size="xs" c="red">-${totalVentasCanceladas.toFixed(2)}</Text>
-                                        </Group>
-                                    )}
                                     <Divider my={2} />
                                     <Group justify="space-between">
-                                        <Text fw={700} size="xs">(=) Efectivo Teórico Esperado:</Text>
+                                        <Text fw={700} size="xs">(=) Efectivo Físico Esperado:</Text>
                                         <Text fw={800} size="xs">${efectivoEsperado.toFixed(2)}</Text>
                                     </Group>
                                     <Group justify="space-between">
@@ -1557,8 +1634,8 @@ export function CorteCaja() {
                     }
 
                     const fondo = Number(data.montoInicial ?? data.apertura?.montoInicial ?? 0);
-                    const entradas = Number(data.totalEntradas ?? 0);
-                    const salidas = Number(data.totalSalidas ?? 0);
+                    const entradas = Number(data.totalEntradasEfectivo ?? data.totalVentasEfectivo ?? 0);
+                    const salidas = Number(data.totalSalidasEfectivo ?? 0);
                     const esperado = data.saldoDisponible !== undefined
                         ? Number(data.saldoDisponible)
                         : fondo + entradas - salidas;

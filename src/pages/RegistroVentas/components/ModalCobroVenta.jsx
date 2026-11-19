@@ -1,6 +1,7 @@
 import {
     Alert,
     Button,
+    Checkbox,
     Group,
     Loader,
     Modal,
@@ -10,8 +11,9 @@ import {
     Select,
     Stack,
     Text,
+    TextInput,
 } from '@mantine/core';
-import { IconCash, IconCreditCard, IconUser } from '@tabler/icons-react';
+import { IconCash, IconCreditCard, IconInfoCircle, IconReceipt2, IconUser } from '@tabler/icons-react';
 import { redondear } from '../utils/venta.utils.js';
 
 export function ModalCobroVenta({
@@ -19,6 +21,7 @@ export function ModalCobroVenta({
     onClose,
     asignacionValida,
     clientes,
+    clienteDefault,
     clienteSeleccionado,
     clienteId,
     busquedaCliente,
@@ -38,13 +41,36 @@ export function ModalCobroVenta({
     onMontoRecibidoChange,
     esPagoEfectivo,
     cambio,
+    datosTarjeta = { folioVoucher: '', tipoTarjeta: 'DEBITO', marcaTarjeta: 'VISA', ultimosDigitos: '' },
+    onDatosTarjetaChange,
+    datosTransferencia = { referencia: '', confirmada: false },
+    onDatosTransferenciaChange,
     cobrando,
     onConfirm,
 }) {
-    const opcionesClientes = clienteSeleccionado
-        && !clientes.some((cliente) => String(cliente.id) === String(clienteSeleccionado.id))
-        ? [clienteSeleccionado, ...clientes]
-        : clientes;
+    const opcionesClientes = (() => {
+        const lista = [...clientes];
+        if (clienteDefault && !lista.some((c) => String(c.id) === String(clienteDefault.id))) {
+            lista.unshift(clienteDefault);
+        }
+        if (clienteSeleccionado && !lista.some((c) => String(c.id) === String(clienteSeleccionado.id))) {
+            lista.unshift(clienteSeleccionado);
+        }
+        return lista;
+    })();
+
+    const metodoSeleccionado = metodosPago.find((item) => String(item.id) === String(metodoPago));
+    const esEfectivo = esPagoEfectivo || metodoSeleccionado?.codigo === 'EFECTIVO';
+    const esTarjeta = metodoSeleccionado?.codigo === 'TARJETA';
+    const esTransferencia = metodoSeleccionado?.codigo === 'TRANSFERENCIA';
+    const esDigital = metodoSeleccionado?.codigo === 'MERCADO_PAGO';
+
+    const efectivoValido = !esEfectivo || Number(montoRecibido || 0) >= total;
+
+    const puedeConfirmar = asignacionValida
+        && Boolean(metodoPago)
+        && Boolean(clienteId)
+        && efectivoValido;
 
     return (
         <Modal
@@ -114,7 +140,7 @@ export function ModalCobroVenta({
                         <NumberFormatter prefix="$" value={total} thousandSeparator decimalScale={2} fixedDecimalScale />
                     </Text>
                 </Group>
-                {esPagoEfectivo && (
+                {esEfectivo && (
                     <>
                         <NumberInput
                             label="Monto recibido"
@@ -124,22 +150,22 @@ export function ModalCobroVenta({
                             fixedDecimalScale
                             value={montoRecibido}
                             onChange={onMontoRecibidoChange}
-                            thousandSeparator="," 
+                            thousandSeparator=","
                         />
-                    <Group gap="xs">
-                        <Button variant="light" onClick={() => onMontoRecibidoChange(total)}>
-                            Exacto
-                        </Button>
-                        {[50, 100, 200].map((extra) => (
-                            <Button
-                                key={extra}
-                                variant="light"
-                                onClick={() => onMontoRecibidoChange(redondear(total + extra))}
-                            >
-                                +${extra}
+                        <Group gap="xs">
+                            <Button variant="light" onClick={() => onMontoRecibidoChange(total)}>
+                                Exacto
                             </Button>
-                        ))}
-                    </Group>
+                            {[50, 100, 200].map((extra) => (
+                                <Button
+                                    key={extra}
+                                    variant="light"
+                                    onClick={() => onMontoRecibidoChange(redondear(total + extra))}
+                                >
+                                    +${extra}
+                                </Button>
+                            ))}
+                        </Group>
                         <Group justify="space-between">
                             <Text fw={700}>Cambio</Text>
                             <Text fw={800} size="lg">
@@ -147,6 +173,102 @@ export function ModalCobroVenta({
                             </Text>
                         </Group>
                     </>
+                )}
+                {esTarjeta && (
+                    <Stack gap="xs">
+                        <Alert
+                            icon={<IconReceipt2 size={18} />}
+                            color="blue"
+                            variant="light"
+                            title="Terminal física / Voucher (Opcional)"
+                        >
+                            Desliza o inserta la tarjeta en la terminal física. Puedes registrar el folio o últimos dígitos del voucher si deseas guardarlos para control.
+                        </Alert>
+                        <TextInput
+                            label="Folio / Autorización del voucher (opcional)"
+                            placeholder="Ej. 123456 o AUTH-098"
+                            value={datosTarjeta?.folioVoucher ?? ''}
+                            onChange={(e) => onDatosTarjetaChange?.({
+                                ...datosTarjeta,
+                                folioVoucher: e.target.value,
+                            })}
+                        />
+                        <Group grow>
+                            <Select
+                                label="Tipo de tarjeta"
+                                data={[
+                                    { value: 'DEBITO', label: 'Débito' },
+                                    { value: 'CREDITO', label: 'Crédito' },
+                                ]}
+                                value={datosTarjeta?.tipoTarjeta ?? 'DEBITO'}
+                                onChange={(val) => onDatosTarjetaChange?.({
+                                    ...datosTarjeta,
+                                    tipoTarjeta: val || 'DEBITO',
+                                })}
+                                comboboxProps={{ zIndex: 1400 }}
+                            />
+                            <Select
+                                label="Marca"
+                                data={[
+                                    { value: 'VISA', label: 'Visa' },
+                                    { value: 'MASTERCARD', label: 'Mastercard' },
+                                    { value: 'AMEX', label: 'American Express' },
+                                    { value: 'CARNET', label: 'Carnet' },
+                                    { value: 'OTRA', label: 'Otra' },
+                                ]}
+                                value={datosTarjeta?.marcaTarjeta ?? 'VISA'}
+                                onChange={(val) => onDatosTarjetaChange?.({
+                                    ...datosTarjeta,
+                                    marcaTarjeta: val || 'VISA',
+                                })}
+                                comboboxProps={{ zIndex: 1400 }}
+                            />
+                        </Group>
+                        <TextInput
+                            label="Últimos 4 dígitos de la tarjeta (opcional)"
+                            placeholder="Ej. 1234"
+                            maxLength={4}
+                            value={datosTarjeta?.ultimosDigitos ?? ''}
+                            onChange={(e) => {
+                                const soloNums = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                onDatosTarjetaChange?.({
+                                    ...datosTarjeta,
+                                    ultimosDigitos: soloNums,
+                                });
+                            }}
+                        />
+                    </Stack>
+                )}
+                {esTransferencia && (
+                    <Stack gap="xs">
+                        <Alert
+                            icon={<IconInfoCircle size={18} />}
+                            color="cyan"
+                            variant="light"
+                            title="Cobro por Transferencia (Quedará Pendiente)"
+                        >
+                            Esta venta se registrará inmediatamente y el movimiento de caja quedará con estado <strong>PENDIENTE</strong> para su posterior validación en el módulo de Movimientos de Caja.
+                        </Alert>
+                        <TextInput
+                            label="Clave de rastreo o referencia bancaria (opcional)"
+                            placeholder="Ej. SPEI12345678 o número de autorización"
+                            value={datosTransferencia?.referencia ?? ''}
+                            onChange={(e) => onDatosTransferenciaChange?.({
+                                ...datosTransferencia,
+                                referencia: e.target.value,
+                            })}
+                        />
+                    </Stack>
+                )}
+                {esDigital && (
+                    <Alert
+                        icon={<IconInfoCircle size={18} />}
+                        color="grape"
+                        variant="light"
+                        title="Checkout Digital (Mercado Pago)"
+                    >
+                        Al confirmar se generará el enlace de pago de Mercado Pago para procesar la transacción.
+                    </Alert>
                 )}
                 <Group justify="flex-end">
                     <Button variant="default" onClick={onClose} disabled={cobrando}>
@@ -156,7 +278,7 @@ export function ModalCobroVenta({
                         leftSection={<IconCash size={18} />}
                         onClick={onConfirm}
                         loading={cobrando}
-                        disabled={!asignacionValida || !metodoPago || !clienteId || (esPagoEfectivo && Number(montoRecibido || 0) < total)}
+                        disabled={!puedeConfirmar}
                     >
                         Confirmar venta
                     </Button>

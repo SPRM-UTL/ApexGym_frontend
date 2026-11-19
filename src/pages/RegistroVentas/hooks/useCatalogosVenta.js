@@ -66,7 +66,6 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
     const [membresiasDisponibles, setMembresiasDisponibles] = useState([]);
     const [catalogosSucursalId, setCatalogosSucursalId] = useState(null);
     const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
-    const [errorCatalogo, setErrorCatalogo] = useState('');
     const [aperturaAsignada, setAperturaAsignada] = useState(null);
     const [asignacionValida, setAsignacionValida] = useState(false);
     const solicitudCatalogoRef = useRef(0);
@@ -91,18 +90,22 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
             const listas = resultadosCatalogos.map((resultado, indice) => {
                 const [etiqueta] = CATALOGOS[indice];
                 if (resultado.status === 'rejected') {
-                    const error = resultado.reason;
                     notifications.show({
                         color: 'red',
-                        message: `${etiqueta}: ${error.message || 'No se pudo cargar'}${error.statusCode ? ` (HTTP ${error.statusCode})` : ''}`,
+                        title: `No se pudieron cargar ${etiqueta.toLocaleLowerCase()}`,
+                        message: 'Intenta nuevamente.',
                     });
                     return null;
                 }
 
                 try {
                     return obtenerLista(resultado.value);
-                } catch (error) {
-                    notifications.show({ color: 'red', message: `${etiqueta}: ${error.message}` });
+                } catch {
+                    notifications.show({
+                        color: 'red',
+                        title: `No se pudieron cargar ${etiqueta.toLocaleLowerCase()}`,
+                        message: 'El servidor devolvió datos no válidos. Intenta nuevamente.',
+                    });
                     return null;
                 }
             });
@@ -152,14 +155,17 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
     const recargarCatalogosVenta = useCallback(async () => {
         const solicitud = ++solicitudCatalogoRef.current;
         setCargandoCatalogo(true);
-        setErrorCatalogo('');
 
         if (!sucursalId) {
             setProductosDisponibles([]);
             setServiciosDisponibles([]);
             setMembresiasDisponibles([]);
             setCatalogosSucursalId(null);
-            setErrorCatalogo('La apertura seleccionada no tiene una sucursal asignada.');
+            notifications.show({
+                color: 'red',
+                title: 'No se pudo cargar el catálogo de ventas',
+                message: 'La apertura seleccionada no tiene una sucursal válida.',
+            });
             setCargandoCatalogo(false);
             return false;
         }
@@ -172,22 +178,24 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
             ]);
             if (solicitud !== solicitudCatalogoRef.current) return false;
 
-            setProductosDisponibles(normalizar(obtenerLista(respuestaProductos)));
+            setProductosDisponibles(
+                normalizar(obtenerLista(respuestaProductos)).filter((p) => Number(p.stockActual ?? 0) > 0)
+            );
             setServiciosDisponibles(normalizar(obtenerLista(respuestaServicios)));
             setMembresiasDisponibles(normalizar(obtenerLista(respuestaMembresias)));
             setCatalogosSucursalId(sucursalId);
             return true;
-        } catch (error) {
+        } catch {
             if (solicitud !== solicitudCatalogoRef.current) return false;
 
             setProductosDisponibles([]);
             setServiciosDisponibles([]);
             setMembresiasDisponibles([]);
             setCatalogosSucursalId(null);
-            setErrorCatalogo(error.message || 'No se pudieron cargar los artículos disponibles para esta sucursal.');
             notifications.show({
                 color: 'red',
-                message: error.message || 'No se pudieron cargar los artículos disponibles para esta sucursal.',
+                title: 'No se pudo cargar el catálogo de ventas',
+                message: 'No se pudieron cargar los artículos disponibles para esta sucursal.',
             });
             return false;
         } finally {
@@ -259,7 +267,6 @@ export function useCatalogosVenta(empleadoId, aperturaCajaId, apertura, filtrosC
         totalCatalogo,
         totalPaginasCatalogo,
         cargandoCatalogo,
-        errorCatalogo,
         aperturaAsignada,
         asignacionValida,
     };

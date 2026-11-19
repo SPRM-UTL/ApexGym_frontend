@@ -1,23 +1,6 @@
 import { ResponseModel } from './models/ResponseModel.js';
 import { httpClient } from './httpClient.js';
-
-function prepararDatosProducto(datos) {
-    const formData = new FormData();
-
-    for (const [campo, valor] of Object.entries(datos)) {
-        if (campo === 'imagen') {
-            if (typeof File !== 'undefined' && valor instanceof File) {
-                formData.append('imagen', valor);
-            }
-            continue;
-        }
-        if (valor === undefined) continue;
-
-        formData.append(campo, valor === null ? '' : String(valor));
-    }
-
-    return formData;
-}
+import { prepararDatos } from '../globales.js';
 
 export class ProductoService {
     constructor(urlBase) {
@@ -76,7 +59,7 @@ export class ProductoService {
 
     async crear(datos) {
         try {
-            const datosProducto = await prepararDatosProducto(datos);
+            const datosProducto = await prepararDatos(datos);
             const response = await httpClient.post(
                 `${this.urlApi}/`,
                 datosProducto

@@ -117,14 +117,22 @@ function renderCellValue(value, column) {
         }
         case 'status': {
             const label = String(value);
+            const upper = label.toUpperCase();
+            const lower = label.toLowerCase();
             const color = column.colorByValue?.[label]
-                ?? (['ABIERTA', 'ACTIVO', 'ACTIVA', 'VALIDADO', 'PAGADO', 'COMPLETADO'].includes(label.toUpperCase())
+                ?? column.colorByValue?.[upper]
+                ?? column.colorByValue?.[lower]
+                ?? (['ABIERTA', 'ACTIVO', 'ACTIVA', 'VALIDADO', 'VALIDADA', 'PAGADO', 'PAGADA', 'COMPLETADO', 'COMPLETADA', 'COMPLETA', 'EXITOSO', 'EXITOSA'].includes(upper)
                     ? 'green'
-                    : ['CERRADA', 'INACTIVO', 'INACTIVA', 'CANCELADO', 'CANCELADA', 'RECHAZADO'].includes(label.toUpperCase())
-                        ? 'red'
-                        : 'gray');
+                    : ['PENDIENTE', 'PENDIENTE_PAGO', 'EN_PROCESO', 'PROCESANDO', 'PENDIENTE DE PAGO'].includes(upper)
+                        ? 'yellow'
+                        : ['DEVUELTO', 'DEVUELTA', 'REEMBOLSADO', 'REEMBOLSADA', 'PARCIAL'].includes(upper)
+                            ? 'orange'
+                            : ['CERRADA', 'INACTIVO', 'INACTIVA', 'CANCELADO', 'CANCELADA', 'RECHAZADO', 'RECHAZADA', 'EXPIRADO', 'EXPIRADA', 'FALLIDO', 'FALLIDA'].includes(upper)
+                                ? 'red'
+                                : 'gray');
             return (
-                <Badge color={color} variant="light" size="sm">
+                <Badge color={color} variant="light" size={column.badgeSize || 'sm'}>
                     {label}
                 </Badge>
             );

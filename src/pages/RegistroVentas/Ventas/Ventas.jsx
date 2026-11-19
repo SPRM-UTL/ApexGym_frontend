@@ -1,12 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
 import {
     ActionIcon,
+    Badge,
+    Card,
     Group,
+    Paper,
+    Select,
+    SimpleGrid,
+    Stack,
+    Text,
+    ThemeIcon,
+    Title,
     Tooltip,
 } from '@mantine/core';
 import {
+    IconArrowBackUp,
+    IconCash,
+    IconCashRegister,
+    IconCreditCard,
+    IconDeviceMobile,
     IconEye,
     IconExternalLink,
     IconShoppingCart,
@@ -20,10 +35,12 @@ import { CancelarVentaModal } from '../components/CancelarVentaModal.jsx';
 import { DetalleVentaModal } from '../components/DetalleVentaModal.jsx';
 import { FormularioDevolucionModal } from '../components/FormularioDevolucionModal.jsx';
 import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
+import classes from './Ventas.module.css';
 import {
     obtenerEmpleadoIdApertura,
     obtenerNombreCliente,
     obtenerNombreEmpleado,
+    obtenerMensajeSeguroVenta,
     obtenerRegistros,
     obtenerVenta,
 } from '../../../utils/ventaHelper/ventaHelpers.js';
@@ -31,11 +48,71 @@ import {
 const COLUMNAS = [
     { key: 'folio', label: 'Folio', sortable: false, filterable: false },
     { key: 'cliente', label: 'Cliente', sortable: false, filterable: false },
+    { key: 'metodoPago', label: 'Método de pago', sortable: false, filterable: false },
     { key: 'fecha', label: 'Fecha', sortable: false, filterable: false, format: 'date' },
-    { key: 'estado', label: 'Estado', sortable: false, filterable: false, format: 'status' },
+    {
+        key: 'estado',
+        label: 'Estado',
+        sortable: false,
+        filterable: false,
+        format: 'status',
+        colorByValue: {
+            APROBADO: 'green',
+            PENDIENTE: 'yellow',
+            CANCELADA: 'red',
+            REEMBOLSADO: 'blue',
+        },
+    },
     { key: 'subtotal', label: 'Subtotal', sortable: false, filterable: false, format: 'currency' },
     { key: 'total', label: 'Total', sortable: false, filterable: false, format: 'currency' },
 ];
+
+const formatoMoneda = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+});
+
+function TarjetaResumen({ icon: Icono, label, value, color }) {
+    return (
+        <Card className={classes.summaryCard} padding="md" radius="md">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+                <div>
+                    <Text className={classes.summaryLabel}>{label}</Text>
+                    <Text className={classes.summaryValue}>{value}</Text>
+                </div>
+                <ThemeIcon size={42} radius="md" variant="light" color={color}>
+                    {createElement(Icono, { size: 22, stroke: 1.8 })}
+                </ThemeIcon>
+            </Group>
+        </Card>
+    );
+}
+
+function BadgeMetodoPago({ metodoPago }) {
+    const codigo = String(metodoPago?.codigo ?? '').toUpperCase();
+    const metodos = {
+        EFECTIVO: { etiqueta: 'EFECTIVO', color: 'teal', icono: IconCash },
+        MERCADO_PAGO: { etiqueta: 'MERCADO PAGO', color: 'violet', icono: IconDeviceMobile },
+        TARJETA: { etiqueta: 'TARJETA', color: 'blue', icono: IconCreditCard },
+        TERMINAL_MANUAL: { etiqueta: 'TARJETA', color: 'blue', icono: IconCreditCard },
+        TRANSFERENCIA: { etiqueta: 'TRANSFERENCIA', color: 'violet', icono: IconDeviceMobile },
+    };
+    const metodo = metodos[codigo];
+    const Icono = metodo?.icono ?? IconCreditCard;
+    const etiqueta = metodo?.etiqueta ?? String(metodoPago?.nombre ?? 'No identificado').toLocaleUpperCase();
+
+    return (
+        <Badge
+            color={metodo?.color ?? 'gray'}
+            variant="light"
+            size="sm"
+            radius="sm"
+            leftSection={createElement(Icono, { size: 12 })}
+        >
+            {etiqueta}
+        </Badge>
+    );
+}
 
 const normalizarEstadoVenta = (estado) => {
     const valor = String(estado ?? '').trim().toLocaleLowerCase();
@@ -43,6 +120,59 @@ const normalizarEstadoVenta = (estado) => {
     if (['completada', 'completado', 'completa'].includes(valor)) return 'completada';
     return valor;
 };
+
+const estadoPagoVenta = (estado) => {
+    const normalizado = normalizarEstadoVenta(estado);
+    if (normalizado === 'completada') return 'APROBADO';
+    if (normalizado === 'pendiente_pago') return 'PENDIENTE';
+    if (normalizado === 'cancelada') return 'CANCELADA';
+    return normalizado ? normalizado.toLocaleUpperCase() : '—';
+};
+
+function ventaTieneReembolsoPendiente(venta) {
+    return (venta?.devoluciones ?? []).some((devolucion) => (
+        String(devolucion.estadoReembolso ?? '').toUpperCase() === 'PENDIENTE_REEMBOLSO'
+    ));
+}
+
+function ventaEstaTotalmenteDevuelta(venta) {
+    if ((venta?.transaccionesPago ?? []).some((transaccion) => (
+        transaccion.estado === 'REEMBOLSADO'
+            || (
+                Number(transaccion.monto) > 0
+                && Number(transaccion.montoReembolsado ?? 0) >= Number(transaccion.monto)
+            )
+    ))) return true;
+
+    const detalles = venta?.detalleVenta ?? [];
+    if (detalles.length === 0) return false;
+    if (detalles.every((detalle) => (
+        detalle.cantidadDisponible !== undefined
+        && detalle.cantidadDisponible !== null
+        && Number.isFinite(Number(detalle.cantidadDisponible))
+    ))) {
+        return detalles.every((detalle) => Number(detalle.cantidadDisponible) <= 0);
+    }
+
+    const cantidadesDevueltas = new Map();
+    for (const devolucion of venta?.devoluciones ?? []) {
+        if (String(devolucion.estadoReembolso ?? '').toUpperCase() !== 'COMPLETADA') continue;
+        for (const detalle of devolucion.detalles ?? []) {
+            const id = Number(detalle.detalleVentaId);
+            cantidadesDevueltas.set(
+                id,
+                (cantidadesDevueltas.get(id) ?? 0) + Number(detalle.cantidad)
+            );
+        }
+    }
+    return detalles.every((detalle) => (
+        (cantidadesDevueltas.get(Number(detalle.id)) ?? 0) >= Number(detalle.cantidad)
+    ));
+}
+
+function ventaBloqueaCancelacion(venta) {
+    return ventaTieneReembolsoPendiente(venta) || ventaEstaTotalmenteDevuelta(venta);
+}
 
 const etiquetaEstadoVenta = (estado) => {
     const normalizado = normalizarEstadoVenta(estado);
@@ -52,13 +182,51 @@ const etiquetaEstadoVenta = (estado) => {
     return normalizado ? normalizado[0].toLocaleUpperCase() + normalizado.slice(1) : '';
 };
 
-function resumirVentasPorMetodo(resumen) {
-    const metodos = resumen?.ventasPorMetodoPago ?? resumen?.totales?.ventasPorMetodoPago ?? [];
-    if (!Array.isArray(metodos) || metodos.length === 0) return 'Sin ventas activas.';
-    return metodos.map((metodo) => (
-        `${metodo.nombre}: $${Number(metodo.total ?? metodo.monto ?? 0).toFixed(2)} `
-        + `(${Number(metodo.cantidad ?? metodo.transacciones ?? 0)} venta(s))`
-    )).join(' · ');
+function abrirConfirmacionCancelacion(venta, onConfirm) {
+    const metodoPago = venta.metodoPago?.nombre ?? 'No identificado';
+    const codigoMetodo = String(venta.metodoPago?.codigo ?? '').trim().toUpperCase();
+    const nombreMetodo = String(metodoPago).trim().toLocaleLowerCase();
+    const esMercadoPago = codigoMetodo === 'MERCADO_PAGO' || nombreMetodo.includes('mercado pago');
+    const esTerminal = ['TARJETA', 'TERMINAL', 'TERMINAL_MANUAL'].includes(codigoMetodo)
+        || nombreMetodo.includes('terminal');
+    const pagoPendiente = normalizarEstadoVenta(venta.estado) === 'pendiente_pago';
+    const transaccion = (venta.transaccionesPago ?? []).find((pago) => (
+        pago.estado === 'APROBADO' || pago.estado === 'REEMBOLSADO'
+    ));
+    const montoRestante = transaccion
+        ? Math.max(0, Number(transaccion.monto) - Number(transaccion.montoReembolsado ?? 0))
+        : Number(venta.total ?? 0);
+    const monto = new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+    }).format(montoRestante);
+
+    let avisoReembolso = 'Esta acción no se puede deshacer.';
+    if (esMercadoPago && pagoPendiente) {
+        avisoReembolso = 'El pago de Mercado Pago sigue pendiente; al cancelar no se devolverá dinero, se cancelará el intento de cobro. Esta acción no se puede deshacer.';
+    } else if (esMercadoPago) {
+        avisoReembolso = 'El saldo se devolverá al cliente en efectivo desde caja. No se realizará un reembolso en Mercado Pago. Esta acción no se puede deshacer.';
+    } else if (esTerminal) {
+        avisoReembolso = 'El dinero se devolverá al cliente por la terminal; procesa el reembolso en ese medio antes de continuar. Esta acción no se puede deshacer.';
+    }
+
+    modals.openConfirmModal({
+        centered: true,
+        title: '¿Deseas cancelar esta venta?',
+        children: (
+            <Stack gap="xs">
+                <Text size="sm">Monto a reembolsar: <strong>{monto}</strong></Text>
+                <Text size="sm">Método de pago original: <strong>{metodoPago}</strong></Text>
+                {esMercadoPago && !pagoPendiente && (
+                    <Text size="sm">Método de devolución: <strong>Efectivo</strong></Text>
+                )}
+                <Text size="sm" c="red" fw={500}>{avisoReembolso}</Text>
+            </Stack>
+        ),
+        labels: { confirm: 'Continuar', cancel: 'Volver' },
+        confirmProps: { color: 'red' },
+        onConfirm,
+    });
 }
 
 const FILTROS = [
@@ -100,6 +268,7 @@ const FILTROS = [
             { value: 'completada', label: 'Completada' },
             { value: 'pendiente_pago', label: 'Pendiente de pago' },
             { value: 'cancelada', label: 'Cancelada' },
+            { value: 'reembolsado', label: 'Reembolsado' },
         ],
         optionsFromRecords: (ventas) => [...new Set(ventas
             .map((venta) => normalizarEstadoVenta(venta.estado))
@@ -183,19 +352,32 @@ export function Ventas() {
     cambioNombreWeb('Ventas');
 
     const navigate = useNavigate();
-    const location = useLocation();
-    const [versionListado, setVersionListado] = useState(0);
     const [detalleVenta, setDetalleVenta] = useState(null);
     const [cargandoDetalle, setCargandoDetalle] = useState(false);
     const [recargarDetalle, setRecargarDetalle] = useState(null);
     const [cancelacionPendiente, setCancelacionPendiente] = useState(null);
     const [devolucionPendiente, setDevolucionPendiente] = useState(null);
     const [motivoCancelacion, setMotivoCancelacion] = useState('');
+    const [folioCancelacion, setFolioCancelacion] = useState('');
+    const [confirmacionTerminal, setConfirmacionTerminal] = useState(false);
     const [cancelando, setCancelando] = useState(false);
+    const [versionResumen, setVersionResumen] = useState(0);
+    const [resumenCaja, setResumenCaja] = useState(null);
+    const [aperturasHistorial, setAperturasHistorial] = useState([]);
+    const [filtroAperturaId, setFiltroAperturaId] = useState('global');
+    const [cargandoResumen, setCargandoResumen] = useState(true);
+    const [cargandoAperturasHistorial, setCargandoAperturasHistorial] = useState(true);
     const [pagina, setPagina] = useState(1);
-    const [limite, setLimite] = useState(20);
+    const [limite, setLimite] = useState(10);
     const [busquedaHistorial, setBusquedaHistorial] = useState('');
     const [filtrosHistorial, setFiltrosHistorial] = useState({});
+    const notificarErrorHistorial = useCallback(() => {
+        notifications.show({
+            color: 'red',
+            title: 'No se pudo cargar el historial de ventas',
+            message: 'Intenta actualizar el historial nuevamente.',
+        });
+    }, []);
     const cambiarFiltrosHistorial = useCallback((filtros) => {
         setFiltrosHistorial(filtros);
         setPagina(1);
@@ -211,7 +393,8 @@ export function Ventas() {
         fechaHasta: filtrosHistorial.fechaVenta?.fechaHasta,
         metodoPagoId: filtrosHistorial.metodoPagoId,
         estado: filtrosHistorial.estadoVenta,
-    }), [busquedaHistorial, filtrosHistorial]);
+        aperturaCajaId: filtroAperturaId === 'global' ? undefined : Number(filtroAperturaId),
+    }), [busquedaHistorial, filtrosHistorial, filtroAperturaId]);
     const paginacionHistorial = useMemo(() => ({
         page: pagina,
         pageSize: limite,
@@ -226,53 +409,73 @@ export function Ventas() {
     }), [pagina, limite, queryHistorial, cambiarFiltrosHistorial, cambiarBusquedaHistorial]);
 
     useEffect(() => {
-        const parametros = new URLSearchParams(location.search);
-        if (parametros.get('mp_return') !== '1') return undefined;
-
-        const ventaId = Number(parametros.get('ventaId'));
-        const paymentId = parametros.get('payment_id') ?? parametros.get('collection_id');
         let vigente = true;
-        const consultar = async () => {
+        const cargarAperturasHistorial = async () => {
+            setCargandoAperturasHistorial(true);
             try {
-                if (!Number.isSafeInteger(ventaId) || ventaId <= 0) {
-                    throw new Error('No se pudo identificar la venta del checkout.');
+                const respuesta = await api.aperturaCaja.obtenerTodos();
+                if (respuesta.responseFlag !== 0) {
+                    throw new Error(respuesta.message || 'No se pudieron cargar las aperturas.');
                 }
-                const respuesta = await api.venta.consultarEstadoPago(ventaId, paymentId);
-                if (respuesta.responseFlag !== 0) throw new Error(respuesta.message);
-                const resultado = respuesta.data;
-                const estadoVenta = normalizarEstadoVenta(resultado?.venta?.estado);
-                const estadoPago = String(resultado?.pago?.estado ?? '').toUpperCase();
-                if (estadoVenta === 'completada') {
-                    notifications.show({ color: 'green', message: 'Mercado Pago confirmó la venta.' });
-                } else if (estadoPago === 'RECHAZADO') {
-                    notifications.show({
-                        color: 'yellow',
-                        message: 'El pago fue rechazado. Puedes intentar nuevamente desde el mismo checkout mientras siga vigente.',
-                    });
-                } else if (resultado?.pago?.requiereReembolsoManual) {
-                    notifications.show({
-                        color: 'red',
-                        message: 'Se recibió un pago fuera de vigencia. Requiere revisión y reembolso manual.',
-                        autoClose: false,
-                    });
-                } else {
-                    notifications.show({ color: 'yellow', message: 'El pago sigue pendiente de confirmación.' });
-                }
-                if (vigente) setVersionListado((version) => version + 1);
-            } catch (error) {
+                const aperturas = obtenerRegistros(respuesta, 'aperturas de caja')
+                    .sort((a, b) => Number(b.id) - Number(a.id));
+                if (vigente) setAperturasHistorial(aperturas);
+            } catch {
                 if (vigente) {
+                    setAperturasHistorial([]);
                     notifications.show({
                         color: 'red',
-                        message: error.message || 'No se pudo consultar el estado del pago.',
+                        message: 'No se pudieron cargar las opciones de caja.',
                     });
                 }
             } finally {
-                if (vigente) navigate(location.pathname, { replace: true });
+                if (vigente) setCargandoAperturasHistorial(false);
             }
         };
-        consultar();
+
+        cargarAperturasHistorial();
         return () => { vigente = false; };
-    }, [location.pathname, location.search, navigate]);
+    }, []);
+
+    useEffect(() => {
+        let vigente = true;
+        const cargarResumenCaja = async () => {
+            setCargandoResumen(true);
+            setResumenCaja(null);
+            try {
+                const aperturaCajaId = filtroAperturaId === 'global'
+                    ? undefined
+                    : Number(filtroAperturaId);
+                const respuestaResumen = await api.venta.obtenerResumen(
+                    aperturaCajaId ? { aperturaCajaId } : {}
+                );
+                if (respuestaResumen.responseFlag !== 0) {
+                    throw new Error(respuestaResumen.message || 'No se pudo obtener el resumen de ventas.');
+                }
+
+                if (vigente) setResumenCaja(respuestaResumen.data);
+            } catch (error) {
+                if (vigente) {
+                    setResumenCaja(null);
+                    notifications.show({
+                        color: 'red',
+                        title: 'No se pudo actualizar el resumen',
+                        message: obtenerMensajeSeguroVenta(error, 'el resumen de ventas'),
+                    });
+                }
+            } finally {
+                if (vigente) setCargandoResumen(false);
+            }
+        };
+
+        cargarResumenCaja();
+        return () => { vigente = false; };
+    }, [versionResumen, filtroAperturaId]);
+
+    const cambiarAperturaFiltro = useCallback((value) => {
+        setFiltroAperturaId(value ?? 'global');
+        setPagina(1);
+    }, []);
 
     const abrirAgregar = ({ form }) => {
         navigate('/registro-de-ventas/nueva', {
@@ -323,14 +526,41 @@ export function Ventas() {
         setDetalleVenta({ ...venta, detalleVenta: [] });
         try {
             setDetalleVenta(await cargarVentaCompleta(venta));
-        } catch (error) {
+        } catch {
             setDetalleVenta(null);
             notifications.show({
                 color: 'red',
-                message: error.message || 'No se pudo cargar el detalle de la venta.',
+                message: 'No se pudo cargar el detalle de la venta.',
             });
         } finally {
             setCargandoDetalle(false);
+        }
+    };
+
+    const solicitarCancelacion = async (venta, reload) => {
+        try {
+            const ventaCompleta = await cargarVentaCompleta(venta);
+            if (ventaBloqueaCancelacion(ventaCompleta)) {
+                notifications.show({
+                    color: 'yellow',
+                    title: ventaTieneReembolsoPendiente(ventaCompleta)
+                        ? 'Reembolso pendiente'
+                        : 'Venta devuelta completamente',
+                    message: ventaTieneReembolsoPendiente(ventaCompleta)
+                        ? 'Espera a que termine el reembolso antes de cancelar.'
+                        : 'Ya se devolvieron todos los artículos de esta venta.',
+                });
+                return;
+            }
+
+            abrirConfirmacionCancelacion(ventaCompleta, () => {
+                setMotivoCancelacion('');
+                setFolioCancelacion('');
+                setConfirmacionTerminal(false);
+                setCancelacionPendiente({ venta: ventaCompleta, reload });
+            });
+        } catch {
+            notifications.show({ color: 'red', message: 'No se pudo validar el estado de devolución de la venta.' });
         }
     };
 
@@ -344,38 +574,30 @@ export function Ventas() {
         setCancelando(true);
         try {
             const venta = cancelacionPendiente.venta;
-            await api.venta.cancelar(venta.id, motivo);
+            await api.venta.cancelar(venta.id, motivo, {
+                folioCancelacion,
+                confirmacionTerminal,
+            });
+            setVersionResumen((version) => version + 1);
             setCancelacionPendiente(null);
             setMotivoCancelacion('');
-            let mensaje = 'Venta cancelada correctamente.';
+            setFolioCancelacion('');
+            setConfirmacionTerminal(false);
             try {
                 await cancelacionPendiente.reload?.();
-            } catch (errorRecarga) {
+            } catch {
                 notifications.show({
                     color: 'yellow',
-                    message: `La venta se canceló, pero no se pudo actualizar el historial: ${errorRecarga.message || 'error de consulta'}.`,
+                    message: 'La venta se canceló, pero no se pudo actualizar el historial.',
                 });
             }
-            const aperturaCajaId = venta.aperturaCajaId ?? venta.aperturaCaja?.id;
-            if (aperturaCajaId != null) {
-                try {
-                    const respuesta = await api.movimientoCaja.obtenerResumenApertura(aperturaCajaId);
-                    if (respuesta.responseFlag !== 0) throw new Error(respuesta.message);
-                    mensaje += ` Ventas activas por método de pago: ${resumirVentasPorMetodo(respuesta.data)}`;
-                    const formulaEfectivo = 'fondo inicial + entradas - salidas';
-                    mensaje += ` Efectivo esperado en caja: $${Number(respuesta.data?.saldoDisponible ?? respuesta.data?.efectivoEsperado ?? 0).toFixed(2)} (${formulaEfectivo}; incluye movimientos pendientes).`;
-                } catch (errorResumen) {
-                    notifications.show({
-                        color: 'yellow',
-                        message: `La venta se canceló, pero no se pudo actualizar el resumen de caja: ${errorResumen.message || 'error de consulta'}.`,
-                    });
-                }
-            }
-            notifications.show({ color: 'green', message: mensaje, autoClose: 10000 });
+            notifications.show({ color: 'green', message: 'Venta cancelada correctamente.' });
         } catch (error) {
+            const mensajeSeguro = obtenerMensajeSeguroVenta(error, 'la cancelación');
             notifications.show({
                 color: 'red',
-                message: error.message || 'No se pudo cancelar la venta.',
+                title: 'No se pudo completar la cancelación',
+                message: mensajeSeguro,
             });
         } finally {
             setCancelando(false);
@@ -384,12 +606,13 @@ export function Ventas() {
 
     const confirmarDevolucion = async () => {
         const pendiente = devolucionPendiente;
+        setVersionResumen((version) => version + 1);
         try {
             await pendiente?.reload?.();
-        } catch (errorRecarga) {
+        } catch {
             notifications.show({
                 color: 'yellow',
-                message: `La devolución se registró, pero no se pudo actualizar el historial: ${errorRecarga.message || 'error de consulta'}.`,
+                message: 'La devolución se registró, pero no se pudo actualizar el historial.',
             });
         }
         notifications.show({
@@ -413,10 +636,15 @@ export function Ventas() {
 
     const mapRecordToRow = (venta) => ({
         id: venta.id,
-        folio: venta.folioVentaId ?? '—',
+        folio: venta.folioVenta?.id ?? venta.folioVentaId ?? venta.id,
         cliente: obtenerNombreCliente(venta.cliente ?? venta.client),
+        metodoPago: <BadgeMetodoPago metodoPago={venta.metodoPago} />,
         fecha: venta.createdAt ?? null,
-        estado: venta.estado ?? 'completada',
+        estado: normalizarEstadoVenta(venta.estado) === 'cancelada'
+            ? 'CANCELADA'
+            : ventaEstaTotalmenteDevuelta(venta)
+                ? 'REEMBOLSADO'
+                : estadoPagoVenta(venta.estado),
         subtotal: venta.subtotal,
         total: venta.total,
     });
@@ -432,11 +660,11 @@ export function Ventas() {
             if (!respuesta.data?.urlCheckout) {
                 throw new Error('Mercado Pago no devolvió un enlace de checkout.');
             }
-            window.location.assign(respuesta.data.urlCheckout);
-        } catch (error) {
+            window.open(respuesta.data.urlCheckout, '_blank');
+        } catch {
             notifications.show({
                 color: 'red',
-                message: error.message || 'No se pudo recuperar el checkout.',
+                message: 'No se pudo recuperar el checkout. Intenta nuevamente.',
             });
         }
     };
@@ -481,18 +709,22 @@ export function Ventas() {
                 </span>
             </Tooltip>
             {String(venta.estado ?? 'completada').toLowerCase() !== 'cancelada' && (
-                <Tooltip label="Cancelar venta">
-                    <ActionIcon
-                        variant="light"
-                        color="red"
-                        aria-label="Cancelar venta"
-                        onClick={() => {
-                            setMotivoCancelacion('');
-                            setCancelacionPendiente({ venta, reload });
-                        }}
-                    >
-                        <IconTrash size={18} />
-                    </ActionIcon>
+                <Tooltip label={ventaBloqueaCancelacion(venta)
+                    ? (ventaTieneReembolsoPendiente(venta)
+                        ? 'Hay un reembolso pendiente.'
+                        : 'La venta ya fue devuelta completamente.')
+                    : 'Cancelar venta'}>
+                    <span>
+                        <ActionIcon
+                            variant="light"
+                            color="red"
+                            aria-label="Cancelar venta"
+                            disabled={ventaBloqueaCancelacion(venta)}
+                            onClick={() => solicitarCancelacion(venta, reload)}
+                        >
+                            <IconTrash size={18} />
+                        </ActionIcon>
+                    </span>
                 </Tooltip>
             )}
         </Group>
@@ -501,7 +733,6 @@ export function Ventas() {
     return (
         <>
             <CrudCatalogo
-                key={versionListado}
                 titulo="Registro de Ventas"
                 singular="Venta"
                 icon={IconShoppingCart}
@@ -524,8 +755,77 @@ export function Ventas() {
                 tableHeaderVariant="neutral"
                 validateForm={validateForm}
                 createPersonalized={abrirAgregar}
+                createButtonLabel="Nueva Venta / Cobro"
+                onFetchError={notificarErrorHistorial}
                 pageSizeOptions={[10, 20, 50]}
                 serverPagination={paginacionHistorial}
+                tableMinWidth={1200}
+                topContent={(
+                    <Stack className={classes.salesOverview} gap="md">
+                        <Paper className={classes.cashBanner} p="md" radius="md">
+                            <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                                <Group align="center" wrap="nowrap">
+                                    <ThemeIcon size={48} radius="md" color="orange" variant="light">
+                                        <IconCashRegister size={26} stroke={1.8} />
+                                    </ThemeIcon>
+                                    <div>
+                                        <Text className={classes.cashEyebrow}>Resumen de ventas</Text>
+                                        <Title order={4} className={classes.cashTitle}>
+                                            {filtroAperturaId === 'global'
+                                                ? 'Historial global'
+                                                : aperturasHistorial.find((apertura) => String(apertura.id) === filtroAperturaId)?.caja?.nombre
+                                                    ?? `Apertura #${filtroAperturaId}`}
+                                        </Title>
+                                        <Text size="sm" c="dimmed">
+                                            {filtroAperturaId === 'global'
+                                                ? 'Todas las aperturas de caja'
+                                                : `Filtro aplicado a la apertura #${filtroAperturaId}`}
+                                        </Text>
+                                    </div>
+                                </Group>
+                                <Group gap="sm" align="center">
+                                    <Select
+                                        aria-label="Filtrar historial por apertura de caja"
+                                        className={classes.cashSelect}
+                                        label="Historial"
+                                        size="sm"
+                                        data={[
+                                            { value: 'global', label: 'Todas las aperturas' },
+                                            ...aperturasHistorial.map((apertura) => ({
+                                            value: String(apertura.id),
+                                            label: `${apertura.caja?.nombre ?? `Caja #${apertura.cajaId ?? '—'}`} · Apertura #${apertura.id} · ${apertura.estado}`,
+                                        })),
+                                        ]}
+                                        value={filtroAperturaId}
+                                        onChange={cambiarAperturaFiltro}
+                                        disabled={cargandoAperturasHistorial}
+                                        comboboxProps={{ withinPortal: true }}
+                                    />
+                                </Group>
+                            </Group>
+                        </Paper>
+                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                            <TarjetaResumen
+                                icon={IconCash}
+                                label="Total cobrado"
+                                value={cargandoResumen ? '—' : formatoMoneda.format(Number(resumenCaja?.totalCobrado ?? 0))}
+                                color="green"
+                            />
+                            <TarjetaResumen
+                                icon={IconTrash}
+                                label="Total cancelado"
+                                value={cargandoResumen ? '—' : formatoMoneda.format(Number(resumenCaja?.totalCancelado ?? 0))}
+                                color="red"
+                            />
+                            <TarjetaResumen
+                                icon={IconArrowBackUp}
+                                label="Total reembolsado"
+                                value={cargandoResumen ? '—' : formatoMoneda.format(Number(resumenCaja?.totalReembolsado ?? 0))}
+                                color="blue"
+                            />
+                        </SimpleGrid>
+                    </Stack>
+                )}
             />
             <DetalleVentaModal
                 venta={detalleVenta}
@@ -548,7 +848,11 @@ export function Ventas() {
                 venta={cancelacionPendiente?.venta}
                 motivo={motivoCancelacion}
                 cancelando={cancelando}
+                folioCancelacion={folioCancelacion}
+                confirmacionTerminal={confirmacionTerminal}
                 onMotivoChange={setMotivoCancelacion}
+                onFolioCancelacionChange={setFolioCancelacion}
+                onConfirmacionTerminalChange={setConfirmacionTerminal}
                 onClose={() => setCancelacionPendiente(null)}
                 onConfirm={confirmarCancelacion}
             />

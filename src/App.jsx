@@ -37,7 +37,6 @@ import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { Empresa } from './pages/Empresa/Empresa.jsx';
 import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
-import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
 import { SucursalProvider } from './context/SucursalContext.jsx';
 import { SeccionesProvider, useSecciones } from './context/SeccionesContext.jsx';
@@ -123,7 +122,6 @@ const RUTAS_MODULOS = [
   { seccion: 'ventas-caja', modulo: 'servicios', element: <Servicios /> },
   { seccion: 'ventas-caja', modulo: 'ventas', element: <Ventas /> },
   { seccion: 'ventas-caja', modulo: 'registro-ventas', element: <Ventas /> },
-  { seccion: 'ventas-caja', modulo: 'pagos-experimentacion', element: <SimuladorPagos /> },
 
   // Empleados
   { seccion: 'empleados', modulo: 'areas-trabajo', element: <AreasTrabajo /> },

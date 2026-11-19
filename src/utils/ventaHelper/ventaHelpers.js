@@ -29,6 +29,29 @@ export const obtenerEmpleadoIdApertura = (apertura) =>
 export const esErrorCajaCerrada = (error) =>
     error?.data?.code === 'APERTURA_CAJA_CERRADA';
 
+export const obtenerMensajeSeguroVenta = (error, accion = 'la operación') => {
+    const codigo = error?.data?.data?.code ?? error?.data?.code ?? error?.code;
+    const mensaje = String(error?.message ?? '');
+
+    if (codigo === 'REEMBOLSO_REGISTRADO_PENDIENTE_CONCILIACION') {
+        return 'Mercado Pago confirmó el movimiento, pero la actualización quedó pendiente. No repitas la operación y solicita conciliación.';
+    }
+    if (/Unauthorized use of live credentials|Mercado Pago rechazó el reembolso/i.test(mensaje)) {
+        return 'Mercado Pago rechazó el reembolso. Verifica que las credenciales de prueba correspondan al pago.';
+    }
+    if (codigo === 'VENTA_CON_DEVOLUCIONES') {
+        return 'No se puede cancelar una venta que ya tiene una devolución completada o pendiente.';
+    }
+    if (codigo === 'COTIZACION_DESACTUALIZADA' || codigo === 'DEVOLUCIONES_INCONSISTENTES') {
+        return 'La disponibilidad cambió. Actualiza la venta e inténtalo nuevamente.';
+    }
+    if (codigo === 'MONTO_REEMBOLSO_EXCEDIDO') {
+        return 'El reembolso excede el saldo disponible para devolver.';
+    }
+
+    return `No se pudo completar ${accion}. Revisa la operación e inténtalo nuevamente.`;
+};
+
 export const obtenerNombreEmpleado = (empleado) =>
     [empleado?.nombre, empleado?.apellidoPaterno, empleado?.apellidoMaterno]
         .filter(Boolean)
