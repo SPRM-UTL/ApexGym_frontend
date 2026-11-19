@@ -55,9 +55,6 @@ export const RUTAS_POR_MODULO = {
     'Metodos de Pago': { seccion: 'ventas-caja', modulo: 'metodos-pago' },
     'Servicios': { seccion: 'ventas-caja', modulo: 'servicios' },
     'Ventas': { seccion: 'ventas-caja', modulo: 'ventas' },
-    'Pagos': { seccion: 'ventas-caja', modulo: 'pagos-experimentacion' },
-    'Simulador de Pagos': { seccion: 'ventas-caja', modulo: 'pagos-experimentacion' },
-
     'Áreas de Trabajo': { seccion: 'empleados', modulo: 'areas-trabajo' },
     'Puestos': { seccion: 'empleados', modulo: 'puestos' },
     'Estados de Empleado': { seccion: 'empleados', modulo: 'estados-empleado' },

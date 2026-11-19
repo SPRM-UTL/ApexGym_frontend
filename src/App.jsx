@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
@@ -14,12 +14,16 @@ import { AperturaCaja } from './pages/AperturaCaja/AperturaCaja.jsx';
 import { MovimientosCaja } from './pages/MovimientosCaja/MovimientosCaja.jsx';
 import { CorteCaja } from './pages/CorteCaja/CorteCaja.jsx';
 import { ApiLoading } from './components/ApiLoading/ApiLoading.jsx';
-import {
-  guardarUsuarioActual,
-  eliminarUsuarioActual,
-  obtenerUsuarioActual,
-} from './scripts/constantes.js';
-import { useState, useEffect } from 'react';
+import { Ventas } from './pages/RegistroVentas/Ventas/Ventas.jsx';
+import { Nueva } from './pages/RegistroVentas/Nueva/Nueva.jsx';
+import { ClienteVenta } from './pages/RegistroVentas/Cliente/Cliente.jsx';
+import { ProteccionCajaAbierta } from './pages/RegistroVentas/components/ProteccionCajaAbierta.jsx';
+import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual, obtenerEsPersistente } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
+/**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
+ * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
+ * revisar las cookies  si la peticion exitosa recarga a la pantalla de la aplicacion
+ * **/
+import { useState, useEffect, useCallback } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
 import { Clientes } from './pages/Clientes/Clientes.jsx';
@@ -33,7 +37,6 @@ import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { Empresa } from './pages/Empresa/Empresa.jsx';
 import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
-import { SimuladorPagos } from './pages/Pagos/SimuladorPagos.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
 import { SucursalProvider } from './context/SucursalContext.jsx';
 import { SeccionesProvider, useSecciones } from './context/SeccionesContext.jsx';
@@ -117,8 +120,8 @@ const RUTAS_MODULOS = [
   { seccion: 'ventas-caja', modulo: 'corte-caja', element: <CorteCaja /> },
   { seccion: 'ventas-caja', modulo: 'metodos-pago', element: <MetodosPago /> },
   { seccion: 'ventas-caja', modulo: 'servicios', element: <Servicios /> },
-  { seccion: 'ventas-caja', modulo: 'ventas', element: <SimuladorPagos /> },
-  { seccion: 'ventas-caja', modulo: 'pagos-experimentacion', element: <SimuladorPagos /> },
+  { seccion: 'ventas-caja', modulo: 'ventas', element: <Ventas /> },
+  { seccion: 'ventas-caja', modulo: 'registro-ventas', element: <Ventas /> },
 
   // Empleados
   { seccion: 'empleados', modulo: 'areas-trabajo', element: <AreasTrabajo /> },
@@ -134,10 +137,11 @@ const RUTAS_MODULOS = [
   { seccion: 'rendimiento-laboral', modulo: 'tipos-actividad', element: <TiposActividad /> },
 
   // Ventas
-  { seccion: 'ventas', modulo: 'registro-ventas', element: <SimuladorPagos /> },
+  { seccion: 'ventas', modulo: 'ventas', element: <Ventas /> },
+  { seccion: 'ventas', modulo: 'registro-ventas', element: <Ventas /> },
 ];
 
-function RutasApp({ estaLogeadoEn, accionLogin, accionLogout }) {
+function RutasApp({ estaLogeadoEn, accionLogin, accionLogout, onSessionExpired }) {
   return (
     <Routes>
       <Route
@@ -185,6 +189,46 @@ function RutasApp({ estaLogeadoEn, accionLogin, accionLogout }) {
         />
       ))}
 
+      {/* Rutas directas para el flujo de ventas */}
+      <Route
+        path="/registro-de-ventas"
+        element={
+          estaLogeadoEn ? (
+            <Dashboard onLogout={accionLogout}>
+              <Ventas />
+            </Dashboard>
+          ) : (
+            <Login onLoginAceptado={accionLogin} />
+          )
+        }
+      />
+      <Route
+        path="/registro-de-ventas/nueva"
+        element={
+          estaLogeadoEn ? (
+            <Dashboard onLogout={accionLogout}>
+              <ProteccionCajaAbierta onSessionExpired={onSessionExpired}>
+                <Nueva />
+              </ProteccionCajaAbierta>
+            </Dashboard>
+          ) : (
+            <Login onLoginAceptado={accionLogin} />
+          )
+        }
+      />
+      <Route
+        path="/registro-de-ventas/cliente"
+        element={
+          estaLogeadoEn ? (
+            <Dashboard onLogout={accionLogout}>
+              <ClienteVenta />
+            </Dashboard>
+          ) : (
+            <Login onLoginAceptado={accionLogin} />
+          )
+        }
+      />
+
       {/* Rutas de error */}
       <Route
         path="/error"
@@ -222,6 +266,10 @@ function RutasApp({ estaLogeadoEn, accionLogin, accionLogout }) {
 
 function App() {
   const [estaLogeadoEn, setEstaLogeadoEn] = useState(null);
+  const manejarSesionExpirada = useCallback(() => {
+    eliminarUsuarioActual();
+    setEstaLogeadoEn(false);
+  }, []);
 
   useEffect(() => {
     let activo = true;
@@ -295,6 +343,7 @@ function App() {
                 estaLogeadoEn={estaLogeadoEn}
                 accionLogin={accionLogin}
                 accionLogout={accionLogout}
+                onSessionExpired={manejarSesionExpirada}
               />
             </ErrorBoundary>
           </BrowserRouter>

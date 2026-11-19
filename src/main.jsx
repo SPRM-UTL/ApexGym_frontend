@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MantineProvider } from '@mantine/core';
+import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
 
 import '@mantine/core/styles.css';
@@ -14,8 +15,10 @@ import { apexTheme } from './theme/apexTheme.js';
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <MantineProvider theme={apexTheme} defaultColorScheme="light">
-      <Notifications position="top-right" zIndex={1000001} />
-      <App />
+      <ModalsProvider>
+        <Notifications position="top-right" zIndex={2000000} />
+        <App />
+      </ModalsProvider>
     </MantineProvider>
   </StrictMode>
 );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionIcon,
     Badge,
@@ -6,6 +6,7 @@ import {
     Center,
     Checkbox,
     CloseButton,
+    Divider,
     Group,
     NativeSelect,
     Popover,
@@ -24,10 +25,10 @@ import {
     IconChevronUp,
     IconEdit,
     IconFilter,
-    IconPlus,
     IconSelector,
     IconTrash
 } from '@tabler/icons-react';
+import { obtenerDiaCalendario } from './dateFilterUtils.js';
 import classes from './TableSort.module.css';
 
 function Th({ children, reversed, sorted, onSort, sortable, isNeutral }) {
@@ -77,7 +78,116 @@ function getCellString(val) {
     return '';
 }
 
-function filterRows(data, columns, globalSearch, columnFilters) {
+function renderCellValue(value, column) {
+    if (value === null || value === undefined || value === '') return '—';
+
+    switch (column.format) {
+        case 'folio':
+            return (
+                <Badge variant="light" color="gray" size="sm" radius="sm">
+                    #{value}
+                </Badge>
+            );
+        case 'number': {
+            const number = Number(value);
+            return Number.isFinite(number)
+                ? new Intl.NumberFormat('es-MX').format(number)
+                : String(value);
+        }
+        case 'currency': {
+            const amount = Number(value);
+            return Number.isFinite(amount)
+                ? new Intl.NumberFormat('es-MX', {
+                    style: 'currency',
+                    currency: column.currency ?? 'MXN',
+                }).format(amount)
+                : String(value);
+        }
+        case 'date': {
+            const date = value instanceof Date ? value : new Date(value);
+            return Number.isNaN(date.getTime())
+                ? String(value)
+                : new Intl.DateTimeFormat('es-MX', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                }).format(date);
+        }
+        case 'status': {
+            const label = String(value);
+            const upper = label.toUpperCase();
+            const lower = label.toLowerCase();
+            const color = column.colorByValue?.[label]
+                ?? column.colorByValue?.[upper]
+                ?? column.colorByValue?.[lower]
+                ?? (['ABIERTA', 'ACTIVO', 'ACTIVA', 'VALIDADO', 'VALIDADA', 'PAGADO', 'PAGADA', 'COMPLETADO', 'COMPLETADA', 'COMPLETA', 'EXITOSO', 'EXITOSA'].includes(upper)
+                    ? 'green'
+                    : ['PENDIENTE', 'PENDIENTE_PAGO', 'EN_PROCESO', 'PROCESANDO', 'PENDIENTE DE PAGO'].includes(upper)
+                        ? 'yellow'
+                        : ['DEVUELTO', 'DEVUELTA', 'REEMBOLSADO', 'REEMBOLSADA', 'PARCIAL'].includes(upper)
+                            ? 'orange'
+                            : ['CERRADA', 'INACTIVO', 'INACTIVA', 'CANCELADO', 'CANCELADA', 'RECHAZADO', 'RECHAZADA', 'EXPIRADO', 'EXPIRADA', 'FALLIDO', 'FALLIDA'].includes(upper)
+                                ? 'red'
+                                : 'gray');
+            return (
+                <Badge color={color} variant="light" size={column.badgeSize || 'sm'}>
+                    {label}
+                </Badge>
+            );
+        }
+        default:
+            return typeof value === 'object' && value !== null
+                ? value
+                : String(value);
+    }
+}
+
+const COLUMN_FILTER_PREFIX = 'column:';
+const CONFIGURED_FILTER_PREFIX = 'configured:';
+const EMPTY_CONFIGURED_FILTERS = [];
+
+const obtenerValorFiltro = (filter, row) => {
+    const record = row._recordOriginal ?? row;
+    return filter.getValue ? filter.getValue(record) : record[filter.key] ?? row[filter.key];
+};
+
+const filtroConfiguradoActivo = (filter, value) => {
+    if (filter.type === 'dateRange') {
+        return Boolean(value?.[filter.from ?? 'from'] || value?.[filter.to ?? 'to']);
+    }
+    return value !== undefined && value !== null && String(value).trim() !== '';
+};
+
+function coincideFiltroConfigurado(filter, value, row) {
+    if (!filtroConfiguradoActivo(filter, value)) return true;
+
+    const rawValue = obtenerValorFiltro(filter, row);
+    if (filter.type === 'text') {
+        return String(rawValue ?? '')
+            .toLocaleLowerCase()
+            .includes(String(value).trim().toLocaleLowerCase());
+    }
+    if (filter.type === 'select') {
+        const normalizar = filter.normalizeValue ?? ((item) => String(item ?? '').toLocaleLowerCase());
+        return normalizar(rawValue) === normalizar(value);
+    }
+
+    const dia = obtenerDiaCalendario(rawValue);
+    if (!dia) return false;
+    if (filter.type === 'date') {
+        return dia === value;
+    }
+    if (filter.type === 'dateRange') {
+        const desde = value?.[filter.from ?? 'from'];
+        const hasta = value?.[filter.to ?? 'to'];
+        return (!desde || dia >= desde) && (!hasta || dia <= hasta);
+    }
+    return true;
+}
+
+function filterRows(data, columns, globalSearch, filters, configuredFilters) {
     const query = globalSearch.toLowerCase().trim();
 
     return data.filter((row) => {
@@ -92,12 +202,18 @@ function filterRows(data, columns, globalSearch, columnFilters) {
         if (!matchGlobal) return false;
 
         return columns.every((col) => {
-            const filterValue = (columnFilters[col.key] ?? '').toLowerCase().trim();
+            const filterValue = (filters[`${COLUMN_FILTER_PREFIX}${col.key}`] ?? '').toLowerCase().trim();
             if (!filterValue) return true;
             return getCellString(row[col.key])
                 .toLowerCase()
                 .includes(filterValue);
-        });
+        }) && configuredFilters.every((filter) =>
+            coincideFiltroConfigurado(
+                filter,
+                filters[`${CONFIGURED_FILTER_PREFIX}${filter.key}`],
+                row
+            )
+        );
     });
 }
 
@@ -165,6 +281,9 @@ export function TableSort({
     initialSortBy,
     initialSortDirection = 'asc',
     headerVariant = 'classic',
+    filters: configuredFilters = EMPTY_CONFIGURED_FILTERS,
+    serverPagination,
+    tableMinWidth,
 }) {
     const isNeutral = headerVariant === 'neutral';
     const columns = useMemo(() => {
@@ -179,7 +298,8 @@ export function TableSort({
     }, [columnsProp, data]);
 
     const [globalSearch, setGlobalSearch] = useState('');
-    const [columnFilters, setColumnFilters] = useState({});
+    const [filterValues, setFilterValues] = useState({});
+    const [draftConfiguredValues, setDraftConfiguredValues] = useState({});
     const [sortBy, setSortBy] = useState(() => initialSortBy ?? columns[0]?.key ?? null);
     const [reverseSortDirection, setReverseSortDirection] = useState(() => initialSortDirection === 'desc');
     const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 10);
@@ -193,6 +313,21 @@ export function TableSort({
     const [draftField, setDraftField] = useState(null);
     /**Guarda temporalmente el texto ingresado*/
     const [draftValue, setDraftValue] = useState('');
+    const onServerSearchChange = serverPagination?.onSearchChange;
+    const previousServerSearch = useRef(globalSearch.trim());
+
+    useEffect(() => {
+        if (!onServerSearchChange) return undefined;
+        const search = globalSearch.trim();
+        if (previousServerSearch.current === search) return undefined;
+        previousServerSearch.current = search;
+
+        const timeout = setTimeout(() => {
+            onServerSearchChange(search);
+            
+        }, [300]);
+        return () => clearTimeout(timeout);
+    }, [globalSearch, onServerSearchChange]);
 
     /**useMemo(...) memoriza el resultado */
     const filterableColums = useMemo(
@@ -219,43 +354,131 @@ export function TableSort({
 
     /**con la funcion permite asegurar que los filtros esten en textos y que se almacenen los filtros en un 
      en un arreglo en par clave - valor de cada filtro*/
-    const activeFilters = Object.entries(columnFilters).filter(([, v]) => String(v ?? '').trim());
+    const activeFilters = Object.entries(filterValues).filter(([key, value]) => {
+        if (key.startsWith(CONFIGURED_FILTER_PREFIX)) {
+            const filter = configuredFilters.find(
+                (item) => `${CONFIGURED_FILTER_PREFIX}${item.key}` === key
+            );
+            return filter ? filtroConfiguradoActivo(filter, value) : false;
+        }
+        return value !== undefined && value !== null && String(value).trim() !== '';
+    });
 
-    /**De esta manera agregamos los filtros */
-    const addFilter = () => {
-        /**si es que no hace nada o no hay nada para filtrar no hace nada */
-        if (!draftField || !String(draftValue).trim()) return;
-        //de esta manera actualizamos los filtros de manera recorrida
-        setColumnFilters((prev) => ({ ...prev, [draftField]: String(draftValue).trim() }));
-        //limpiamos los filtros
-        setDraftField(null);
-        setDraftValue('');
-        setPage(1)
-    }
+    const notificarFiltrosServidor = (values) => {
+        if (!serverPagination?.onFiltersChange) return;
+        const filtros = Object.fromEntries(configuredFilters.map((filter) => [
+            filter.key,
+            values[`${CONFIGURED_FILTER_PREFIX}${filter.key}`],
+        ]).filter(([key, value]) => {
+            const filter = configuredFilters.find((item) => item.key === key);
+            return filtroConfiguradoActivo(filter, value);
+        }));
+        serverPagination.onFiltersChange(filtros);
+    };
+
     /**De esta manera recorremos para borrar todos los filtros de manera individual */
     const removeFilter = (key) => {
-        setColumnFilters((prev) => {
-            const next = { ...prev };
-            delete next[key];
-            return next;
-        });
+        const next = { ...filterValues };
+        delete next[key];
+        setFilterValues(next);
+        notificarFiltrosServidor(next);
         setPage(1);
     };
     /**Limpia de manera completa los filtros en todos */
     const clearFilters = () => {
-        setColumnFilters({});
+        setFilterValues({});
+        setDraftConfiguredValues({});
+        setDraftField(null);
+        setDraftValue('');
         setPage(1);
+        notificarFiltrosServidor({});
+    };
+
+    const aplicarFiltros = () => {
+        const next = { ...filterValues };
+        configuredFilters.forEach((filter) => {
+            const key = `${CONFIGURED_FILTER_PREFIX}${filter.key}`;
+            const value = draftConfiguredValues[filter.key];
+            if (filtroConfiguradoActivo(filter, value)) {
+                next[key] = value;
+            } else {
+                delete next[key];
+            }
+        });
+        if (draftField && String(draftValue).trim()) {
+            next[`${COLUMN_FILTER_PREFIX}${draftField}`] = String(draftValue).trim();
+        }
+        setFilterValues(next);
+        notificarFiltrosServidor(next);
+        setDraftField(null);
+        setDraftValue('');
+        setPage(1);
+        setFilterOpen(false);
+    };
+
+    const abrirFiltros = (abierto) => {
+        if (abierto) {
+            setDraftConfiguredValues(Object.fromEntries(
+                configuredFilters.map((filter) => [
+                    filter.key,
+                    filterValues[`${CONFIGURED_FILTER_PREFIX}${filter.key}`],
+                ]).filter(([, value]) => value !== undefined)
+            ));
+        }
+        setFilterOpen(abierto);
+    };
+
+    const obtenerResumenFiltro = (key, value) => {
+        if (key.startsWith(CONFIGURED_FILTER_PREFIX)) {
+            const filterKey = key.slice(CONFIGURED_FILTER_PREFIX.length);
+            const filter = configuredFilters.find((item) => item.key === filterKey);
+            if (!filter) return `${filterKey}: ${String(value)}`;
+            if (filter.type === 'dateRange') {
+                const desde = value?.[filter.from ?? 'from'];
+                const hasta = value?.[filter.to ?? 'to'];
+                return `${filter.label}: ${desde || '...'} — ${hasta || '...'}`;
+            }
+            if (filter.type === 'select') {
+                const option = filter.options?.find(
+                    (item) => String(item.value) === String(value)
+                );
+                return `${filter.label}: ${option?.label ?? value}`;
+            }
+            return `${filter.label}: ${String(value)}`;
+        }
+
+        const columnKey = key.slice(COLUMN_FILTER_PREFIX.length);
+        const column = columns.find((item) => item.key === columnKey);
+        return `${column?.label ?? columnKey}: ${String(value)}`;
+    };
+
+    const actualizarFiltroConfigurado = (filter, parte, value) => {
+        setDraftConfiguredValues((previous) => {
+            const actual = previous[filter.key];
+            if (filter.type === 'dateRange') {
+                return {
+                    ...previous,
+                    [filter.key]: { ...(actual ?? {}), [parte]: value },
+                };
+            }
+            return { ...previous, [filter.key]: value };
+        });
     };
 
     const processed = useMemo(() => {
-        const filtered = filterRows(data, columns, globalSearch, columnFilters);
+        if (serverPagination) return data;
+        const filtered = filterRows(data, columns, globalSearch, filterValues, configuredFilters);
         return sortRows(filtered, sortBy, reverseSortDirection, columns);
-    }, [data, columns, globalSearch, columnFilters, sortBy, reverseSortDirection]);
+    }, [data, columns, globalSearch, filterValues, configuredFilters, sortBy, reverseSortDirection, serverPagination]);
 
-    const totalPages = Math.max(1, Math.ceil(processed.length / pageSize));
-    const currentPage = Math.min(page, totalPages);
-    const pageStart = (currentPage - 1) * pageSize;
-    const pageRows = processed.slice(pageStart, pageStart + pageSize);
+    const totalRecords = serverPagination?.total ?? processed.length;
+    const currentPageSize = serverPagination?.pageSize ?? pageSize;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / currentPageSize));
+    const currentPage = serverPagination?.page ?? Math.min(page, totalPages);
+    const pageStart = (currentPage - 1) * currentPageSize;
+    const pageRows = serverPagination
+        ? processed
+        : processed.slice(pageStart, pageStart + currentPageSize);
 
     const rowId = (row, index) => row.id ?? index;
 
@@ -308,17 +531,22 @@ export function TableSort({
                     <Text className={classes.controlLabel}>Mostrar</Text>
                     <NativeSelect
                         size="xs"
-                        value={String(pageSize)}
+                        value={String(currentPageSize)}
                         onChange={(e) => {
-                            setPageSize(Number(e.currentTarget.value));
-                            setPage(1);
+                            const nextPageSize = Number(e.currentTarget.value);
+                            if (serverPagination) {
+                                serverPagination.onPageSizeChange(nextPageSize);
+                            } else {
+                                setPageSize(nextPageSize);
+                                setPage(1);
+                            }
                         }}
                         data={pageSizeOptions.map((n) => ({ value: String(n), label: String(n) }))}
                     />
                     <Text className={classes.controlLabel}>registros</Text>
                 </Group>
 
-                <Group gap="xs">
+                {(!serverPagination || serverPagination.onSearchChange) && <Group gap="xs">
                     <Text className={classes.controlLabel}>Buscar:</Text>
                     <TextInput
                         className={classes.searchInput}
@@ -330,14 +558,14 @@ export function TableSort({
                             setPage(1);
                         }}
                     />
-                </Group>
+                </Group>}
 
                 <Popover
                     opened={filterOpen}
-                    onChange={setFilterOpen}
+                    onChange={abrirFiltros}
                     position="bottom-start"
                     offset={8}
-                    width={320}
+                    width={380}
                     shadow="lg"
                     radius="md"
                     trapFocus
@@ -350,7 +578,7 @@ export function TableSort({
                             radius="md"
                             className={classes.filterButton}
                             aria-label="Filtrar registros"
-                            onClick={() => setFilterOpen((o) => !o)}
+                            onClick={() => abrirFiltros(!filterOpen)}
                         >
                             <Center style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                 <IconFilter size={16} stroke={1.8} />
@@ -363,9 +591,78 @@ export function TableSort({
                         </Button>
                     </Popover.Target>
                     <Popover.Dropdown className={classes.popoverDropdown}>
-                        <Stack gap="sm">
-                            <Text className={classes.popoverTitle}>Filtrar por</Text>
-                            <Select
+                        <ScrollArea.Autosize mah="65vh" type="auto">
+                            <Stack gap="sm" pr="xs">
+                                {configuredFilters.length > 0 && (
+                                    <Text className={classes.popoverTitle}>Filtros del módulo</Text>
+                                )}
+                                {configuredFilters.map((filter) => {
+                                    const value = draftConfiguredValues[filter.key];
+                                    const options = (filter.options ?? []).map((option) => ({
+                                        value: String(option.value),
+                                        label: option.label ?? String(option.value),
+                                    }));
+
+                                    if (filter.type === 'select') {
+                                        return (
+                                            <Select
+                                                key={filter.key}
+                                                label={filter.label}
+                                                placeholder={filter.placeholder ?? `Todos: ${filter.label.toLowerCase()}`}
+                                                size="xs"
+                                                searchable
+                                                clearable
+                                                data={options}
+                                                value={value == null || value === '' ? null : String(value)}
+                                                onChange={(nextValue) => actualizarFiltroConfigurado(filter, null, nextValue ?? '')}
+                                                comboboxProps={{ withinPortal: false }}
+                                            />
+                                        );
+                                    }
+
+                                    if (filter.type === 'dateRange') {
+                                        const fromKey = filter.from ?? 'from';
+                                        const toKey = filter.to ?? 'to';
+                                        return (
+                                            <Stack key={filter.key} gap={4}>
+                                                <Text size="xs" fw={500}>{filter.label}</Text>
+                                                <Group grow gap="xs">
+                                                    <TextInput
+                                                        label="Desde"
+                                                        type="date"
+                                                        size="xs"
+                                                        value={value?.[fromKey] ?? ''}
+                                                        onChange={(event) => actualizarFiltroConfigurado(filter, fromKey, event.currentTarget.value)}
+                                                    />
+                                                    <TextInput
+                                                        label="Hasta"
+                                                        type="date"
+                                                        size="xs"
+                                                        value={value?.[toKey] ?? ''}
+                                                        onChange={(event) => actualizarFiltroConfigurado(filter, toKey, event.currentTarget.value)}
+                                                    />
+                                                </Group>
+                                            </Stack>
+                                        );
+                                    }
+
+                                    return (
+                                        <TextInput
+                                            key={filter.key}
+                                            label={filter.label}
+                                            type={filter.type === 'date' ? 'date' : 'text'}
+                                            placeholder={filter.placeholder}
+                                            size="xs"
+                                            value={value ?? ''}
+                                            onChange={(event) => actualizarFiltroConfigurado(filter, null, event.currentTarget.value)}
+                                        />
+                                    );
+                                })}
+                                {configuredFilters.length > 0 && <Divider />}
+                                {configuredFilters.length > 0 && (
+                                    <Text className={classes.popoverTitle}>Filtros por columna</Text>
+                                )}
+                                <Select
                                 label="Campo"
                                 placeholder="Selecciona un campo"
                                 size="xs"
@@ -408,7 +705,7 @@ export function TableSort({
                                     disabled={!draftField}
                                     value={draftValue}
                                     onChange={(e) => setDraftValue(e.currentTarget.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && addFilter()}
+                                    onKeyDown={(e) => e.key === 'Enter' && aplicarFiltros()}
                                 />
                             )}
 
@@ -416,16 +713,12 @@ export function TableSort({
                                 <Button variant="subtle" size="xs" color="gray" onClick={clearFilters}>
                                     Borrar todos
                                 </Button>
-                                <Button
-                                    size="xs"
-                                    leftSection={<IconPlus size={14} />}
-                                    disabled={!draftField || !String(draftValue).trim()}
-                                    onClick={addFilter}
-                                >
-                                    Agregar filtro
+                                <Button size="xs" onClick={aplicarFiltros}>
+                                    Aplicar filtros
                                 </Button>
                             </Group>
-                        </Stack>
+                            </Stack>
+                        </ScrollArea.Autosize>
                     </Popover.Dropdown>
                 </Popover>
 
@@ -445,7 +738,7 @@ export function TableSort({
             {activeFilters.length > 0 && (
                 <div className={classes.activeFilters}>
                     {activeFilters.map(([key, value]) => {
-                        const col = columns.find((c) => c.key === key);
+                        const custom = key.startsWith(CONFIGURED_FILTER_PREFIX);
                         return (
                             <Badge
                                 key={key}
@@ -455,9 +748,17 @@ export function TableSort({
                                 className={classes.filterChip}
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => {
-                                    setDraftField(key);
-                                    setDraftValue(value);
-                                    setFilterOpen(true);
+                                    if (custom) {
+                                        const filterKey = key.slice(CONFIGURED_FILTER_PREFIX.length);
+                                        setDraftConfiguredValues((previous) => ({
+                                            ...previous,
+                                            [filterKey]: value,
+                                        }));
+                                    } else {
+                                        setDraftField(key.slice(COLUMN_FILTER_PREFIX.length));
+                                        setDraftValue(value);
+                                    }
+                                    abrirFiltros(true);
                                 }}
                                 rightSection={
                                     <CloseButton
@@ -470,7 +771,7 @@ export function TableSort({
                                     />
                                 }
                             >
-                                {col?.label ?? key}: {value}
+                                {obtenerResumenFiltro(key, value)}
                             </Badge>
                         );
                     })}
@@ -480,7 +781,13 @@ export function TableSort({
                 </div>
             )}
             <ScrollArea className={classes.scroll}>
-                <Table className={classes.table} horizontalSpacing="md" verticalSpacing={0} striped={false}>
+                <Table
+                    className={classes.table}
+                    style={tableMinWidth ? { minWidth: tableMinWidth } : undefined}
+                    horizontalSpacing="md"
+                    verticalSpacing={0}
+                    striped={false}
+                >
                     <Table.Thead>
                         <Table.Tr>
                             {enableSelection && (
@@ -541,9 +848,7 @@ export function TableSort({
                                         )}
                                         {columns.map((col) => (
                                             <Table.Td key={col.key} className={classes.bodyCell}>
-                                                {typeof fila[col.key] === 'object' && fila[col.key] !== null
-                                                    ? fila[col.key]
-                                                    : String(fila[col.key] ?? '')}
+                                                {renderCellValue(fila[col.key], col)}
                                             </Table.Td>
                                         ))}
                                         {(onEditar || onEliminar || renderAcciones) && (
@@ -555,11 +860,11 @@ export function TableSort({
                                                             <ActionIcon
                                                                 variant="light"
                                                                 size="lg"
+                                                                color="blue"
                                                                 aria-label={`Editar ${entityLabel}`}
-                                                                className={classes.editAction}
                                                                 onClick={() => onEditar(fila)}
                                                             >
-                                                                <IconEdit size={20} stroke={1.8} />
+                                                                <IconEdit size={18} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}
@@ -568,11 +873,11 @@ export function TableSort({
                                                             <ActionIcon
                                                                 variant="light"
                                                                 size="lg"
+                                                                color="red"
                                                                 aria-label={`Eliminar ${entityLabel}`}
-                                                                className={classes.deleteAction}
                                                                 onClick={() => onEliminar(fila)}
                                                             >
-                                                                <IconTrash size={20} stroke={1.8} />
+                                                                <IconTrash size={18} stroke={1.8} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}
@@ -602,13 +907,16 @@ export function TableSort({
 
             <div className={classes.footer}>
                 <span>
-                    Mostrando {processed.length === 0 ? 0 : pageStart + 1}–
-                    {Math.min(pageStart + pageSize, processed.length)} de {processed.length} registros
+                    Mostrando {totalRecords === 0 ? 0 : pageStart + 1}–
+                    {Math.min(pageStart + currentPageSize, totalRecords)} de {totalRecords} registros
                 </span>
                 <Group gap="xs">
                     <UnstyledButton
                         disabled={currentPage <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        onClick={() => {
+                            if (serverPagination) serverPagination.onPageChange(currentPage - 1);
+                            else setPage((p) => Math.max(1, p - 1));
+                        }}
                         style={{ opacity: currentPage <= 1 ? 0.4 : 1 }}
                     >
                         Anterior
@@ -618,7 +926,10 @@ export function TableSort({
                     </span>
                     <UnstyledButton
                         disabled={currentPage >= totalPages}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() => {
+                            if (serverPagination) serverPagination.onPageChange(currentPage + 1);
+                            else setPage((p) => Math.min(totalPages, p + 1));
+                        }}
                         style={{ opacity: currentPage >= totalPages ? 0.4 : 1 }}
                     >
                         Siguiente

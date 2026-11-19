@@ -50,7 +50,7 @@ export class UsuarioService {
                 formData.append('rolId', String(rolId));
             }
             if (foto) {
-                formData.append('foto', foto);
+                formData.append('imagen', foto);
             }
 
             const response = await httpClient.post(`${this.urlApi}/registrarUsuario`, formData);
@@ -92,7 +92,7 @@ export class UsuarioService {
                 formData.append('rolId', rolId ? String(rolId) : '');
             }
             if (foto) {
-                formData.append('foto', foto);
+                formData.append('imagen', foto);
             }
 
             const response = await httpClient.put(`${this.urlApi}/actualizarUsuario`, formData);
