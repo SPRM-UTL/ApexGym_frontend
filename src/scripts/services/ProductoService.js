@@ -77,7 +77,7 @@ export class ProductoService {
 
     async actualizar(productoId, datos) {
         try {
-            const datosProducto = await prepararDatosProducto(datos);
+            const datosProducto = prepararDatos(datos);
             datosProducto.append('productoId', String(Number(productoId)));
             const response = await httpClient.put(`${this.urlApi}/`, datosProducto);
             return response.data;
