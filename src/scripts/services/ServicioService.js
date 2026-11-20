@@ -17,7 +17,7 @@ export class ServicioService extends CatalogoService {
     actualizar(id, datos) {
         return this.ejecutar(
             () => httpClient.put(`${this.urlApi}/${id}`, prepararDatos(datos)),
-            'Error al actualizar servicios'
+            'Error al actualizar el servicio'
         );
     }
 
