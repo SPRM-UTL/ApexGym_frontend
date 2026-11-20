@@ -364,98 +364,51 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
 export function Empleados() {
     cambioNombreWeb('Empleados');
 
-    const mapRecordToForm = useMemo(() => (record) => {
-        let dir = {
-            calle: '',
-            numeroExterior: '',
-            numeroInterior: '',
-            colonia: '',
-            codigoPostal: '',
-            municipio: '',
-            estado: '',
-            entreCalles: '',
-        };
-        if (record.direccion) {
-            try {
-                const parsed = JSON.parse(record.direccion);
-                if (typeof parsed === 'object' && parsed !== null) {
-                    dir = { ...dir, ...parsed };
-                } else {
-                    dir.calle = String(record.direccion);
-                }
-            } catch {
-                dir.calle = String(record.direccion);
-            }
-        }
+    const mapRecordToForm = useMemo(() => (record) => ({
+        nombre: record.nombre ?? '',
+        apellidoPaterno: record.apellidoPaterno ?? '',
+        apellidoMaterno: record.apellidoMaterno ?? '',
+        areaTrabajoId: record.areaTrabajo?.id ? String(record.areaTrabajo.id) : String(record.areaTrabajoId ?? ''),
+        puestoId: record.puesto?.id ? String(record.puesto.id) : String(record.puestoId ?? ''),
+        estadoEmpleadoId: record.estadoEmpleado?.id ? String(record.estadoEmpleado.id) : String(record.estadoEmpleadoId ?? ''),
+        usuarioId: record.usuario?.id ? String(record.usuario.id) : String(record.usuarioId ?? ''),
+        telefono: record.telefono ?? '',
+        correo: record.correo ?? '',
+        calle: record.calle ?? '',
+        numeroExterior: record.numeroExterior ?? '',
+        numeroInterior: record.numeroInterior ?? '',
+        colonia: record.colonia ?? '',
+        codigoPostal: record.codigoPostal ?? '',
+        municipio: record.municipio ?? '',
+        estado: record.estado ?? '',
+        entreCalles: record.entreCalles ?? '',
+        fechaNacimiento: record.fechaNacimiento ? new Date(record.fechaNacimiento).toISOString().split('T')[0] : '',
+        fechaIngreso: record.fechaIngreso ? new Date(record.fechaIngreso).toISOString().split('T')[0] : '',
+        imagenUrl: record.imagenUrl ?? '',
+    }), []);
 
-        return {
-            nombre: record.nombre ?? '',
-            apellidoPaterno: record.apellidoPaterno ?? '',
-            apellidoMaterno: record.apellidoMaterno ?? '',
-            areaTrabajoId: record.areaTrabajo?.id ? String(record.areaTrabajo.id) : String(record.areaTrabajoId ?? ''),
-            puestoId: record.puesto?.id ? String(record.puesto.id) : String(record.puestoId ?? ''),
-            estadoEmpleadoId: record.estadoEmpleado?.id ? String(record.estadoEmpleado.id) : String(record.estadoEmpleadoId ?? ''),
-            usuarioId: record.usuario?.id ? String(record.usuario.id) : String(record.usuarioId ?? ''),
-            telefono: record.telefono ?? '',
-            correo: record.correo ?? '',
-            calle: dir.calle ?? '',
-            numeroExterior: dir.numeroExterior ?? '',
-            numeroInterior: dir.numeroInterior ?? '',
-            colonia: dir.colonia ?? '',
-            codigoPostal: dir.codigoPostal ?? '',
-            municipio: dir.municipio ?? '',
-            estado: dir.estado ?? '',
-            entreCalles: dir.entreCalles ?? '',
-            fechaNacimiento: record.fechaNacimiento ? new Date(record.fechaNacimiento).toISOString().split('T')[0] : '',
-            fechaIngreso: record.fechaIngreso ? new Date(record.fechaIngreso).toISOString().split('T')[0] : '',
-            imagenUrl: record.imagenUrl ?? '',
-            imagen: null,
-            quitarImagen: false,
-        };
-    }, []);
-
-    const mapFormToPayload = (form) => {
-        const tieneDireccion =
-            form.calle ||
-            form.numeroExterior ||
-            form.numeroInterior ||
-            form.colonia ||
-            form.codigoPostal ||
-            form.municipio ||
-            form.estado ||
-            form.entreCalles;
-
-        const direccion = tieneDireccion
-            ? JSON.stringify({
-                calle: form.calle?.trim() || '',
-                numeroExterior: form.numeroExterior?.trim() || '',
-                numeroInterior: form.numeroInterior?.trim() || '',
-                colonia: form.colonia?.trim() || '',
-                codigoPostal: form.codigoPostal?.trim() || '',
-                municipio: form.municipio?.trim() || '',
-                estado: form.estado?.trim() || '',
-                entreCalles: form.entreCalles?.trim() || '',
-            })
-            : null;
-
-        return {
-            nombre: form.nombre.trim(),
-            apellidoPaterno: form.apellidoPaterno.trim(),
-            apellidoMaterno: form.apellidoMaterno ? form.apellidoMaterno.trim() : null,
-            areaTrabajoId: Number(form.areaTrabajoId),
-            puestoId: Number(form.puestoId),
-            estadoEmpleadoId: Number(form.estadoEmpleadoId),
-            usuarioId: form.usuarioId ? Number(form.usuarioId) : null,
-            telefono: form.telefono.trim(),
-            correo: form.correo ? form.correo.trim() : null,
-            direccion,
-            fechaNacimiento: form.fechaNacimiento,
-            fechaIngreso: form.fechaIngreso,
-            imagenUrl: form.imagenUrl || null,
-            imagen: form.imagen instanceof File ? form.imagen : null,
-            quitarImagen: Boolean(form.quitarImagen),
-        };
-    };
+    const mapFormToPayload = (form) => ({
+        nombre: form.nombre.trim(),
+        apellidoPaterno: form.apellidoPaterno.trim(),
+        apellidoMaterno: form.apellidoMaterno ? form.apellidoMaterno.trim() : null,
+        areaTrabajoId: Number(form.areaTrabajoId),
+        puestoId: Number(form.puestoId),
+        estadoEmpleadoId: Number(form.estadoEmpleadoId),
+        usuarioId: form.usuarioId ? Number(form.usuarioId) : null,
+        telefono: form.telefono.trim(),
+        correo: form.correo ? form.correo.trim() : null,
+        calle: form.calle ? form.calle.trim() : null,
+        numeroExterior: form.numeroExterior ? form.numeroExterior.trim() : null,
+        numeroInterior: form.numeroInterior ? form.numeroInterior.trim() : null,
+        colonia: form.colonia ? form.colonia.trim() : null,
+        codigoPostal: form.codigoPostal ? form.codigoPostal.trim() : null,
+        municipio: form.municipio ? form.municipio.trim() : null,
+        estado: form.estado ? form.estado.trim() : null,
+        entreCalles: form.entreCalles ? form.entreCalles.trim() : null,
+        fechaNacimiento: form.fechaNacimiento,
+        fechaIngreso: form.fechaIngreso,
+        imagenUrl: form.imagenUrl || null,
+    });
 
     const colorEstadoEmpleado = (estado) => {
         if (!estado || estado === '—') return 'gray';
