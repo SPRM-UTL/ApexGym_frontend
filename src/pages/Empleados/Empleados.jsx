@@ -15,12 +15,11 @@ import {
     IconTrash,
     IconUsers,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import { FInput, SectionTitle, FSelect } from '../../components/Controles/ControlesComponent.jsx';
+import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre(s)', required: true, maxLength: 100 },
@@ -74,7 +73,7 @@ const CAMPOS = [
             }));
         },
     },
-    { key: 'imagenUrl', label: 'Fotografía de perfil', type: 'dropzone' },
+    { key: 'imagen', label: 'Fotografía de Perfil', type: 'image' },
 ];
 
 const COLUMNAS = [
@@ -93,6 +92,7 @@ const INICIAL = {
     colonia: '', codigoPostal: '', municipio: '', estado: '', entreCalles: '',
     areaTrabajoId: '', puestoId: '', estadoEmpleadoId: '',
     fechaIngreso: '', fechaNacimiento: '', usuarioId: '', imagenUrl: '',
+    quitarImagen: false, imagen: null,
 };
 
 function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
@@ -101,22 +101,6 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
         d.setFullYear(d.getFullYear() - 18);
         return d.toISOString().split('T')[0];
     }, []);
-
-    const handleDrop = (archivos) => {
-        const archivo = archivos[0] ?? null;
-        if (!archivo) return;
-        const reader = new FileReader();
-        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
-        reader.readAsDataURL(archivo);
-    };
-
-    const handleReject = () => {
-        notifications.show({
-            title: 'Imagen no válida',
-            message: 'Selecciona una imagen válida de máximo 5 MB.',
-            color: 'red',
-        });
-    };
 
     const opcionesUsuario = useMemo(() => {
         const rawOptions = fieldOptions.usuarioId ?? [];
@@ -131,14 +115,17 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
             <Box>
                 <SectionTitle
                     rightSection={
-                        form.imagenUrl ? (
+                        form.imagen instanceof File || (form.imagenUrl && !form.quitarImagen) ? (
                             <Button
                                 variant="outline"
                                 color="red"
                                 size="compact-xs"
                                 radius="md"
                                 leftSection={<IconTrash size={14} stroke={1.8} />}
-                                onClick={() => onChange('imagenUrl', '')}
+                                onClick={() => {
+                                    onChange('imagen', null);
+                                    onChange('quitarImagen', Boolean(form.imagenUrl));
+                                }}
                                 styles={{
                                     root: {
                                         border: '1px solid #EF4444',
@@ -158,12 +145,17 @@ function EmpleadoForm({ form, errors, onChange, fieldOptions }) {
                 >
                     Fotografía de perfil
                 </SectionTitle>
-                <DropzoneImagen
+                <CampoImagen
+                    imagen={form.imagen instanceof File
+                        ? form.imagen
+                        : form.quitarImagen
+                            ? null
+                            : form.imagenUrl}
+                    onChange={(imagen) => {
+                        onChange('imagen', imagen);
+                        onChange('quitarImagen', false);
+                    }}
                     variant="compact"
-                    archivo={null}
-                    preview={form.imagenUrl || null}
-                    onDrop={handleDrop}
-                    onReject={handleReject}
                 />
             </Box>
 

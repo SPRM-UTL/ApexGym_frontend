@@ -13,6 +13,13 @@
   --ag-color-surface-elevated: #ffffff;
   --ag-color-border: rgba(5, 6, 10, 0.12);
 
+  /* Tonos de apoyo para modales y superficies de detalle */
+  --ag-color-primary-border: #f2b27f;
+  --ag-color-primary-soft: #fff0e5;
+  --ag-color-primary-softer: #fff8f2;
+  --ag-color-overlay-on-dark-hover: rgb(255 255 255 / 12%);
+  --ag-color-success: #15943b;
+
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;

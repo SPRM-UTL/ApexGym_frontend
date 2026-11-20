@@ -1,9 +1,11 @@
-import { Badge, Group } from '@mantine/core';
-import { IconUsers } from '@tabler/icons-react';
+import { Badge, Button, Group, NativeSelect, TextInput, Stack, Box } from '@mantine/core';
+import { IconTrash, IconUsers } from '@tabler/icons-react';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
+import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
+import { FInput, FSelect, SectionTitle } from '../../components/Controles/ControlesComponent.jsx';
 
 const COLUMNAS_USUARIOS = [
     { key: 'nombre', label: 'Nombre', sortable: true, filterable: true },
@@ -34,6 +36,8 @@ const VALORES_INICIALES = {
     contrasena: '',
     rolId: '',
     foto: null,
+    fotoUrl: '',
+    quitarFoto: false,
 };
 
 const usuarioServicio = {
@@ -50,6 +54,103 @@ const usuarioServicio = {
 };
 
 const verificarCorreo = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email ?? ''));
+
+const UsuarioForm = ({ form, errors, onChange, fieldOptions }) => (
+    <Stack gap="md" style={{ width: '100%' }}>
+        <Box>
+            <SectionTitle
+                rightSection={
+                    form.foto instanceof File || (form.fotoUrl && !form.quitarFoto) ? (
+                        <Button
+                            variant="outline"
+                            color="red"
+                            size="compact-xs"
+                            radius="md"
+                            leftSection={<IconTrash size={14} stroke={1.8} />}
+                            onClick={() => {
+                                onChange('foto', null);
+                                onChange('quitarFoto', Boolean(form.fotoUrl));
+                            }}
+                            styles={{
+                                root: {
+                                    border: '1px solid #EF4444',
+                                    backgroundColor: '#FEF2F2',
+                                    color: '#DC2626',
+                                    fontWeight: 600,
+                                    '&:hover': {
+                                        backgroundColor: '#FEE2E2',
+                                    },
+                                },
+                            }}
+                        >
+                            Quitar imagen
+                        </Button>
+                    ) : null
+                }
+            >
+                Fotografía de perfil
+            </SectionTitle>
+            <CampoImagen
+                imagen={
+                    form.foto instanceof File
+                        ? form.foto
+                        : form.quitarFoto
+                            ? null
+                            : form.fotoUrl
+                }
+                onChange={(imagen) => {
+                    onChange('foto', imagen);
+                    onChange('quitarFoto', false);
+                }}
+                variant="compact"
+            />
+        </Box>
+        <Box>
+            <SectionTitle>Datos del usuario</SectionTitle>
+            <Stack gap="md">
+                <FInput
+                    label="Nombre"
+                    placeholder="Nombre del usuario"
+                    required
+                    value={form.nombre}
+                    error={errors.nombre}
+                    onChange={(v) => onChange('nombre', v)}
+                />
+
+                <FInput
+                    label="Correo Electrónico"
+                    type="email"
+                    placeholder="Ej. correo@ejemplo.com"
+                    required
+                    value={form.email}
+                    error={errors.email}
+                    onChange={(v) => onChange('email', v)} />
+
+                <FInput
+                    label="Contraseña"
+                    type="password"
+                    placeholder="Ingresa una contraseña"
+                    required={!form.id}
+                    value={form.contrasena}
+                    error={errors.contrasena}
+                    onChange={(v) => onChange('contrasena', v)} />
+
+                <FSelect
+                    label="Rol"
+                    required
+                    placeholder="Selecciona un rol"
+                    value={form.rolId}
+                    error={errors.rolId}
+                    options={(fieldOptions.rolId ?? []).map((rol) => ({
+                        value: String(rol.value),
+                        label: rol.label,
+                    }))}
+                    onChange={(value) => onChange('rolId', value)}
+                />
+            </Stack>
+        </Box>
+    </Stack>
+);
 
 export function Usuarios() {
     cambioNombreWeb('Usuarios');
@@ -93,7 +194,9 @@ export function Usuarios() {
             email: record.email ?? '',
             contrasena: '',
             rolId: primerRol ? String(primerRol.id) : '',
-            foto: resolverUrlImagen(record.fotoUrl) || null,
+            foto: null,
+            fotoUrl: resolverUrlImagen(record.fotoUrl) || '',
+            quitarFoto: false,
         };
     };
 
@@ -103,6 +206,7 @@ export function Usuarios() {
         contrasena: form.contrasena,
         rolId: form.rolId || null,
         foto: form.foto instanceof File ? form.foto : null,
+        quitarFoto: Boolean(form.quitarFoto),
     });
 
     const validateForm = (form, context = {}) => {
@@ -135,6 +239,7 @@ export function Usuarios() {
             mapRecordToForm={mapRecordToForm}
             mapFormToPayload={mapFormToPayload}
             mapRecordToRow={mapRecordToRow}
+            renderForm={(props) => <UsuarioForm {...props} />}
             validateForm={(form, context) => validateForm(form, context)}
             formMode="drawer"
             drawerSize={560}

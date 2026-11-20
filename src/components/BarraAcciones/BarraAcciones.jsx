@@ -14,9 +14,9 @@ export function BarraAcciones({ onAdd, title = "Titulo no asignado", entityLabel
                 </Text>
             </div>
 
-            <Button 
-                className={classes.addButton} 
-                onClick={onAdd} 
+            <Button
+                className={classes.addButton}
+                onClick={onAdd}
                 aria-label={`Agregar ${entityLabel}`}
                 leftSection={<IconPlus size={16} stroke={2} />}
             >

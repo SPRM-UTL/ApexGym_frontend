@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import {useMemo} from 'react';
 import {
     ActionIcon,
     Badge,
@@ -12,18 +12,17 @@ import {
 import {
     IconEdit,
     IconPackage,
-    IconPhoto,
     IconTrash,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { DropzoneImagen } from '../../components/DropzoneImagen/DropzoneImagen.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
+import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
+    { key: 'imagen', label: 'Imagen del producto', type: 'image' },
     { key: 'codigoBarras', label: 'Código de barras', required: true },
     {
         key: 'categoriaProductoId',
@@ -40,25 +39,30 @@ const CAMPOS = [
         },
     },
     { key: 'precioVenta', label: 'Precio Venta', required: true, type: 'number', min: 0 },
+    { key: 'descuentoPorcentaje', label: 'Descuento (%)', type: 'number', min: 0, max: 100, step: 0.01, decimalScale: 2 },
     { key: 'precioCompra', label: 'Precio Compra', required: true, type: 'number', min: 0 },
     { key: 'stockActual', label: 'Stock Actual', required: true, type: 'number', min: 0 },
     { key: 'stockMinimo', label: 'Stock Mínimo', required: true, type: 'number', min: 0 },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'estado', label: 'Estado', required: true },
     { key: 'disponibleCompra', label: 'Disponible' },
-    { key: 'imagenUrl', label: 'Imagen del producto', type: 'dropzone' },
 ];
 
 const INICIAL = {
     nombre: '',
+    imagen: null,
     descripcion: '',
     codigoBarras: '',
     categoriaProductoId: '',
     precioVenta: '',
+    descuentoPorcentaje: 0,
     precioCompra: '',
     stockActual: '',
     stockMinimo: '',
+    estado: 'ACTIVO',
     disponibleCompra: true,
     imagenUrl: '',
+    quitarImagen: false,
 };
 
 const COLUMNAS_PRODUCTOS = [
@@ -67,76 +71,18 @@ const COLUMNAS_PRODUCTOS = [
     { key: 'categoriaNombre', label: 'Categoría', sortable: true, filterable: true },
     { key: 'descripcion', label: 'Descripción', sortable: false, filterable: true },
     { key: 'precioVentaTexto', label: 'Precio Venta', sortable: true, filterable: false },
+    { key: 'descuentoPorcentajeTexto', label: 'Descuento', sortable: false, filterable: false },
     { key: 'precioCompraTexto', label: 'Precio Compra', sortable: true, filterable: false },
     { key: 'stockActual', label: 'Stock Actual', sortable: true, filterable: false },
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: true, filterable: false },
+    { key: 'estadoBadge', label: 'Estado', sortable: true, filterable: false },
     { key: 'disponibleCompra', label: 'Disponible', sortable: true, filterable: false },
 ];
 
-
 function ProductoForm({ form, errors, onChange, fieldOptions }) {
-    const handleDrop = (archivos) => {
-        const archivo = archivos[0] ?? null;
-        if (!archivo) return;
-        const reader = new FileReader();
-        reader.onload = (e) => onChange('imagenUrl', e.target?.result ?? '');
-        reader.readAsDataURL(archivo);
-    };
-
-    const handleReject = () => {
-        notifications.show({
-            title: 'Imagen no válida',
-            message: 'Selecciona una imagen válida de máximo 5 MB.',
-            color: 'red',
-        });
-    };
-
     return (
         <Stack gap="md" style={{ width: '100%' }}>
             <Box>
-                <SectionTitle
-                    rightSection={
-                        form.imagenUrl ? (
-                            <Button
-                                variant="outline"
-                                color="red"
-                                size="compact-xs"
-                                radius="md"
-                                leftSection={<IconTrash size={14} stroke={1.8} />}
-                                onClick={() => onChange('imagenUrl', '')}
-                                styles={{
-                                    root: {
-                                        border: '1px solid #EF4444',
-                                        backgroundColor: '#FEF2F2',
-                                        color: '#DC2626',
-                                        fontWeight: 600,
-                                        '&:hover': {
-                                            backgroundColor: '#FEE2E2',
-                                        },
-                                    },
-                                }}
-                            >
-                                Quitar imagen
-                            </Button>
-                        ) : null
-                    }
-                >
-                    Imagen del producto
-                </SectionTitle>
-                <DropzoneImagen
-                    variant="compact"
-                    archivo={null}
-                    preview={form.imagenUrl || null}
-                    onDrop={handleDrop}
-                    onReject={handleReject}
-                    icon={IconPhoto}
-                    loadedText="Imagen del producto cargada"
-                    avatarRadius="md"
-                />
-            </Box>
-
-            <Box>
-                <SectionTitle>Información general</SectionTitle>
                 <Stack gap="md">
                     <FInput
                         label="Nombre de Producto"
@@ -146,6 +92,52 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         error={errors.nombre}
                         onChange={(v) => onChange('nombre', v)}
                     />
+                    <Box>
+                        <SectionTitle
+                            rightSection={
+                                form.imagen instanceof File || (form.imagenUrl && !form.quitarImagen) ? (
+                                    <Button
+                                        variant="outline"
+                                        color="red"
+                                        size="compact-xs"
+                                        radius="md"
+                                        leftSection={<IconTrash size={14} stroke={1.8} />}
+                                        onClick={() => {
+                                            onChange('imagen', null);
+                                            onChange('quitarImagen', Boolean(form.imagenUrl));
+                                        }}
+                                        styles={{
+                                            root: {
+                                                border: '1px solid #EF4444',
+                                                backgroundColor: '#FEF2F2',
+                                                color: '#DC2626',
+                                                fontWeight: 600,
+                                                '&:hover': {
+                                                    backgroundColor: '#FEE2E2',
+                                                },
+                                            },
+                                        }}
+                                    >
+                                        Quitar imagen
+                                    </Button>
+                                ) : null
+                            }
+                        >
+                            Imagen del producto
+                        </SectionTitle>
+                        <CampoImagen
+                            imagen={form.imagen instanceof File
+                                ? form.imagen
+                                : form.quitarImagen
+                                    ? null
+                                    : form.imagenUrl}
+                            onChange={(imagen) => {
+                                onChange('imagen', imagen);
+                                onChange('quitarImagen', false);
+                            }}
+                        />
+                    </Box>
+                    <SectionTitle>Información general</SectionTitle>
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
                         <FInput
                             label="Código de barras"
@@ -163,6 +155,18 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                             value={form.categoriaProductoId}
                             error={errors.categoriaProductoId}
                             onChange={(v) => onChange('categoriaProductoId', v)}
+                        />
+                        <FSelect
+                            label="Estado"
+                            required
+                            placeholder="Selecciona un estado"
+                            options={[
+                                { value: 'ACTIVO', label: 'Activo' },
+                                { value: 'INACTIVO', label: 'Inactivo' },
+                            ]}
+                            value={form.estado}
+                            error={errors.estado}
+                            onChange={(v) => onChange('estado', v)}
                         />
                     </SimpleGrid>
                     <FTextarea
@@ -204,6 +208,14 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
                         onChange={(v) => onChange('precioVenta', v)}
                     />
                     <FInput
+                        label="Descuento (%)"
+                        type="number"
+                        placeholder="Ej. 10"
+                        value={form.descuentoPorcentaje}
+                        error={errors.descuentoPorcentaje}
+                        onChange={(v) => onChange('descuentoPorcentaje', v)}
+                    />
+                    <FInput
                         label="Stock Actual"
                         required
                         type="number"
@@ -232,6 +244,7 @@ export function Productos() {
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
+        imagen: null,
         descripcion: record.descripcion ?? '',
         codigoBarras: record.codigoBarras ?? '',
         categoriaProductoId: record.categoriaProductoId
@@ -240,24 +253,30 @@ export function Productos() {
                 ? String(record.categoria.id)
                 : '',
         precioVenta: record.precioVenta ?? '',
+        descuentoPorcentaje: record.descuentoPorcentaje ?? 0,
         precioCompra: record.precioCompra ?? '',
         stockActual: record.stockActual ?? '',
         stockMinimo: record.stockMinimo ?? '',
+        estado: record.estado ?? 'ACTIVO',
         disponibleCompra: record.disponibleCompra,
         imagenUrl: record.imagenUrl ?? '',
+        quitarImagen: false,
     }), []);
 
     const mapFormToPayload = (form) => ({
         nombre: form.nombre ?? '',
+        imagen: form.imagen instanceof File ? form.imagen : null,
+        quitarImagen: Boolean(form.quitarImagen),
         descripcion: form.descripcion || null,
         codigoBarras: form.codigoBarras ? String(form.codigoBarras) : null,
         categoriaProductoId: Number(form.categoriaProductoId),
         precioVenta: Number(form.precioVenta),
+        descuentoPorcentaje: Number(form.descuentoPorcentaje ?? 0),
         precioCompra: form.precioCompra ? Number(form.precioCompra) : null,
         stockActual: Number(form.stockActual ?? 0),
         stockMinimo: Number(form.stockMinimo ?? 1),
+        estado: form.estado || 'ACTIVO',
         disponibleCompra: form.disponibleCompra,
-        imagenUrl: form.imagenUrl || null,
     });
 
     const colorStock = (actual, minimo) => {
@@ -272,6 +291,7 @@ export function Productos() {
         const stockActualNum = Number(record.stockActual ?? 0);
         const stockMinimoNum = Number(record.stockMinimo ?? 0);
         const disponible = record.disponibleCompra;
+        const estado = String(record.estado ?? 'ACTIVO').trim().toUpperCase();
         return {
             id: record.id,
             nombre: record.nombre ?? '',
@@ -279,6 +299,7 @@ export function Productos() {
             codigoBarras: record.codigoBarras ?? '—',
             categoriaNombre: record.categoria?.nombre ?? 'Sin categoría',
             precioVentaTexto: record.precioVenta !== undefined && record.precioVenta !== null ? `$${Number(record.precioVenta).toFixed(2)}` : '—',
+            descuentoPorcentajeTexto: `${Number(record.descuentoPorcentaje ?? 0).toFixed(2)}%`,
             precioCompraTexto: record.precioCompra !== undefined && record.precioCompra !== null ? `$${Number(record.precioCompra).toFixed(2)}` : '—',
             stockActual: (
                 <Badge
@@ -292,6 +313,17 @@ export function Productos() {
                 </Badge>
             ),
             stockMinimo: stockMinimoNum,
+            estadoBadge: (
+                <Badge
+                    size="sm"
+                    variant="light"
+                    color={estado === 'ACTIVO' ? 'green' : estado === 'INACTIVO' ? 'red' : 'gray'}
+                    radius="sm"
+                    fw={700}
+                >
+                    {estado}
+                </Badge>
+            ),
             disponibleCompra: (<>
                 {disponible 
                     ? 
@@ -370,6 +402,7 @@ export function Productos() {
             drawerSize={580}
             headerVariant="unified"
             tableHeaderVariant="neutral"
+            tableMinWidth={1500}
         />
     );
 }
