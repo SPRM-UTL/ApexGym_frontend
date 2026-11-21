@@ -1,4 +1,4 @@
-import {useMemo} from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActionIcon,
     Badge,
@@ -7,9 +7,11 @@ import {
     Group,
     SimpleGrid,
     Stack,
+    Tabs,
     Tooltip,
 } from '@mantine/core';
 import {
+    IconCheck,
     IconEdit,
     IconPackage,
     IconTrash,
@@ -19,6 +21,7 @@ import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
 import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
+import { PedidosCompraPanel } from './PedidosCompraPanel.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
@@ -241,6 +244,27 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
 
 export function Productos() {
     cambioNombreWeb('Productos');
+    const [tabActiva, setTabActiva] = useState('catalogo');
+    const [refreshCatalogoKey, setRefreshCatalogoKey] = useState(0);
+    const [pendientesPedidos, setPendientesPedidos] = useState(0);
+
+    const cargarConteoPendientes = useCallback(async () => {
+        try {
+            const res = await api.pedidoCompra.obtenerTodos('PENDIENTE');
+            const lista = Array.isArray(res?.data) ? res.data : [];
+            setPendientesPedidos(lista.length);
+        } catch {
+            // El contador inicial es informativo; PedidosCompraPanel muestra errores si falla al abrir.
+        }
+    }, []);
+
+    useEffect(() => {
+        cargarConteoPendientes();
+    }, [cargarConteoPendientes]);
+
+    const handleInventarioActualizado = useCallback(() => {
+        setRefreshCatalogoKey((prev) => prev + 1);
+    }, []);
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
@@ -383,27 +407,64 @@ export function Productos() {
     );
 
     return (
-        <CrudCatalogo
-            titulo="Productos"
-            singular="Producto"
-            icon={IconPackage}
-            servicio={api.Productos}
-            columnas={COLUMNAS_PRODUCTOS}
-            campos={CAMPOS}
-            valoresIniciales={INICIAL}
-            mapRecordToForm={mapRecordToForm}
-            mapFormToPayload={mapFormToPayload}
-            mapRecordToRow={mapRecordToRow}
-            renderForm={(props) => <ProductoForm {...props} />}
-            renderAccionesFila={renderAccionesFila}
-            permitirEditar={false}
-            permitirEliminar={false}
-            formMode="drawer"
-            drawerSize={580}
-            headerVariant="unified"
-            tableHeaderVariant="neutral"
-            tableMinWidth={1500}
-        />
+        <Tabs
+            value={tabActiva}
+            onChange={(val) => setTabActiva(val || 'catalogo')}
+            color="orange"
+            variant="outline"
+            radius="md"
+        >
+            <Tabs.List mb="md">
+                <Tabs.Tab value="catalogo" leftSection={<IconPackage size={16} stroke={1.8} />}>
+                    Catálogo de Productos
+                </Tabs.Tab>
+                <Tabs.Tab
+                    value="pedidos"
+                    leftSection={<IconCheck size={16} stroke={1.8} />}
+                    rightSection={
+                        pendientesPedidos > 0 ? (
+                            <Badge size="xs" variant="filled" color="red" circle>
+                                {pendientesPedidos}
+                            </Badge>
+                        ) : null
+                    }
+                >
+                    Pedidos de Compra
+                </Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="catalogo">
+                <CrudCatalogo
+                    key={refreshCatalogoKey}
+                    titulo="Productos"
+                    singular="Producto"
+                    icon={IconPackage}
+                    servicio={api.Productos}
+                    columnas={COLUMNAS_PRODUCTOS}
+                    campos={CAMPOS}
+                    valoresIniciales={INICIAL}
+                    mapRecordToForm={mapRecordToForm}
+                    mapFormToPayload={mapFormToPayload}
+                    mapRecordToRow={mapRecordToRow}
+                    renderForm={(props) => <ProductoForm {...props} />}
+                    renderAccionesFila={renderAccionesFila}
+                    permitirEditar={false}
+                    permitirEliminar={false}
+                    formMode="drawer"
+                    drawerSize={580}
+                    headerVariant="unified"
+                    tableHeaderVariant="neutral"
+                    tableMinWidth={1500}
+                />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="pedidos">
+                <PedidosCompraPanel
+                    onInventarioActualizado={handleInventarioActualizado}
+                    onConteoPendientesChange={setPendientesPedidos}
+                />
+            </Tabs.Panel>
+        </Tabs>
     );
 }
 
