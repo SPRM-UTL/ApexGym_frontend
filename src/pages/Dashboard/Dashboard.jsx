@@ -6,18 +6,21 @@ import {
     Breadcrumbs,
     Button,
     Group,
+    Image,
     Loader,
     Menu,
+    Paper,
     SimpleGrid,
+    Space,
     Text,
     ThemeIcon,
     UnstyledButton,
-    Space,
-    Image
 } from '@mantine/core';
 import {
     IconAlertCircle,
     IconBuildingStore,
+    IconBuildingWarehouse,
+    IconChartBar,
     IconChevronDown,
     IconChevronRight,
     IconHome,
@@ -28,19 +31,22 @@ import {
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
+import { OfflineStatusBar } from '../../components/OfflineStatusBar/OfflineStatusBar.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
 import { SucursalCard } from '../../components/SucursalCard/SucursalCard.jsx';
 import { notifications } from '@mantine/notifications';
 import { useSecciones } from '../../context/SeccionesContext.jsx';
 import { useSucursal } from '../../context/SucursalContext.jsx';
-import { obtenerUsuarioActual } from '../../scripts/constantes.js';
+import { obtenerUsuarioActual, esUsuarioCliente } from '../../scripts/constantes.js';
+import { PortalClienteInicio } from './PortalClienteInicio.jsx';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import {
     resolverModuloPorRuta,
     resolverSeccionPorRuta,
     rutaModulo,
     rutaSeccion,
+    tieneAccesoModulo,
 } from '../../scripts/modulosRutas.js';
 import classes from './Dashboard.module.css';
 import logoImg from '../../assets/apex_gym_large.png';
@@ -49,12 +55,19 @@ const iconoModulo = (nombre) => {
     if (nombre === 'Usuarios') {
         return IconUsers;
     }
+    if (nombre === 'Dashboard y Reportes') {
+        return IconChartBar;
+    }
+    if (nombre === 'Almacenes') {
+        return IconBuildingWarehouse;
+    }
     return IconLayoutGrid;
 };
 
 /**
  * Dashboard:
- * - Grid de secciones según permisos del usuario
+ * - Barra permanente de estado offline / sincronización
+ * - Grid de secciones según permisos del usuario y acceso directo a Dashboard y Reportes
  * - Módulos navegables por ruta
  * - Breadcrumbs coherentes en inicio, sección y módulo hijo
  */
@@ -62,6 +75,7 @@ export function Dashboard({ children, onLogout }) {
     const navigate = useNavigate();
     const location = useLocation();
     const usuarioActual = obtenerUsuarioActual();
+    const esCliente = esUsuarioCliente(usuarioActual);
     const contentRef = useRef(null);
     const {
         sucursalActiva,
@@ -73,6 +87,11 @@ export function Dashboard({ children, onLogout }) {
     } = useSucursal();
 
     const { secciones, cargandoSecciones: cargando, errorSecciones: errorCarga } = useSecciones();
+
+    const tieneDashboardReportes = useMemo(
+        () => tieneAccesoModulo(secciones, 'administracion', 'dashboard-reportes'),
+        [secciones]
+    );
 
     const seccionActiva = useMemo(
         () => resolverSeccionPorRuta(secciones, location.pathname),
@@ -92,7 +111,7 @@ export function Dashboard({ children, onLogout }) {
     const enInicio = location.pathname === '/' || Boolean(seccionActiva);
 
     cambioNombreWeb(
-        !sucursalConfirmada
+        !sucursalConfirmada && !esCliente
             ? 'Seleccionar Sucursal'
             : !mostrarChildren
             ? seccionActiva?.nombre || 'Inicio'
@@ -127,7 +146,7 @@ export function Dashboard({ children, onLogout }) {
         },
     ];
 
-    if (!sucursalConfirmada) {
+    if (!sucursalConfirmada && !esCliente) {
         migas.push({
             label: 'Seleccionar Sucursal',
         });
@@ -168,6 +187,10 @@ export function Dashboard({ children, onLogout }) {
     );
 
     const renderContenidoPrincipal = () => {
+        if (!mostrarChildren && esCliente) {
+            return <PortalClienteInicio usuario={usuarioActual} />;
+        }
+
         if (!sucursalConfirmada) {
             return (
                 <>
@@ -205,7 +228,7 @@ export function Dashboard({ children, onLogout }) {
             return (
                 <Group justify="center" mt="xl">
                     <Loader color="apex" />
-                    <Text c="dimmed">Cargando secciones…</Text>
+                    <Text c="var(--ag-text-muted)">Cargando secciones…</Text>
                 </Group>
             );
         }
@@ -240,16 +263,44 @@ export function Dashboard({ children, onLogout }) {
                             >
                                 <IconLayoutGrid size={32} stroke={1.2} />
                             </ThemeIcon>
-                            <Text fw={600} size="lg" c="var(--ag-color-black)">
+                            <Text fw={600} size="lg" c="var(--ag-text-primary)">
                                 Sin acceso a secciones
                             </Text>
-                            <Text size="sm" c="dimmed" mt={4}>
+                            <Text size="sm" c="var(--ag-text-muted)" mt={4}>
                                 No tienes permisos asignados. Contacta al administrador.
                             </Text>
                         </div>
                     ) : (
                         <>
-                            <Space h={24} />
+                            {tieneDashboardReportes && (
+                                <Paper className={classes.reportsHero} p="md" radius="md" mb="md">
+                                    <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                                        <Group gap="md" wrap="nowrap" align="center">
+                                            <ThemeIcon size={46} radius="md" className={classes.reportsIcon}>
+                                                <IconChartBar size={24} stroke={1.9} />
+                                            </ThemeIcon>
+                                            <div>
+                                                <Text fw={800} size="md" className={classes.reportsTitle}>
+                                                    Dashboard y Reportes Ejecutivos
+                                                </Text>
+                                                <Text size="xs" className={classes.reportsSubtitle}>
+                                                    Consulta KPIs de ventas, rendimiento operativo, cortes de caja y top de productos en {sucursalActiva?.nombre || 'la sucursal activa'}.
+                                                </Text>
+                                            </div>
+                                        </Group>
+                                        <Button
+                                            size="sm"
+                                            radius="md"
+                                            className={classes.reportsBtn}
+                                            rightSection={<IconChevronRight size={16} />}
+                                            onClick={() => navigate('/administracion/dashboard-reportes')}
+                                        >
+                                            Abrir Dashboard y Reportes
+                                        </Button>
+                                    </Group>
+                                </Paper>
+                            )}
+
                             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
                                 {secciones.map((sec) => (
                                     <SeccionCard
@@ -278,7 +329,7 @@ export function Dashboard({ children, onLogout }) {
                     <Text className={classes.pageSubtitle}>{seccionActiva.descripcion}</Text>
                 )}
                 {modulosVisibles.length === 0 ? (
-                    <Text c="dimmed">Esta sección no tiene módulos disponibles.</Text>
+                    <Text c="var(--ag-text-muted)">Esta sección no tiene módulos disponibles.</Text>
                 ) : (
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
                         {modulosVisibles.map((mod) => {
@@ -304,16 +355,24 @@ export function Dashboard({ children, onLogout }) {
     return (
         <div className={classes.shell}>
             <header className={classes.header}>
-                <UnstyledButton className={classes.logo} onClick={irInicio}>
+                <UnstyledButton
+                    className={classes.logo}
+                    onClick={irInicio}
+                    aria-label="Ir al inicio de ApexGym"
+                >
                     <Image
                         radius="md"
-                        h={90}
+                        h={44}
+                        w="auto"
+                        fit="contain"
                         src={logoImg}
+                        alt="ApexGym"
+                        className={classes.logoImg}
                     />
                 </UnstyledButton>
 
-                <Group gap="sm" wrap="nowrap">
-                    {sucursales && sucursales.length > 0 && (
+                <Group gap="xs" wrap="nowrap" className={classes.headerActions}>
+                    {!esCliente && sucursales && sucursales.length > 0 && (
                         <Menu shadow="md" width={240} position="bottom-end">
                             <Menu.Target>
                                 <Button
@@ -323,7 +382,9 @@ export function Dashboard({ children, onLogout }) {
                                     leftSection={<IconBuildingStore size={16} stroke={1.6} color="#ffffff" />}
                                     rightSection={<IconChevronDown size={14} stroke={1.6} color="#ffffff" />}
                                 >
-                                    {sucursalActiva?.nombre || 'Sucursal Matriz'}
+                                    <span className={classes.sucursalNombre}>
+                                        {sucursalActiva?.nombre || 'Sucursal Matriz'}
+                                    </span>
                                 </Button>
                             </Menu.Target>
                             <Menu.Dropdown>
@@ -371,24 +432,29 @@ export function Dashboard({ children, onLogout }) {
                             </Menu.Dropdown>
                         </Menu>
                     )}
+
                     <UserButton usuario={usuarioActual} />
+
                     <Button
                         variant="subtle"
                         color="gray"
                         size="xs"
-                        leftSection={<IconLogout size={14} stroke={1.5} />}
+                        leftSection={<IconLogout size={15} stroke={1.7} />}
                         onClick={onLogout}
                         className={classes.logoutBtn}
+                        aria-label="Cerrar sesión"
                     >
-                        Cerrar sesión
+                        <span className={classes.logoutLabel}>Cerrar sesión</span>
                     </Button>
                 </Group>
             </header>
 
+            <OfflineStatusBar />
+
             <main ref={contentRef} className={classes.content}>
                 {(enInicio || mostrarChildren) && (
                     <>
-                        <Space h={8} />
+                        <Space h={6} />
                         <Breadcrumbs
                             className={classes.breadcrumb}
                             separator={<IconChevronRight size={14} color="var(--ag-color-secondary)" />}

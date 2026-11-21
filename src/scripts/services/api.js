@@ -22,12 +22,15 @@ import { TipoVisitaService } from './TipoVisitaService.js';
 import { ClienteMembresiaService } from './ClienteMembresiaService.js';
 import { MetodosPagoService } from './MetodosPagoService.js';
 import { ServicioService } from './ServicioService.js';
-import {VentaService} from './VentaService.js'
+import { VentaService } from './VentaService.js';
 import { EmpresaService } from './EmpresaService.js';
 import { SucursalService } from './SucursalService.js';
 import { AsistenciaService } from './AsistenciaService.js';
 import { VisitaService } from './VisitaService.js';
 import { PedidoCompraService } from './PedidoCompraService.js';
+import { NotificacionService } from './NotificacionService.js';
+import { AlmacenService } from './AlmacenService.js';
+import { ReporteService } from './ReporteService.js';
 
 export class ApiService {
     constructor() {
@@ -63,6 +66,9 @@ export class ApiService {
         this.asistencia = new AsistenciaService(this.urlBase);
         this.visita = new VisitaService(this.urlBase);
         this.pedidoCompra = new PedidoCompraService(this.urlBase);
+        this.notificacion = new NotificacionService(this.urlBase);
+        this.almacen = new AlmacenService(this.urlBase);
+        this.reporte = new ReporteService(this.urlBase);
     }
 }
 

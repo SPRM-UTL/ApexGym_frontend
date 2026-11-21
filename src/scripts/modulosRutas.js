@@ -34,6 +34,7 @@ export const SLUGS_SECCION = {
 
 /** Mapa explícito nombre de módulo (BD) → { seccion: slugSeccion, modulo: slugModulo } */
 export const RUTAS_POR_MODULO = {
+    'Dashboard y Reportes': { seccion: 'administracion', modulo: 'dashboard-reportes' },
     'Usuarios': { seccion: 'administracion', modulo: 'usuarios' },
     'Configuración del Sistema': { seccion: 'administracion', modulo: 'configuracion-sistema' },
     'Administración de roles': { seccion: 'administracion', modulo: 'administracion-roles' },
@@ -52,7 +53,7 @@ export const RUTAS_POR_MODULO = {
     'Apertura de Caja': { seccion: 'ventas-caja', modulo: 'apertura-caja' },
     'Movimientos de Caja': { seccion: 'ventas-caja', modulo: 'movimientos-caja' },
     'Corte de Caja': { seccion: 'ventas-caja', modulo: 'corte-caja' },
-    'Metodos de Pago': { seccion: 'ventas-caja', modulo: 'metodos-pago' },
+    'Métodos de Pago': { seccion: 'ventas-caja', modulo: 'metodos-pago' },
     'Servicios': { seccion: 'ventas-caja', modulo: 'servicios' },
     'Ventas': { seccion: 'ventas-caja', modulo: 'ventas' },
     'Áreas de Trabajo': { seccion: 'empleados', modulo: 'areas-trabajo' },
@@ -62,6 +63,7 @@ export const RUTAS_POR_MODULO = {
 
     'Categorías de Productos': { seccion: 'inventario', modulo: 'categorias-productos' },
     'Productos': { seccion: 'inventario', modulo: 'productos' },
+    'Almacenes': { seccion: 'inventario', modulo: 'almacenes' },
 
     'Tipos de Actividad': { seccion: 'rendimiento-laboral', modulo: 'tipos-actividad' },
 

@@ -1,6 +1,6 @@
 import { createTheme } from '@mantine/core';
 
-/** Escala Mantine (índice 6 = tono principal) basada en #FF6A00 */
+/** Escala Mantine (índice 6 = tono principal, índice 8 = alto contraste AA con texto blanco) */
 const apexPrimary = [
     '#fff4eb',
     '#ffe0cc',
@@ -9,8 +9,8 @@ const apexPrimary = [
     '#FFCC66',
     '#ff8526',
     '#FF6A00',
-    '#e55f00',
-    '#cc5500',
+    '#d95800',
+    '#c95000',
     '#a84400',
 ];
 
@@ -24,11 +24,12 @@ const apexSecondary = [
     '#1B1F3A',
     '#171a32',
     '#121526',
-    '#0d101f',];
-
+    '#0d101f',
+];
 
 export const apexTheme = createTheme({
     primaryColor: 'apex',
+    primaryShade: { light: 7, dark: 6 },
     colors: {
         apex: apexPrimary,
         secondary: apexSecondary,
@@ -36,13 +37,27 @@ export const apexTheme = createTheme({
     fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
     headings: {
         fontWeight: '700',
-        color: 'var(--ag-color-primary)',
+        color: 'var(--ag-text-primary)',
     },
     defaultRadius: 'md',
+    focusRing: 'auto',
     components: {
         Button: {
             defaultProps: {
                 color: 'apex',
+            },
+            styles: {
+                root: {
+                    minHeight: '36px',
+                },
+            },
+        },
+        ActionIcon: {
+            styles: {
+                root: {
+                    minWidth: '36px',
+                    minHeight: '36px',
+                },
             },
         },
         Modal: {
@@ -57,6 +72,8 @@ export const apexTheme = createTheme({
                 },
                 close: {
                     color: '#ffffff',
+                    minWidth: '36px',
+                    minHeight: '36px',
                 },
             },
         },

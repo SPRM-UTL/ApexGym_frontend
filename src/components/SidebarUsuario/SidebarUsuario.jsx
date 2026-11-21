@@ -11,12 +11,14 @@ import {
     Tooltip,
 } from '@mantine/core';
 import {
+    IconBell,
     IconMail,
     IconShieldCheck,
     IconUser,
     IconZoomIn,
 } from '@tabler/icons-react';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
+import { PanelNotificaciones } from '../NavbarNotificaciones/NavbarNotificaciones.jsx';
 import classes from './SidebarUsuario.module.css';
 
 const obtenerIniciales = (nombre = '') =>
@@ -28,7 +30,7 @@ const obtenerIniciales = (nombre = '') =>
         .join('') || 'AG';
 
 /**
- * Sidebar lateral derecha que despliega los datos del usuario activo en estilo homologado.
+ * Sidebar lateral derecha que despliega los datos del usuario activo y sus notificaciones en estilo homologado.
  */
 export function SidebarUsuario({ opened, onClose, usuario }) {
     const [lightboxAbierto, setLightboxAbierto] = useState(false);
@@ -46,18 +48,18 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                 opened={opened}
                 onClose={onClose}
                 position="right"
-                size="380px"
+                size="420px"
                 overlayProps={{ backgroundOpacity: 0.35, blur: 2 }}
                 zIndex={999999}
                 title={
                     <Group gap="sm">
-                        <IconUser size={22} stroke={1.8} color="var(--ag-color-primary)" />
+                        <IconUser size={22} stroke={1.8} color="var(--ag-color-primary-dark)" />
                         <div>
-                            <Title order={4} fw={700} c="#1E293B">
+                            <Title order={4} fw={700} c="var(--ag-text-primary)">
                                 Información del Usuario
                             </Title>
-                            <Text size="xs" c="dimmed">
-                                Detalles del perfil y permisos de la cuenta
+                            <Text size="xs" c="var(--ag-text-muted)">
+                                Perfil, alertas Push y permisos de cuenta
                             </Text>
                         </div>
                     </Group>
@@ -76,9 +78,12 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                         withArrow
                         openDelay={200}
                     >
-                        <div
+                        <button
+                            type="button"
                             className={`${classes.avatarContainer} ${foto ? classes.avatarClickable : ''}`}
                             onClick={() => foto && setLightboxAbierto(true)}
+                            disabled={!foto}
+                            aria-label={foto ? 'Ampliar fotografía de perfil' : 'Sin fotografía de perfil'}
                         >
                             <Avatar
                                 src={foto}
@@ -91,11 +96,11 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                                 </Text>
                             </Avatar>
                             {foto && (
-                                <div className={classes.zoomBadge} aria-label="Ampliar imagen">
+                                <div className={classes.zoomBadge} aria-hidden="true">
                                     <IconZoomIn size={14} stroke={2.2} />
                                 </div>
                             )}
-                        </div>
+                        </button>
                     </Tooltip>
 
                     <Title order={3} className={classes.userName}>
@@ -128,7 +133,7 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                     </div>
                 </div>
 
-                {/* Tarjeta de detalles (únicamente correo y rol) */}
+                {/* Tarjeta de detalles (correo y rol) */}
                 <div className={classes.infoCard}>
                     <div className={classes.cardSectionTitle}>Datos de la cuenta</div>
 
@@ -152,6 +157,17 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                         </div>
                     </div>
                 </div>
+
+                {/* Panel de Notificaciones y Push Web */}
+                <div className={classes.infoCard}>
+                    <Group gap={6} mb="xs">
+                        <IconBell size={16} stroke={1.9} color="var(--ag-color-primary-dark)" />
+                        <div className={classes.cardSectionTitle} style={{ marginBottom: 0 }}>
+                            Centro de Notificaciones y Push
+                        </div>
+                    </Group>
+                    <PanelNotificaciones compact />
+                </div>
             </Drawer>
 
             {/* Modal Lightbox / Zoom para fotografía de perfil */}
@@ -164,7 +180,7 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                 radius="lg"
                 zIndex={1000001}
                 title={
-                    <Text fw={600} size="sm" c="#1E293B">
+                    <Text fw={600} size="sm" c="#ffffff">
                         Fotografía de {usuario.nombre || 'Perfil'}
                     </Text>
                 }
@@ -182,7 +198,7 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                         />
                     </div>
                     {usuario.nombre && (
-                        <Text size="xs" c="dimmed" ta="center">
+                        <Text size="xs" c="var(--ag-text-muted)" ta="center">
                             {usuario.nombre}
                         </Text>
                     )}

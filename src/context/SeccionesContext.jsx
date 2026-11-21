@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { esUsuarioCliente } from '../scripts/constantes.js';
 import { api } from '../scripts/services/api.js';
 
 const SeccionesContext = createContext({
@@ -14,7 +15,7 @@ export function SeccionesProvider({ estaLogeadoEn, children }) {
     const [errorSecciones, setErrorSecciones] = useState(null);
 
     const recargarSecciones = useCallback(async () => {
-        if (!estaLogeadoEn) {
+        if (!estaLogeadoEn || esUsuarioCliente()) {
             setSecciones([]);
             setErrorSecciones(null);
             setCargandoSecciones(false);
