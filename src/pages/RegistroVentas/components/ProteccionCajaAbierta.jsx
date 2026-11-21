@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Button, Center, Loader } from '@mantine/core';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Button, Center, Group, Loader, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { IconWifiOff } from '@tabler/icons-react';
 import { api } from '../../../scripts/services/api.js';
 import { obtenerRegistros } from '../../../utils/ventaHelper/ventaHelpers.js';
 import { CajaProvider } from './CajaProvider.jsx';
@@ -10,6 +11,8 @@ export function ProteccionCajaAbierta({ onSessionExpired, children }) {
     const [intento, setIntento] = useState(0);
     const [estado, setEstado] = useState({ tipo: 'cargando' });
     const location = useLocation();
+    const navigate = useNavigate();
+    const avisoOfflineMostradoRef = useRef(false);
 
     useEffect(() => {
         let activo = true;
@@ -21,6 +24,14 @@ export function ProteccionCajaAbierta({ onSessionExpired, children }) {
                 const aperturas = obtenerRegistros(respuesta, 'aperturas de caja');
 
                 if (activo) {
+                    if (respuesta?.fromOfflineCache && aperturas.length > 0 && !avisoOfflineMostradoRef.current) {
+                        avisoOfflineMostradoRef.current = true;
+                        notifications.show({
+                            color: 'orange',
+                            title: 'Operando con caché local de caja',
+                            message: 'Sin conexión: solo se permitirán ventas en efectivo.',
+                        });
+                    }
                     setEstado(aperturas.length > 0
                         ? { tipo: 'abierta', aperturas }
                         : { tipo: 'cerrada' });
@@ -31,12 +42,17 @@ export function ProteccionCajaAbierta({ onSessionExpired, children }) {
                         onSessionExpired();
                         setEstado({ tipo: 'sesion-expirada' });
                     } else {
+                        const sinRed = typeof navigator !== 'undefined' && navigator.onLine === false;
                         notifications.show({
                             color: 'red',
-                            title: 'No se pudo validar la caja',
-                            message: 'Intenta nuevamente.',
+                            title: sinRed
+                                ? 'Sin conexión y sin caja en caché local'
+                                : 'No se pudo validar la caja',
+                            message: sinRed
+                                ? 'Conéctate a internet y sincroniza datos locales antes de vender sin conexión.'
+                                : 'Intenta nuevamente.',
                         });
-                        setEstado({ tipo: 'error' });
+                        setEstado({ tipo: 'error', sinRed });
                     }
                 }
             }
@@ -51,7 +67,7 @@ export function ProteccionCajaAbierta({ onSessionExpired, children }) {
     if (estado.tipo === 'cargando') {
         return (
             <Center mih={320}>
-                <Loader color="blue" size="xl" type="bars" />
+                <Loader color="apex" size="xl" type="bars" />
             </Center>
         );
     }
@@ -61,10 +77,28 @@ export function ProteccionCajaAbierta({ onSessionExpired, children }) {
     }
     if (estado.tipo === 'error') {
         return (
-            <Center mih="100vh">
-                <Button onClick={() => setIntento((actual) => actual + 1)}>
-                    Reintentar
-                </Button>
+            <Center mih={320} p="md">
+                <Stack align="center" maw={440} gap="md">
+                    <Alert
+                        color={estado.sinRed ? 'orange' : 'red'}
+                        icon={<IconWifiOff size={18} />}
+                        title={estado.sinRed ? 'Sin conexión y sin caché de apertura de caja' : 'No se pudo validar la caja'}
+                    >
+                        <Text size="sm">
+                            {estado.sinRed
+                                ? 'Para vender sin conexión primero inicia con internet y presiona "Sincronizar ahora" con una caja abierta.'
+                                : 'No se pudo confirmar si hay una caja abierta en la sucursal.'}
+                        </Text>
+                    </Alert>
+                    <Group>
+                        <Button variant="default" onClick={() => navigate('/registro-de-ventas')}>
+                            Volver a Ventas
+                        </Button>
+                        <Button onClick={() => setIntento((actual) => actual + 1)}>
+                            Reintentar
+                        </Button>
+                    </Group>
+                </Stack>
             </Center>
         );
     }

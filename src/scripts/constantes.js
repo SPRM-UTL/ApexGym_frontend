@@ -44,6 +44,18 @@ export const obtenerEsPersistente = () => {
 export const obtenerUsuarioActual = () => {
     return obtenerValor(VariablesLocales.USUARIO, 'session') || obtenerValor(VariablesLocales.USUARIO, 'local');
 };
+
+export const esUsuarioCliente = (usuario = obtenerUsuarioActual()) => {
+    if (!usuario) return false;
+    if (usuario.esCliente) return true;
+    const roles = Array.isArray(usuario.roles) ? usuario.roles : [];
+    const tieneCliente = roles.some((r) => String(r?.nombre ?? '').trim().toLowerCase() === 'cliente');
+    const tieneRolOperativo = roles.some((r) => {
+        const nombre = String(r?.nombre ?? '').trim().toLowerCase();
+        return Boolean(nombre) && nombre !== 'cliente';
+    });
+    return tieneCliente && !tieneRolOperativo;
+};
 /** 
 export const eliminarToken = () => {
     eliminarValor(VariablesLocales.TOKEN);

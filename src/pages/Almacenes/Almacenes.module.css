@@ -1,0 +1,153 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mantine-spacing-md);
+    min-width: 0;
+}
+
+.heroBar {
+    background: linear-gradient(135deg, var(--ag-color-secondary, #1B1F3A) 0%, #262C52 100%);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    border-bottom: 3px solid var(--ag-color-primary, #FF6A00);
+    box-shadow: 0 6px 20px rgba(27, 31, 58, 0.14);
+}
+
+.heroEyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ag-color-tertiary, #FFCC66);
+}
+
+.heroTitle {
+    color: #ffffff;
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.embeddedToolbar {
+    background: var(--ag-color-surface-elevated, #ffffff);
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+
+.actionBtn {
+    min-height: 36px;
+    font-weight: 600;
+}
+
+.actionBtn:focus-visible,
+.warehouseCard:focus-visible {
+    outline: 2px solid var(--ag-color-primary, #FF6A00);
+    outline-offset: 2px;
+}
+
+.warehouseCard {
+    background: var(--ag-color-surface-elevated, #ffffff);
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.warehouseCard:hover {
+    border-color: #FDBA74;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+.warehouseCardActive {
+    border: 2px solid var(--ag-color-primary, #FF6A00);
+    background: linear-gradient(180deg, #FFF9F5 0%, #FFFFFF 100%);
+    box-shadow: 0 6px 16px rgba(255, 106, 0, 0.14);
+}
+
+.warehouseName {
+    color: var(--ag-color-secondary, #1B1F3A);
+    font-weight: 800;
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.warehouseMeta {
+    color: #475569;
+    font-size: 0.8rem;
+}
+
+.statBox {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.statLabel {
+    color: #475569;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.statValue {
+    color: var(--ag-color-secondary, #1B1F3A);
+    font-size: 1.05rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.inventoryPanel {
+    background: var(--ag-color-surface-elevated, #ffffff);
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    min-width: 0;
+}
+
+.panelHeading {
+    color: var(--ag-color-secondary, #1B1F3A);
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.numericCell {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.iconAction {
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.transferPreview {
+    background: #F8FAFC;
+    border: 1px solid #CBD5E1;
+    border-left: 4px solid var(--ag-color-primary, #FF6A00);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+@media (max-width: 768px) {
+    .heroBar {
+        padding: 14px 16px;
+    }
+
+    .heroTitle {
+        font-size: 1.2rem;
+    }
+}

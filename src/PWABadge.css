@@ -1,23 +1,67 @@
+.PWABadge {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2000;
+  max-width: min(380px, calc(100vw - 32px));
+}
+
 .PWABadge-toast {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    margin: 16px;
-    padding: 12px;
-    border: 1px solid #8885;
-    border-radius: 4px;
-    z-index: 1;
-    text-align: left;
-    box-shadow: 3px 4px 5px 0 #8885;
-    background-color: white;
+  padding: 14px 16px;
+  border: 1px solid var(--ag-color-border, rgba(5, 6, 10, 0.14));
+  border-left: 4px solid var(--ag-color-primary, #FF6A00);
+  border-radius: 10px;
+  background-color: var(--ag-color-surface-elevated, #ffffff);
+  color: var(--ag-text-primary, #1B1F3A);
+  box-shadow: 0 12px 28px rgba(5, 6, 10, 0.18);
+  text-align: left;
 }
-.PWABadge-toast-message {
-    margin-bottom: 8px;
+
+.PWABadge-message {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  color: var(--ag-text-primary, #1B1F3A);
 }
+
+.PWABadge-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .PWABadge-toast-button {
-    border: 1px solid #8885;
-    outline: none;
-    margin-right: 5px;
-    border-radius: 2px;
-    padding: 3px 10px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--ag-color-border, rgba(5, 6, 10, 0.18));
+  background-color: var(--ag-color-surface, #f4f6fb);
+  color: var(--ag-text-primary, #1B1F3A);
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.PWABadge-toast-button:hover {
+  background-color: #e2e8f0;
+}
+
+.PWABadge-toast-button:focus-visible {
+  outline: 2px solid var(--ag-color-primary, #FF6A00);
+  outline-offset: 2px;
+  box-shadow: var(--ag-focus-ring);
+}
+
+.PWABadge-toast-button--primary {
+  background-color: #cc5500;
+  border-color: #cc5500;
+  color: #ffffff;
+}
+
+.PWABadge-toast-button--primary:hover {
+  background-color: #a84400;
+  border-color: #a84400;
 }

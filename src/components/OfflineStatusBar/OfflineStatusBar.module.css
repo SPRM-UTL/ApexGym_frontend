@@ -1,0 +1,108 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 10px 16px;
+  background-color: var(--ag-color-surface-elevated);
+  border-bottom: 1px solid var(--ag-color-border);
+  box-shadow: 0 2px 8px rgba(5, 6, 10, 0.04);
+}
+
+.barOffline {
+  background-color: #fff7ed;
+  border-bottom-color: var(--ag-color-primary);
+}
+
+.statusCluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionsCluster {
+  flex-wrap: wrap;
+}
+
+.badgeOnline {
+  background-color: var(--ag-color-success) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.badgeOffline {
+  background-color: var(--ag-color-danger) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.badgeLocalYes {
+  background-color: var(--ag-color-info-soft) !important;
+  color: var(--ag-color-info) !important;
+  border: 1px solid rgba(29, 78, 216, 0.25);
+  font-weight: 700;
+}
+
+.badgeLocalNo {
+  background-color: var(--ag-color-warning-soft) !important;
+  color: var(--ag-color-warning) !important;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  font-weight: 700;
+}
+
+.badgePending {
+  background-color: var(--ag-color-warning) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.badgeClear {
+  background-color: #e2e8f0 !important;
+  color: var(--ag-text-primary) !important;
+  font-weight: 600;
+}
+
+.syncTimestamp {
+  color: var(--ag-text-muted);
+  font-weight: 600;
+}
+
+.errorText {
+  color: var(--ag-color-danger);
+  font-weight: 600;
+}
+
+.btnPrimary {
+  min-height: 36px;
+  background-color: var(--ag-color-primary-dark) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+}
+
+.btnSecondary {
+  min-height: 36px;
+  color: var(--ag-text-primary) !important;
+  border: 1px solid var(--ag-color-border);
+  font-weight: 600;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    padding: 10px 12px;
+  }
+
+  .actionsCluster {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

@@ -1,5 +1,4 @@
 .shell {
-    /* Layout vertical ocupando exactamente el alto de la ventana */
     height: 100dvh;
     height: 100vh;
     display: flex;
@@ -9,15 +8,15 @@
 }
 
 .header {
-    /* Barra superior fija */
     flex: 0 0 auto;
-    height: 64px;
+    min-height: 64px;
     background-color: var(--ag-color-secondary);
     border-bottom: 3px solid var(--ag-color-primary);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 var(--mantine-spacing-xl);
+    gap: 12px;
+    padding: 8px var(--mantine-spacing-xl);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -25,34 +24,48 @@
 }
 
 .logo {
-    font-size: 1.35rem;
-    font-weight: 800;
-    letter-spacing: -0.5px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 2px 4px;
     color: #ffffff;
     text-decoration: none;
+    flex-shrink: 0;
 }
 
-.logoAccent {
-    color: var(--ag-color-tertiary);
+.logoImg {
+    max-height: 44px;
+    width: auto;
+    object-fit: contain;
+}
+
+.headerActions {
+    min-width: 0;
+    flex-wrap: nowrap;
 }
 
 .logoutBtn {
+    min-height: 38px !important;
     color: var(--ag-color-floating) !important;
+    font-weight: 600 !important;
 
     &:hover {
-        background-color: rgba(255, 255, 255, 0.08) !important;
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
     }
 }
 
 .sucursalBtn {
     background-color: #242948 !important;
     color: #ffffff !important;
-    border: 1px solid rgba(255, 106, 0, 0.45) !important;
+    border: 1px solid rgba(255, 106, 0, 0.55) !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
     font-size: 0.85rem !important;
-    height: 36px !important;
-    padding: 0 14px !important;
+    min-height: 38px !important;
+    padding: 0 12px !important;
+    max-width: 220px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
     transition: all 180ms ease !important;
 
@@ -68,8 +81,16 @@
     }
 }
 
+.sucursalNombre {
+    display: inline-block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
 .content {
-    /* Ocupa el espacio sobrante con scroll interno */
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
@@ -99,8 +120,8 @@
 }
 
 .breadcrumbLink {
-    color: var(--ag-color-secondary) !important;
-    font-weight: 500;
+    color: var(--ag-text-primary) !important;
+    font-weight: 600;
 }
 
 .breadcrumbInner {
@@ -110,7 +131,7 @@
 }
 
 .breadcrumbCurrent {
-    color: var(--ag-color-black);
+    color: var(--ag-text-muted);
     font-weight: 600;
 }
 
@@ -118,15 +139,41 @@
     font-size: 1.6rem;
     font-weight: 800;
     margin-bottom: var(--mantine-spacing-xs);
-    color: var(--ag-color-primary);
+    color: var(--ag-text-primary);
     letter-spacing: -0.02em;
 }
 
 .pageSubtitle {
     font-size: var(--mantine-font-size-sm);
-    color: var(--ag-color-secondary);
+    color: var(--ag-text-muted);
     margin-bottom: var(--mantine-spacing-md);
-    max-width: 42rem;
+    max-width: 46rem;
+}
+
+.reportsHero {
+    background: linear-gradient(135deg, #ffffff 0%, var(--ag-color-primary-softer) 100%);
+    border: 1px solid var(--ag-color-primary-border);
+    box-shadow: 0 4px 14px rgba(5, 6, 10, 0.05);
+}
+
+.reportsIcon {
+    background-color: var(--ag-color-secondary) !important;
+    color: #ffffff !important;
+}
+
+.reportsTitle {
+    color: var(--ag-text-primary);
+}
+
+.reportsSubtitle {
+    color: var(--ag-text-muted);
+}
+
+.reportsBtn {
+    min-height: 38px !important;
+    background-color: var(--ag-color-primary-dark) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
 }
 
 .emptyState {
@@ -139,5 +186,43 @@
 
 .emptyIcon {
     background-color: rgba(255, 106, 0, 0.12) !important;
-    color: var(--ag-color-primary) !important;
+    color: var(--ag-color-primary-dark) !important;
+}
+
+@media (max-width: 900px) {
+    .header {
+        padding: 8px var(--mantine-spacing-md);
+    }
+
+    .content {
+        padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+    }
+
+    .sucursalNombre {
+        max-width: 105px;
+    }
+
+    .logoutLabel {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .header {
+        flex-wrap: wrap;
+        padding: 8px 12px;
+    }
+
+    .headerActions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pageBody,
+    .sucursalBtn {
+        animation: none;
+        transition: none;
+    }
 }

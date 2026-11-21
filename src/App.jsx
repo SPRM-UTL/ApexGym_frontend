@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import Login from './pages/Login/Login.jsx';
 import Dashboard from './pages/Dashboard/Dashboard.jsx';
 import { Usuarios } from './pages/Usuarios/Usuarios.jsx';
@@ -18,11 +18,12 @@ import { Ventas } from './pages/RegistroVentas/Ventas/Ventas.jsx';
 import { Nueva } from './pages/RegistroVentas/Nueva/Nueva.jsx';
 import { ClienteVenta } from './pages/RegistroVentas/Cliente/Cliente.jsx';
 import { ProteccionCajaAbierta } from './pages/RegistroVentas/components/ProteccionCajaAbierta.jsx';
-import { /** estaAutenticado, guardarToken, **/guardarUsuarioActual,/** eliminarToken,*/  eliminarUsuarioActual, obtenerUsuarioActual, obtenerEsPersistente } from './scripts/constantes.js'; //solo traemos para que guarde el usuario actual
-/**usamos useEffect para mandar una peticion a la api de los permisos de esta manera
- * matamos dos pajaros de un tiro al revisar el token y los permisos el backen se encarg de 
- * revisar las cookies  si la peticion exitosa recarga a la pantalla de la aplicacion
- * **/
+import {
+  guardarUsuarioActual,
+  eliminarUsuarioActual,
+  obtenerUsuarioActual,
+  esUsuarioCliente,
+} from './scripts/constantes.js';
 import { useState, useEffect, useCallback } from 'react';
 import { CategoriaProducto } from './pages/CategoriaProducto/CategoriaProducto.jsx';
 import { EstadosCliente } from './pages/EstadosCliente/EstadosCliente.jsx';
@@ -37,12 +38,16 @@ import { MetodosPago } from './pages/MetodosPago/MetodosPago.jsx';
 import { Servicios } from './pages/Servicios/Servicios.jsx';
 import { Empresa } from './pages/Empresa/Empresa.jsx';
 import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
+import { DashboardReportes } from './pages/DashboardReportes/DashboardReportes.jsx';
+import { Almacenes } from './pages/Almacenes/Almacenes.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
 import { SucursalProvider } from './context/SucursalContext.jsx';
+import { OfflineProvider } from './context/OfflineContext.jsx';
 import { SeccionesProvider, useSecciones } from './context/SeccionesContext.jsx';
 import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
+import { PWABadge } from './PWABadge.jsx';
 import {
   esSeccionConocida,
   tieneAccesoModulo,
@@ -99,6 +104,7 @@ function RutaModuloProtegida({
 
 const RUTAS_MODULOS = [
   // Administración
+  { seccion: 'administracion', modulo: 'dashboard-reportes', element: <DashboardReportes /> },
   { seccion: 'administracion', modulo: 'usuarios', element: <Usuarios /> },
   { seccion: 'administracion', modulo: 'configuracion-sistema', element: <ConfiguracionSistema /> },
   { seccion: 'administracion', modulo: 'administracion-roles', element: <AdministracionRoles /> },
@@ -132,6 +138,7 @@ const RUTAS_MODULOS = [
   // Inventario
   { seccion: 'inventario', modulo: 'categorias-productos', element: <CategoriaProducto /> },
   { seccion: 'inventario', modulo: 'productos', element: <Productos /> },
+  { seccion: 'inventario', modulo: 'almacenes', element: <Almacenes /> },
 
   // Rendimiento Laboral
   { seccion: 'rendimiento-laboral', modulo: 'tipos-actividad', element: <TiposActividad /> },
@@ -282,14 +289,23 @@ function App() {
         return;
       }
       try {
-        const respuesta = await api.seccion.obtenerMisSecciones();
+        const respuesta = esUsuarioCliente(usuarioActual)
+          ? await api.notificacion.contarNoLeidas()
+          : await api.seccion.obtenerMisSecciones();
         await espera;
         if (activo) {
           setEstaLogeadoEn(respuesta?.responseFlag === 0);
         }
-      } catch {
-        if (activo) setEstaLogeadoEn(false);
+      } catch (error) {
         await espera;
+        if (!activo) return;
+        const sesionInvalida = error?.statusCode === 401 || error?.statusCode === 403;
+        const sinInternet = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (!sesionInvalida && sinInternet && usuarioActual) {
+          setEstaLogeadoEn(true);
+        } else {
+          setEstaLogeadoEn(false);
+        }
       }
     };
     validarSesion();
@@ -329,25 +345,31 @@ function App() {
     } catch {
       // Ignorar
     }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('apexgym:auth-logout'));
+    }
     setEstaLogeadoEn(false);
   };
 
   return (
     <EmpresaProvider estaLogeadoEn={estaLogeadoEn}>
       <SucursalProvider estaLogeadoEn={estaLogeadoEn}>
-        <SeccionesProvider estaLogeadoEn={estaLogeadoEn}>
-          <ApiLoading />
-          <BrowserRouter>
-            <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
-              <RutasApp
-                estaLogeadoEn={estaLogeadoEn}
-                accionLogin={accionLogin}
-                accionLogout={accionLogout}
-                onSessionExpired={manejarSesionExpirada}
-              />
-            </ErrorBoundary>
-          </BrowserRouter>
-        </SeccionesProvider>
+        <OfflineProvider estaLogeadoEn={estaLogeadoEn}>
+          <SeccionesProvider estaLogeadoEn={estaLogeadoEn}>
+            <ApiLoading />
+            <BrowserRouter>
+              <ErrorBoundary estaLogeadoEn={estaLogeadoEn}>
+                <RutasApp
+                  estaLogeadoEn={estaLogeadoEn}
+                  accionLogin={accionLogin}
+                  accionLogout={accionLogout}
+                  onSessionExpired={manejarSesionExpirada}
+                />
+              </ErrorBoundary>
+            </BrowserRouter>
+            <PWABadge />
+          </SeccionesProvider>
+        </OfflineProvider>
       </SucursalProvider>
     </EmpresaProvider>
   );

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { esUsuarioCliente } from '../scripts/constantes.js';
 import { api } from '../scripts/services/api.js';
 
 const STORAGE_KEY_SUCURSAL_ID = 'apexgym_sucursal_activa_id';
@@ -52,6 +53,16 @@ export function SucursalProvider({ estaLogeadoEn, children }) {
     const [cargandoSucursales, setCargandoSucursales] = useState(false);
 
     const recargarSucursales = useCallback(async () => {
+        if (esUsuarioCliente()) {
+            setSucursales([DEFAULT_SUCURSAL]);
+            setSucursalConfirmada(true);
+            try {
+                sessionStorage.setItem(STORAGE_KEY_SUCURSAL_CONFIRMADA, 'true');
+            } catch {
+                // Ignorar errores de almacenamiento
+            }
+            return [DEFAULT_SUCURSAL];
+        }
         setCargandoSucursales(true);
         try {
             const respuesta = await api.sucursal.obtenerTodos();
@@ -110,7 +121,9 @@ export function SucursalProvider({ estaLogeadoEn, children }) {
 
     useEffect(() => {
         const resetearConfirmacion = () => {
-            desconfirmarSucursal();
+            if (!esUsuarioCliente()) {
+                desconfirmarSucursal();
+            }
         };
         window.addEventListener('apexgym:auth-login', resetearConfirmacion);
         return () => window.removeEventListener('apexgym:auth-login', resetearConfirmacion);

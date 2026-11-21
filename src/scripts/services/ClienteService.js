@@ -14,4 +14,11 @@ export class ClienteService extends CatalogoService {
             'Error al buscar clientes'
         );
     }
+
+    obtenerMiPerfil() {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/mi-perfil`),
+            'Error al obtener mi perfil'
+        );
+    }
 }
