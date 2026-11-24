@@ -31,7 +31,6 @@ import {
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserButton } from '../../components/UserButton/UserButton.jsx';
-import { OfflineStatusBar } from '../../components/OfflineStatusBar/OfflineStatusBar.jsx';
 import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
 import { SeccionCard } from '../../components/SeccionCard/SeccionCard.jsx';
 import { SucursalCard } from '../../components/SucursalCard/SucursalCard.jsx';
@@ -50,6 +49,7 @@ import {
 } from '../../scripts/modulosRutas.js';
 import classes from './Dashboard.module.css';
 import logoImg from '../../assets/apex_gym_large.png';
+import OfflineStatusBar from '../../components/OfflineStatusBar/OfflineStatusBar.jsx';
 
 const iconoModulo = (nombre) => {
     if (nombre === 'Usuarios') {
@@ -433,6 +433,8 @@ export function Dashboard({ children, onLogout }) {
                         </Menu>
                     )}
 
+                    <OfflineStatusBar />
+
                     <UserButton usuario={usuarioActual} />
 
                     <Button
@@ -448,8 +450,6 @@ export function Dashboard({ children, onLogout }) {
                     </Button>
                 </Group>
             </header>
-
-            <OfflineStatusBar />
 
             <main ref={contentRef} className={classes.content}>
                 {(enInicio || mostrarChildren) && (
