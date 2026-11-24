@@ -181,8 +181,8 @@ export function TiposVisita() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <TipoVisitaForm {...props} />}
             renderAccionesFila={renderAccionesFila}
-            permitirEditar={false}
-            permitirEliminar={false}
+            permitirEditar={true}
+            permitirEliminar={true}
             formMode="drawer"
             drawerSize={560}
             headerVariant="unified"

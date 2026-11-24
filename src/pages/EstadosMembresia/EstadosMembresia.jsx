@@ -186,8 +186,8 @@ export function EstadosMembresia() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <EstadoMembresiaForm {...props} />}
             renderAccionesFila={renderAccionesFila}
-            permitirEditar={false}
-            permitirEliminar={false}
+            permitirEditar={true}
+            permitirEliminar={true}
             formMode="drawer"
             drawerSize={500}
             headerVariant="unified"
