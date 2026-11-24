@@ -40,4 +40,11 @@ export class ClienteMembresiaService extends CatalogoService {
             'Error al cancelar membresía'
         );
     }
+
+    obtenerMiMembresia() {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/mi-membresia`),
+            'Error al obtener mi membresía'
+        );
+    }
 }

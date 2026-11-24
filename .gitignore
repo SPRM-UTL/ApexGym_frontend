@@ -68,7 +68,8 @@ media_*
 *.gif
 .aider*
 
-# Scripts y pruebas locales en raíz (sin afectar src/scripts/)
+# Scripts y pruebas locales en raíz (sin afectar src/scripts/ ni tests/unit/)
 /scripts/
 /test/
-/tests/
+/tests/*
+!/tests/unit/

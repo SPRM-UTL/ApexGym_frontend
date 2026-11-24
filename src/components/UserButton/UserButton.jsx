@@ -1,6 +1,7 @@
 import { Avatar, Group, Text, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
+import { NavbarNotificaciones } from '../NavbarNotificaciones/NavbarNotificaciones.jsx';
 import { SidebarUsuario } from '../SidebarUsuario/SidebarUsuario.jsx';
 import classes from './UserButton.module.css';
 
@@ -17,10 +18,12 @@ export function UserButton({ usuario }) {
     const rol = usuario?.roles?.[0]?.nombre || 'Sin rol asignado';
 
     return (
-        <>
+        <Group gap="xs" wrap="nowrap" className={classes.wrapper}>
+            {usuario && <NavbarNotificaciones />}
+
             <UnstyledButton
                 className={classes.user}
-                aria-label="Información del usuario actual"
+                aria-label="Información del usuario actual y notificaciones"
                 onClick={open}
             >
                 <Group gap="sm" wrap="nowrap">
@@ -51,7 +54,7 @@ export function UserButton({ usuario }) {
                 onClose={close}
                 usuario={usuario}
             />
-        </>
+        </Group>
     );
 }
 

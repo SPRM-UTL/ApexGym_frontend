@@ -1,35 +1,46 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
 import {
     ActionIcon,
+    Alert,
     Badge,
+    Button,
     Card,
     Group,
+    Modal,
     Paper,
     Select,
     SimpleGrid,
     Stack,
+    Table,
     Text,
+    Textarea,
     ThemeIcon,
     Title,
     Tooltip,
 } from '@mantine/core';
 import {
+    IconAlertTriangle,
     IconArrowBackUp,
     IconCash,
     IconCashRegister,
+    IconCloudOff,
     IconCreditCard,
     IconDeviceMobile,
+    IconDownload,
     IconEye,
     IconExternalLink,
+    IconRefresh,
     IconShoppingCart,
     IconTrash,
+    IconUpload,
 } from '@tabler/icons-react';
 
 import { cambioNombreWeb } from '../../../scripts/globales.js';
 import { api } from '../../../scripts/services/api.js';
+import { useOffline } from '../../../context/OfflineContext.jsx';
 import { CrudCatalogo } from '../../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { CancelarVentaModal } from '../components/CancelarVentaModal.jsx';
 import { DetalleVentaModal } from '../components/DetalleVentaModal.jsx';
@@ -352,6 +363,22 @@ export function Ventas() {
     cambioNombreWeb('Ventas');
 
     const navigate = useNavigate();
+    const {
+        isOnline,
+        sincronizando,
+        ventasPendientes,
+        ventasPendientesTotales,
+        sincronizarAhora,
+        exportarVentasOffline,
+        descartarVentaOffline,
+        reintentarVentaOffline,
+        importarVentasOffline,
+    } = useOffline();
+    const archivoOfflineRef = useRef(null);
+    const [ventaDescartar, setVentaDescartar] = useState(null);
+    const [motivoDescarte, setMotivoDescarte] = useState('');
+    const [procesandoDescarte, setProcesandoDescarte] = useState(false);
+
     const [detalleVenta, setDetalleVenta] = useState(null);
     const [cargandoDetalle, setCargandoDetalle] = useState(false);
     const [recargarDetalle, setRecargarDetalle] = useState(null);
@@ -362,6 +389,7 @@ export function Ventas() {
     const [confirmacionTerminal, setConfirmacionTerminal] = useState(false);
     const [cancelando, setCancelando] = useState(false);
     const [versionResumen, setVersionResumen] = useState(0);
+    const [versionSync, setVersionSync] = useState(0);
     const [resumenCaja, setResumenCaja] = useState(null);
     const [aperturasHistorial, setAperturasHistorial] = useState([]);
     const [filtroAperturaId, setFiltroAperturaId] = useState('global');
@@ -371,6 +399,16 @@ export function Ventas() {
     const [limite, setLimite] = useState(10);
     const [busquedaHistorial, setBusquedaHistorial] = useState('');
     const [filtrosHistorial, setFiltrosHistorial] = useState({});
+
+    useEffect(() => {
+        const recargarTrasSync = () => {
+            setVersionResumen((v) => v + 1);
+            setVersionSync((v) => v + 1);
+        };
+        window.addEventListener('apexgym:ventas-sincronizadas', recargarTrasSync);
+        return () => window.removeEventListener('apexgym:ventas-sincronizadas', recargarTrasSync);
+    }, []);
+
     const notificarErrorHistorial = useCallback(() => {
         notifications.show({
             color: 'red',
@@ -672,16 +710,16 @@ export function Ventas() {
     const renderAcciones = (_fila, venta, { reload }) => (
         <Group gap={6} wrap="nowrap">
             {normalizarEstadoVenta(venta.estado) === 'pendiente_pago' && (
-                    <Tooltip label="Continuar pago en Mercado Pago">
-                        <ActionIcon
-                            variant="light"
-                            color="blue"
-                            aria-label="Continuar pago en Mercado Pago"
-                            onClick={() => continuarPago(venta)}
-                        >
-                            <IconExternalLink size={18} />
-                        </ActionIcon>
-                    </Tooltip>
+                <Tooltip label="Continuar pago en Mercado Pago">
+                    <ActionIcon
+                        variant="light"
+                        color="blue"
+                        aria-label="Continuar pago en Mercado Pago"
+                        onClick={() => continuarPago(venta)}
+                    >
+                        <IconExternalLink size={18} />
+                    </ActionIcon>
+                </Tooltip>
             )}
             <Tooltip label="Ver detalle del ticket">
                 <ActionIcon
@@ -730,9 +768,42 @@ export function Ventas() {
         </Group>
     );
 
+    const abrirDescarte = (venta) => {
+        setVentaDescartar(venta);
+        setMotivoDescarte('');
+    };
+
+    const confirmarDescarte = async () => {
+        if (!ventaDescartar) return;
+        if (!motivoDescarte.trim()) {
+            notifications.show({
+                color: 'yellow',
+                message: 'Escribe el motivo del descarte para dejar rastro en el registro local.',
+            });
+            return;
+        }
+
+        setProcesandoDescarte(true);
+        const descartada = await descartarVentaOffline(ventaDescartar, motivoDescarte.trim());
+        setProcesandoDescarte(false);
+        if (descartada) {
+            setVentaDescartar(null);
+            setMotivoDescarte('');
+        }
+    };
+
+    const manejarImportarArchivo = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (file) {
+            await importarVentasOffline(file);
+        }
+    };
+
     return (
         <>
             <CrudCatalogo
+                key={`ventas-crud-${versionSync}`}
                 titulo="Registro de Ventas"
                 singular="Venta"
                 icon={IconShoppingCart}
@@ -792,9 +863,9 @@ export function Ventas() {
                                         data={[
                                             { value: 'global', label: 'Todas las aperturas' },
                                             ...aperturasHistorial.map((apertura) => ({
-                                            value: String(apertura.id),
-                                            label: `${apertura.caja?.nombre ?? `Caja #${apertura.cajaId ?? '—'}`} · Apertura #${apertura.id} · ${apertura.estado}`,
-                                        })),
+                                                value: String(apertura.id),
+                                                label: `${apertura.caja?.nombre ?? `Caja #${apertura.cajaId ?? '—'}`} · Apertura #${apertura.id} · ${apertura.estado}`,
+                                            })),
                                         ]}
                                         value={filtroAperturaId}
                                         onChange={cambiarAperturaFiltro}
@@ -804,6 +875,154 @@ export function Ventas() {
                                 </Group>
                             </Group>
                         </Paper>
+
+                        <Paper className={classes.cashBanner} p="md" radius="md">
+                            <Stack gap="sm">
+                                <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+                                    <Group gap="sm" wrap="nowrap">
+                                        <ThemeIcon size={40} radius="md" color={ventasPendientesTotales > 0 ? 'orange' : 'teal'} variant="light">
+                                            <IconCloudOff size={20} stroke={1.8} />
+                                        </ThemeIcon>
+                                        <div>
+                                            <Group gap="xs" wrap="wrap">
+                                                <Text fw={700} size="sm" c="var(--ag-text-primary)">
+                                                    Ventas sin conexión (solo efectivo)
+                                                </Text>
+                                                <Badge
+                                                    size="sm"
+                                                    color={ventasPendientesTotales > 0 ? 'orange' : 'gray'}
+                                                    variant={ventasPendientesTotales > 0 ? 'filled' : 'light'}
+                                                >
+                                                    Pendientes: {ventasPendientesTotales}
+                                                </Badge>
+                                            </Group>
+                                            <Text size="xs" c="var(--ag-text-muted)">
+                                                Respalda en JSON firmado o sincroniza las ventas en efectivo capturadas sin internet.
+                                            </Text>
+                                        </div>
+                                    </Group>
+
+                                    <Group gap="xs" wrap="wrap">
+                                        <Button
+                                            size="xs"
+                                            variant="filled"
+                                            color="apex"
+                                            loading={sincronizando}
+                                            disabled={!isOnline || ventasPendientesTotales === 0}
+                                            leftSection={<IconRefresh size={14} />}
+                                            onClick={() => sincronizarAhora({ silencioso: false })}
+                                        >
+                                            Sincronizar offline
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="light"
+                                            color="secondary"
+                                            disabled={ventasPendientesTotales === 0}
+                                            leftSection={<IconDownload size={14} />}
+                                            onClick={exportarVentasOffline}
+                                        >
+                                            Exportar JSON
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="light"
+                                            color="secondary"
+                                            leftSection={<IconUpload size={14} />}
+                                            onClick={() => archivoOfflineRef.current?.click()}
+                                        >
+                                            Importar JSON
+                                        </Button>
+                                        <input
+                                            ref={archivoOfflineRef}
+                                            type="file"
+                                            accept=".json,application/json"
+                                            style={{ display: 'none' }}
+                                            aria-label="Importar paquete JSON de ventas offline"
+                                            onChange={manejarImportarArchivo}
+                                        />
+                                    </Group>
+                                </Group>
+
+                                {ventasPendientes.filter((v) => v.estadoSync === 'ERROR').map((v) => (
+                                    <Alert
+                                        key={`error-offline-${v.uuidIdempotencia}`}
+                                        color="red"
+                                        variant="light"
+                                        icon={<IconAlertTriangle size={18} />}
+                                        title={`No se pudo sincronizar el folio ${v.folioLocal}`}
+                                    >
+                                        <Stack gap="xs">
+                                            <Text size="xs">
+                                                {v.ultimoError || 'El servidor rechazó esta venta al sincronizar.'}
+                                            </Text>
+                                            <Group gap="xs">
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    color="red"
+                                                    leftSection={<IconRefresh size={14} />}
+                                                    disabled={!isOnline}
+                                                    loading={sincronizando}
+                                                    onClick={() => reintentarVentaOffline(v)}
+                                                >
+                                                    Reintentar
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="subtle"
+                                                    color="gray"
+                                                    leftSection={<IconTrash size={14} />}
+                                                    onClick={() => abrirDescarte(v)}
+                                                >
+                                                    Descartar
+                                                </Button>
+                                            </Group>
+                                        </Stack>
+                                    </Alert>
+                                ))}
+
+                                {ventasPendientes.length > 0 && (
+                                    <Table.ScrollContainer minWidth={600}>
+                                        <Table striped highlightOnHover withTableBorder fz="xs">
+                                            <Table.Thead>
+                                                <Table.Tr>
+                                                    <Table.Th>Folio local</Table.Th>
+                                                    <Table.Th>Cliente</Table.Th>
+                                                    <Table.Th>Método</Table.Th>
+                                                    <Table.Th>Total</Table.Th>
+                                                    <Table.Th>Estado</Table.Th>
+                                                </Table.Tr>
+                                            </Table.Thead>
+                                            <Table.Tbody>
+                                                {ventasPendientes.map((v) => (
+                                                    <Table.Tr key={v.uuidIdempotencia}>
+                                                        <Table.Td fw={700}>{v.folioLocal}</Table.Td>
+                                                        <Table.Td>{obtenerNombreCliente(v.cliente)}</Table.Td>
+                                                        <Table.Td>
+                                                            <Badge color="teal" variant="light" size="xs">
+                                                                EFECTIVO
+                                                            </Badge>
+                                                        </Table.Td>
+                                                        <Table.Td fw={600}>{formatoMoneda.format(Number(v.total || 0))}</Table.Td>
+                                                        <Table.Td>
+                                                            <Badge
+                                                                color={v.estadoSync === 'ERROR' ? 'red' : 'orange'}
+                                                                variant="light"
+                                                                size="xs"
+                                                            >
+                                                                {v.estadoSync === 'ERROR' ? 'Error al sincronizar' : 'Pendiente sync'}
+                                                            </Badge>
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                ))}
+                                            </Table.Tbody>
+                                        </Table>
+                                    </Table.ScrollContainer>
+                                )}
+                            </Stack>
+                        </Paper>
+
                         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                             <TarjetaResumen
                                 icon={IconCash}
@@ -827,6 +1046,41 @@ export function Ventas() {
                     </Stack>
                 )}
             />
+            <Modal
+                opened={Boolean(ventaDescartar)}
+                onClose={() => {
+                    if (!procesandoDescarte) setVentaDescartar(null);
+                }}
+                title="Descartar venta offline"
+                centered
+            >
+                <Stack gap="sm">
+                    <Text size="sm">
+                        La venta <strong>{ventaDescartar?.folioLocal}</strong> no se enviará al servidor.
+                        Quedará archivada en este dispositivo como descartada, con el motivo registrado.
+                    </Text>
+                    <Textarea
+                        label="Motivo"
+                        placeholder="Ej. venta duplicada, el cliente se retiró, artículo descontinuado..."
+                        value={motivoDescarte}
+                        onChange={(event) => setMotivoDescarte(event.currentTarget.value)}
+                        minRows={3}
+                        autosize
+                    />
+                    <Group justify="flex-end" gap="xs">
+                        <Button
+                            variant="default"
+                            onClick={() => setVentaDescartar(null)}
+                            disabled={procesandoDescarte}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button color="red" loading={procesandoDescarte} onClick={confirmarDescarte}>
+                            Descartar venta
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
             <DetalleVentaModal
                 venta={detalleVenta}
                 cargando={cargandoDetalle}
