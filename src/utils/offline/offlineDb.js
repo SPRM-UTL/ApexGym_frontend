@@ -22,6 +22,81 @@ const memoryStores = {
 let dbPromise = null;
 let forceMemoryFallback = false;
 
+// Estado real del almacenamiento: lo que se guarda en memoria se pierde al recargar
+let modoAlmacenamiento = 'desconocido';
+let motivoFallbackMemoria = null;
+
+function pasarAMemoria(motivo) {
+  forceMemoryFallback = true;
+  modoAlmacenamiento = 'memoria';
+  motivoFallbackMemoria = motivo;
+}
+
+// La caché local se separa por usuario para que un empleado no vea catálogos de otro
+const CLAVE_USUARIO_STORAGE = 'usuario_actual';
+const ALCANCE_USUARIO_ANONIMO = 'anon';
+let alcanceUsuarioOffline = ALCANCE_USUARIO_ANONIMO;
+let ultimoUsuarioCrudo = null;
+
+function leerUsuarioCrudo() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const local = localStorage.getItem(CLAVE_USUARIO_STORAGE);
+      if (local) return local;
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      return sessionStorage.getItem(CLAVE_USUARIO_STORAGE);
+    }
+  } catch {
+    // Almacenamiento restringido: se opera con el alcance anónimo
+  }
+  return null;
+}
+
+function decodificarUsuarioCrudo(crudo) {
+  try {
+    return JSON.parse(decodeURIComponent(atob(crudo)));
+  } catch {
+    try {
+      return JSON.parse(crudo);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function calcularAlcanceUsuario(usuario) {
+  if (!usuario || typeof usuario !== 'object') return ALCANCE_USUARIO_ANONIMO;
+  const candidatos = [
+    usuario.id,
+    usuario.usuarioId,
+    usuario.idUsuario,
+    usuario.correo,
+    usuario.email,
+    usuario.nombreUsuario,
+  ];
+  const valor = candidatos.find((c) => c !== undefined && c !== null && String(c).trim() !== '');
+  return valor === undefined ? ALCANCE_USUARIO_ANONIMO : String(valor).trim().toLowerCase();
+}
+
+/**
+ * Recalcula (si cambió) el alcance del usuario autenticado y devuelve su identificador de caché.
+ */
+export function sincronizarAlcanceUsuarioOffline() {
+  const crudo = leerUsuarioCrudo();
+  if (crudo === ultimoUsuarioCrudo) return alcanceUsuarioOffline;
+
+  ultimoUsuarioCrudo = crudo;
+  alcanceUsuarioOffline = crudo
+    ? calcularAlcanceUsuario(decodificarUsuarioCrudo(crudo))
+    : ALCANCE_USUARIO_ANONIMO;
+  return alcanceUsuarioOffline;
+}
+
+export function obtenerAlcanceUsuarioOffline() {
+  return alcanceUsuarioOffline;
+}
+
 function clonarValor(valor) {
   if (valor === undefined || valor === null) return valor;
   try {
@@ -46,6 +121,9 @@ function soporteIndexedDbDisponible() {
 
 async function abrirBaseDatos() {
   if (!soporteIndexedDbDisponible()) {
+    if (modoAlmacenamiento !== 'memoria') {
+      pasarAMemoria('IndexedDB no está disponible en este navegador o contexto.');
+    }
     return null;
   }
 
@@ -86,20 +164,25 @@ async function abrirBaseDatos() {
           db.close();
           dbPromise = null;
         };
+        modoAlmacenamiento = 'indexeddb';
+        motivoFallbackMemoria = null;
         resolve(db);
       };
 
       request.onerror = () => {
-        forceMemoryFallback = true;
+        pasarAMemoria(request.error?.message || 'No se pudo abrir la base local.');
         dbPromise = null;
         resolve(null);
       };
 
+      // Otra pestaña bloquea la base: se reintenta en la siguiente operación
       request.onblocked = () => {
+        motivoFallbackMemoria = 'La base local está bloqueada por otra pestaña.';
+        dbPromise = null;
         resolve(null);
       };
-    } catch {
-      forceMemoryFallback = true;
+    } catch (error) {
+      pasarAMemoria(error?.message || 'Error al abrir la base local.');
       dbPromise = null;
       resolve(null);
     }
@@ -233,8 +316,8 @@ export function normalizarSucursalIdCache(sucursalId) {
   return Number.isInteger(num) && num > 0 ? String(num) : '1';
 }
 
-export function construirClaveApiCache(sucursalId, url) {
-  return `${normalizarSucursalIdCache(sucursalId)}:${String(url || '').trim()}`;
+export function construirClaveApiCache(sucursalId, url, alcanceUsuario = alcanceUsuarioOffline) {
+  return `${normalizarSucursalIdCache(sucursalId)}:${alcanceUsuario || ALCANCE_USUARIO_ANONIMO}:${String(url || '').trim()}`;
 }
 
 export function extraerNombreColeccionApi(url) {
@@ -246,12 +329,14 @@ export function extraerNombreColeccionApi(url) {
 
 export async function guardarApiCache(sucursalId, url, data) {
   const sucursalNorm = normalizarSucursalIdCache(sucursalId);
-  const key = construirClaveApiCache(sucursalNorm, url);
+  const alcanceUsuario = sincronizarAlcanceUsuarioOffline();
+  const key = construirClaveApiCache(sucursalNorm, url, alcanceUsuario);
   const registro = {
     key,
     sucursalId: sucursalNorm,
     url: String(url || '').trim(),
     coleccion: extraerNombreColeccionApi(url),
+    alcance: alcanceUsuario,
     data: clonarValor(data),
     updatedAt: new Date().toISOString(),
   };
@@ -264,14 +349,40 @@ export async function guardarApiCache(sucursalId, url, data) {
 }
 
 export async function obtenerApiCache(sucursalId, url) {
-  const key = construirClaveApiCache(sucursalId, url);
+  const key = construirClaveApiCache(sucursalId, url, sincronizarAlcanceUsuarioOffline());
   return dbGet(OFFLINE_STORES.API_CACHE, key);
 }
 
 export async function listarApiCachePorSucursal(sucursalId) {
   const sucursalNorm = normalizarSucursalIdCache(sucursalId);
   const todos = await dbGetAll(OFFLINE_STORES.API_CACHE);
-  return todos.filter((entrada) => String(entrada.sucursalId) === sucursalNorm);
+  const alcanceActual = sincronizarAlcanceUsuarioOffline();
+  return todos.filter((entrada) => (
+    String(entrada.sucursalId) === sucursalNorm
+    && (entrada.alcance || ALCANCE_USUARIO_ANONIMO) === alcanceActual
+  ));
+}
+
+/**
+ * Elimina entradas de caché obsoletas: formato anterior sin alcance de usuario y datos vencidos.
+ */
+export async function purgarApiCacheAntigua({ diasMaximos = 7 } = {}) {
+  const limite = Date.now() - Math.max(1, Number(diasMaximos) || 7) * 24 * 60 * 60 * 1000;
+  const entradas = await dbGetAll(OFFLINE_STORES.API_CACHE);
+  let eliminadas = 0;
+
+  for (const entrada of entradas) {
+    const fecha = Date.parse(entrada?.updatedAt || '');
+    const vencida = Number.isFinite(fecha) && fecha < limite;
+    const formatoAnterior = !entrada?.alcance;
+
+    if (vencida || formatoAnterior) {
+      await dbDelete(OFFLINE_STORES.API_CACHE, entrada.key);
+      eliminadas += 1;
+    }
+  }
+
+  return eliminadas;
 }
 
 export async function guardarMeta(key, value) {
@@ -335,6 +446,90 @@ export async function eliminarVentaOfflineDb(uuidIdempotencia) {
   const ok = await dbDelete(OFFLINE_STORES.VENTAS_OFFLINE, uuidIdempotencia);
   emitirEventoOffline('apexgym:offline-ventas-updated', { uuidIdempotencia });
   return ok;
+}
+
+/**
+ * Indica si los datos se están guardando en IndexedDB (persistente) o solo en memoria
+ * (se pierde al recargar la página).
+ */
+export function describirAlmacenamientoOffline() {
+  return {
+    modo: modoAlmacenamiento,
+    memoria: modoAlmacenamiento === 'memoria' || forceMemoryFallback,
+    motivo: motivoFallbackMemoria,
+  };
+}
+
+async function describirPermisoAlmacenamiento() {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.storage?.persisted) {
+      return (await navigator.storage.persisted()) ? 'persistente' : 'temporal';
+    }
+  } catch {
+    // Ignorar si el navegador no expone StorageManager
+  }
+  return 'desconocido';
+}
+
+/**
+ * Prueba real de escritura/lectura en el almacén local para saber si una venta offline
+ * se conservará al recargar o solo vivirá en memoria.
+ */
+export async function probarAlmacenamientoOffline() {
+  const clave = `prueba_almacenamiento_${Date.now()}`;
+
+  try {
+    await guardarMeta(clave, { prueba: true, fecha: new Date().toISOString() });
+    const leido = await obtenerMeta(clave);
+    await dbDelete(OFFLINE_STORES.META, clave);
+
+    const estado = describirAlmacenamientoOffline();
+    return {
+      correcto: Boolean(leido?.prueba),
+      modo: estado.modo,
+      memoria: estado.memoria,
+      motivo: estado.motivo,
+      permiso: await describirPermisoAlmacenamiento(),
+    };
+  } catch (error) {
+    const estado = describirAlmacenamientoOffline();
+    return {
+      correcto: false,
+      modo: estado.modo,
+      memoria: estado.memoria,
+      motivo: error?.message || estado.motivo || 'No se pudo escribir en el almacenamiento local.',
+      permiso: await describirPermisoAlmacenamiento(),
+    };
+  }
+}
+
+// Catálogos mínimos que debe tener la copia local para cobrar sin conexión
+export const CATALOGOS_VENTA_OFFLINE = [
+  { url: '/api/metodos-pago/activos', etiqueta: 'Métodos de pago' },
+  { url: '/api/empleados', etiqueta: 'Empleados' },
+  { url: '/api/aperturas-caja/abierta', etiqueta: 'Caja abierta' },
+  { url: '/api/cajas', etiqueta: 'Cajas' },
+  { url: '/api/productos/venta/disponibles', etiqueta: 'Productos' },
+  { url: '/api/servicios/venta/disponibles', etiqueta: 'Servicios' },
+  { url: '/api/tipos-membresia/venta/disponibles', etiqueta: 'Membresías' },
+  { url: '/api/categorias-productos/filtro-venta', etiqueta: 'Categorías' },
+  { url: '/api/clientes', etiqueta: 'Clientes' },
+];
+
+/**
+ * Revisa qué catálogos necesita una venta offline ya están guardados para la sucursal.
+ */
+export async function inventariarCatalogosVenta(sucursalId) {
+  return Promise.all(
+    CATALOGOS_VENTA_OFFLINE.map(async (catalogo) => {
+      const entrada = await obtenerApiCache(sucursalId, catalogo.url);
+      return {
+        ...catalogo,
+        disponible: Boolean(entrada),
+        actualizadoEn: entrada?.updatedAt || null,
+      };
+    })
+  );
 }
 
 export function limpiarMemoriaOfflineParaPruebas() {

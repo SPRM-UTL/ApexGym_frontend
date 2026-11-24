@@ -10,13 +10,21 @@ import {
 import { notifications } from '@mantine/notifications';
 import { appUrl, esUsuarioCliente } from '../scripts/constantes.js';
 import { api } from '../scripts/services/api.js';
-import { httpClient } from '../scripts/services/httpClient.js';
+import { httpClient, verificarAlcanzabilidadApi } from '../scripts/services/httpClient.js';
 import { useSucursal } from './SucursalContext.jsx';
 import {
+  CATALOGOS_VENTA_OFFLINE,
+  describirAlmacenamientoOffline,
   emitirEventoOffline,
   guardarMeta,
   guardarVentaOfflineDb,
+  inventariarCatalogosVenta,
+  obtenerApiCache,
+  obtenerMeta,
   obtenerResumenDatosLocales,
+  probarAlmacenamientoOffline,
+  purgarApiCacheAntigua,
+  sincronizarAlcanceUsuarioOffline,
 } from '../utils/offline/offlineDb.js';
 import {
   construirPayloadSincronizacionOffline,
@@ -35,9 +43,84 @@ const RESUMEN_INICIAL = {
   ultimaActualizacion: null,
 };
 
+// Catálogos mínimos para poder cobrar sin conexión: sin ellos la venta offline no se puede iniciar
+const CLAVES_CRITICAS_CACHE = [
+  ...CATALOGOS_VENTA_OFFLINE.map((catalogo) => catalogo.url),
+];
+
+// Cada cuánto se refresca la copia local de catálogos mientras hay conexión
+const INTERVALO_REFRESCO_CACHE_MS = 10 * 60 * 1000;
+
+// Estados que ya no se reintentan ni cuentan como pendientes
+const ESTADOS_FINALES_OFFLINE = ['SINCRONIZADA', 'DESCARTADA'];
+
+async function necesitaActualizarCache(sucursalId, resumen) {
+  if (!resumen.hayDatosLocales) return true;
+
+  const criticos = await Promise.all(
+    CLAVES_CRITICAS_CACHE.map((url) => obtenerApiCache(sucursalId, url))
+  );
+  if (criticos.some((entrada) => !entrada)) return true;
+
+  const meta = await obtenerMeta(`ultima_sync_sucursal_${sucursalId}`);
+  const fecha = meta?.fecha ? Date.parse(meta.fecha) : NaN;
+  if (!Number.isFinite(fecha)) return true;
+
+  return Date.now() - fecha > INTERVALO_REFRESCO_CACHE_MS;
+}
+
+// Estado del service worker: es quien sirve la app y los catálogos sin conexión
+const SW_INICIAL = { estado: 'sin-revisar', detalle: null, alcance: null };
+
+async function consultarEstadoServiceWorker() {
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
+    return {
+      estado: 'no-soportado',
+      detalle: 'Este navegador o contexto (por ejemplo incógnito) no permite service workers.',
+      alcance: null,
+    };
+  }
+
+  try {
+    const registro = await navigator.serviceWorker.getRegistration();
+    if (!registro) {
+      return {
+        estado: 'no-registrado',
+        detalle: 'El service worker aún no se registró. Recarga la página; el registro ocurre al cargar la app.',
+        alcance: null,
+      };
+    }
+    if (registro.active?.state === 'activated') {
+      return { estado: 'activo', detalle: `Alcance: ${registro.scope}`, alcance: registro.scope };
+    }
+    if (registro.installing) {
+      return { estado: 'instalando', detalle: 'Instalando el service worker por primera vez.', alcance: registro.scope };
+    }
+    if (registro.waiting) {
+      return {
+        estado: 'esperando-actualizacion',
+        detalle: 'Hay una versión nueva esperando; recarga para activarla.',
+        alcance: registro.scope,
+      };
+    }
+    return { estado: 'registrado', detalle: 'Registrado, sin controlar la página todavía.', alcance: registro.scope };
+  } catch (error) {
+    return {
+      estado: 'error',
+      detalle: error?.message || 'No se pudo consultar el service worker.',
+      alcance: null,
+    };
+  }
+}
+
 const OfflineContext = createContext({
   isOnline: true,
+  apiAlcanzable: true,
   sincronizando: false,
+  almacenamiento: { modo: 'desconocido', memoria: false, motivo: null },
+  estadoServiceWorker: SW_INICIAL,
+  diagnosticoOffline: null,
+  ejecutarDiagnostico: async () => null,
   datosLocales: RESUMEN_INICIAL,
   ventasOffline: [],
   ventasPendientes: [],
@@ -45,6 +128,9 @@ const OfflineContext = createContext({
   ultimoErrorSync: null,
   refrescarEstadoLocal: async () => {},
   sincronizarAhora: async () => ({ ok: false }),
+  verificarConexionApi: async () => false,
+  descartarVentaOffline: async () => false,
+  reintentarVentaOffline: async () => false,
   exportarVentasOffline: () => false,
   importarVentasOffline: async () => null,
 });
@@ -66,6 +152,7 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
       ? navigator.onLine
       : true
   ));
+  const [apiAlcanzable, setApiAlcanzable] = useState(true);
   const [sincronizando, setSincronizando] = useState(false);
   const [datosLocales, setDatosLocales] = useState({
     ...RESUMEN_INICIAL,
@@ -73,6 +160,22 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
   });
   const [ventasOffline, setVentasOffline] = useState([]);
   const [ultimoErrorSync, setUltimoErrorSync] = useState(null);
+  const [almacenamiento, setAlmacenamiento] = useState(() => describirAlmacenamientoOffline());
+  const [estadoServiceWorker, setEstadoServiceWorker] = useState(SW_INICIAL);
+  const [diagnosticoOffline, setDiagnosticoOffline] = useState(null);
+
+  // Derivados de las ventas: deben declararse antes de los efectos que los usan como dependencia
+  const ventasPendientes = useMemo(
+    () => ventasOffline.filter(
+      (v) => !ESTADOS_FINALES_OFFLINE.includes(v.estadoSync) && Number(v.sucursalId || 1) === sucursalId
+    ),
+    [ventasOffline, sucursalId]
+  );
+
+  const ventasPendientesTotales = useMemo(
+    () => ventasOffline.filter((v) => !ESTADOS_FINALES_OFFLINE.includes(v.estadoSync)).length,
+    [ventasOffline]
+  );
 
   const sincronizandoRef = useRef(false);
   const sucursalIdRef = useRef(sucursalId);
@@ -85,6 +188,7 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     ]);
     setDatosLocales(resumen);
     setVentasOffline(todasVentas);
+    setAlmacenamiento(describirAlmacenamientoOffline());
     return { resumen, todasVentas };
   }, []);
 
@@ -191,14 +295,26 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
           api.sucursal.obtenerTodos(),
           api.empresa.obtenerActual(),
           api.aperturaCaja.obtenerAbiertas(),
+          api.caja.obtenerTodos(),
           api.metodosPago.obtenerActivos(),
           api.categoriaProducto.obtenerParaVenta(),
+          api.categoriaProducto.obtenerTodas(),
           api.producto.obtenerDisponiblesParaVenta(idSucursal),
+          api.producto.obtenerTodos(),
           api.servicio.obtenerDisponiblesParaVenta(idSucursal),
+          api.servicio.obtenerTodos(),
           api.tipoMembresia.obtenerDisponiblesParaVenta(idSucursal),
+          api.tipoMembresia.obtenerTodos(),
+          api.pedidoCompra.obtenerTodos('PENDIENTE'),
           api.cliente.buscarPorNombreOId('Público General', 1, 5),
           api.cliente.obtenerTodos(),
           api.empleado.obtenerTodos(),
+          // Catálogos auxiliares que consultan los formularios de Empleados y Clientes
+          api.areaTrabajo.obtenerTodos(),
+          api.puesto.obtenerTodos(),
+          api.estadoEmpleado.obtenerTodos(),
+          api.estadoCliente.obtenerTodos(),
+          api.user.obtenerTodos(),
           api.aperturaCaja.obtenerTodos(),
           api.almacen.obtenerTodos(),
           api.venta.obtenerTodos({ pagina: 1, limite: 10 }),
@@ -288,8 +404,81 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     }
   }, [estaLogeadoEn, precachearCatalogosSucursal, refrescarEstadoLocal, sincronizarVentasPendientes]);
 
+  const ejecutarDiagnostico = useCallback(async () => {
+    const [sw, pruebaAlmacenamiento, catalogos] = await Promise.all([
+      consultarEstadoServiceWorker(),
+      probarAlmacenamientoOffline(),
+      inventariarCatalogosVenta(sucursalIdRef.current),
+    ]);
+
+    const resultado = {
+      serviceWorker: sw,
+      almacenamiento: pruebaAlmacenamiento,
+      catalogos,
+      faltantes: catalogos.filter((catalogo) => !catalogo.disponible).length,
+      revisadoEn: new Date().toISOString(),
+    };
+
+    setEstadoServiceWorker(sw);
+    setAlmacenamiento(describirAlmacenamientoOffline());
+    setDiagnosticoOffline(resultado);
+    return resultado;
+  }, []);
+
+  const verificarConexionApi = useCallback(async () => {
+    const alcanzable = await verificarAlcanzabilidadApi();
+    setIsOnline(alcanzable);
+    setApiAlcanzable(alcanzable);
+    return alcanzable;
+  }, []);
+
+  const descartarVentaOffline = useCallback(async (venta, motivo) => {
+    if (!venta?.uuidIdempotencia) return false;
+
+    try {
+      await guardarVentaOfflineDb({
+        ...venta,
+        estadoSync: 'DESCARTADA',
+        ultimoError: motivo || 'Descartada manualmente',
+        descartadaEn: new Date().toISOString(),
+      });
+      await refrescarEstadoLocal(sucursalIdRef.current);
+      notifications.show({
+        color: 'orange',
+        title: 'Venta offline descartada',
+        message: `El folio ${venta.folioLocal} quedó archivado localmente y no se enviará al servidor.`,
+      });
+      return true;
+    } catch (error) {
+      notifications.show({
+        color: 'red',
+        title: 'No se pudo descartar la venta',
+        message: error?.message || 'Intenta nuevamente.',
+      });
+      return false;
+    }
+  }, [refrescarEstadoLocal]);
+
+  const reintentarVentaOffline = useCallback(async (venta) => {
+    if (!venta?.uuidIdempotencia) return false;
+
+    try {
+      await guardarVentaOfflineDb({ ...venta, estadoSync: 'PENDIENTE', ultimoError: null });
+      await refrescarEstadoLocal(sucursalIdRef.current);
+      if (isOnline) await sincronizarAhora({ silencioso: true });
+      return true;
+    } catch (error) {
+      notifications.show({
+        color: 'red',
+        title: 'No se pudo reintentar la venta',
+        message: error?.message || 'Intenta nuevamente.',
+      });
+      return false;
+    }
+  }, [isOnline, refrescarEstadoLocal, sincronizarAhora]);
+
   const exportarVentasOffline = useCallback(() => {
-    const pendientes = ventasOffline.filter((v) => v.estadoSync !== 'SINCRONIZADA');
+    const pendientes = ventasOffline.filter((v) => !ESTADOS_FINALES_OFFLINE.includes(v.estadoSync));
     if (pendientes.length === 0) {
       notifications.show({
         color: 'yellow',
@@ -367,15 +556,27 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     const manejarActualizacionLocal = () => {
       refrescarEstadoLocal(sucursalIdRef.current);
     };
+    const manejarApiSinConexion = () => {
+      setApiAlcanzable(false);
+      setIsOnline(false);
+    };
+    const manejarApiReconectada = () => {
+      setApiAlcanzable(true);
+      setIsOnline(true);
+    };
 
     window.addEventListener('online', manejarOnline);
     window.addEventListener('offline', manejarOffline);
+    window.addEventListener('apexgym:api-sin-conexion', manejarApiSinConexion);
+    window.addEventListener('apexgym:api-reconectada', manejarApiReconectada);
     window.addEventListener('apexgym:offline-cache-updated', manejarActualizacionLocal);
     window.addEventListener('apexgym:offline-ventas-updated', manejarActualizacionLocal);
 
     return () => {
       window.removeEventListener('online', manejarOnline);
       window.removeEventListener('offline', manejarOffline);
+      window.removeEventListener('apexgym:api-sin-conexion', manejarApiSinConexion);
+      window.removeEventListener('apexgym:api-reconectada', manejarApiReconectada);
       window.removeEventListener('apexgym:offline-cache-updated', manejarActualizacionLocal);
       window.removeEventListener('apexgym:offline-ventas-updated', manejarActualizacionLocal);
     };
@@ -390,10 +591,19 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     let activo = true;
     let timer = null;
 
-    refrescarEstadoLocal(sucursalId).then(({ resumen, todasVentas }) => {
+    sincronizarAlcanceUsuarioOffline();
+    purgarApiCacheAntigua({ diasMaximos: 7 }).catch(() => {});
+    if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+
+    refrescarEstadoLocal(sucursalId).then(async ({ resumen, todasVentas }) => {
       if (!activo) return;
-      const hayPendientes = todasVentas.some((v) => v.estadoSync !== 'SINCRONIZADA');
-      if (isOnline && (!resumen.hayDatosLocales || hayPendientes)) {
+      const hayPendientes = todasVentas.some((v) => !ESTADOS_FINALES_OFFLINE.includes(v.estadoSync));
+      const desactualizado = isOnline
+        ? await necesitaActualizarCache(sucursalId, resumen)
+        : false;
+      if (activo && isOnline && (hayPendientes || desactualizado)) {
         timer = setTimeout(() => {
           if (activo) sincronizarAhora({ silencioso: true });
         }, 650);
@@ -406,21 +616,71 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     };
   }, [estaLogeadoEn, sucursalId, isOnline, refrescarEstadoLocal, sincronizarAhora]);
 
-  const ventasPendientes = useMemo(
-    () => ventasOffline.filter(
-      (v) => v.estadoSync !== 'SINCRONIZADA' && Number(v.sucursalId || 1) === sucursalId
-    ),
-    [ventasOffline, sucursalId]
-  );
+  // Estado visible del service worker: se consulta al cargar y cuando toma el control de la página
+  useEffect(() => {
+    let activo = true;
+    const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : null;
 
-  const ventasPendientesTotales = useMemo(
-    () => ventasOffline.filter((v) => v.estadoSync !== 'SINCRONIZADA').length,
-    [ventasOffline]
-  );
+    const revisar = async () => {
+      const estado = await consultarEstadoServiceWorker();
+      if (activo) setEstadoServiceWorker(estado);
+    };
+
+    revisar();
+    const reintento = setTimeout(revisar, 2500);
+    sw?.addEventListener?.('controllerchange', revisar);
+
+    return () => {
+      activo = false;
+      clearTimeout(reintento);
+      sw?.removeEventListener?.('controllerchange', revisar);
+    };
+  }, []);
+
+  // Sondeo de recuperación: hay red pero la API no responde, revisar cada 30 s
+  useEffect(() => {
+    if (!estaLogeadoEn || isOnline) return undefined;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return undefined;
+
+    const intervalo = setInterval(() => {
+      verificarConexionApi();
+    }, 30000);
+
+    return () => clearInterval(intervalo);
+  }, [estaLogeadoEn, isOnline, verificarConexionApi]);
+
+  // Reintento periódico de ventas pendientes mientras haya conexión con la API
+  useEffect(() => {
+    if (!estaLogeadoEn || !isOnline || ventasPendientesTotales === 0) return undefined;
+
+    const intervalo = setInterval(() => {
+      if (sincronizandoRef.current) return;
+      sincronizandoRef.current = true;
+      sincronizarVentasPendientes()
+        .catch(() => {})
+        .finally(() => {
+          sincronizandoRef.current = false;
+          refrescarEstadoLocal(sucursalIdRef.current);
+        });
+    }, 60000);
+
+    return () => clearInterval(intervalo);
+  }, [
+    estaLogeadoEn,
+    isOnline,
+    ventasPendientesTotales,
+    refrescarEstadoLocal,
+    sincronizarVentasPendientes,
+  ]);
 
   const valor = useMemo(() => ({
     isOnline,
+    apiAlcanzable,
     sincronizando,
+    almacenamiento,
+    estadoServiceWorker,
+    diagnosticoOffline,
+    ejecutarDiagnostico,
     datosLocales,
     ventasOffline,
     ventasPendientes,
@@ -428,11 +688,19 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     ultimoErrorSync,
     refrescarEstadoLocal,
     sincronizarAhora,
+    verificarConexionApi,
+    descartarVentaOffline,
+    reintentarVentaOffline,
     exportarVentasOffline,
     importarVentasOffline,
   }), [
     isOnline,
+    apiAlcanzable,
     sincronizando,
+    almacenamiento,
+    estadoServiceWorker,
+    diagnosticoOffline,
+    ejecutarDiagnostico,
     datosLocales,
     ventasOffline,
     ventasPendientes,
@@ -440,6 +708,9 @@ export function OfflineProvider({ estaLogeadoEn, children }) {
     ultimoErrorSync,
     refrescarEstadoLocal,
     sincronizarAhora,
+    verificarConexionApi,
+    descartarVentaOffline,
+    reintentarVentaOffline,
     exportarVentasOffline,
     importarVentasOffline,
   ]);

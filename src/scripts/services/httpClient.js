@@ -8,6 +8,85 @@ import {
 
 export const httpClient = axios.create({ withCredentials: true });
 
+// Cliente sin interceptores para sondeos de conectividad: no toca caché ni el loader global
+const pingClient = axios.create({ withCredentials: true });
+
+// Origen real de la API, aprendido de la última petición (permite sondear sin importar el entorno)
+let origenApiDetectado = null;
+
+// Detecta si el servidor de la API es inalcanzable aunque navigator.onLine siga en true
+// (Wi-Fi sin internet, servidor caído, PWA apuntando a un backend no disponible, etc.)
+let apiMarcadaSinConexion = false;
+
+export function estaApiSinConexion() {
+  return apiMarcadaSinConexion;
+}
+
+/**
+ * El backend envuelve sus respuestas en { data, responseFlag, message, statusCode },
+ * incluso en errores de negocio (y a veces con HTTP 500). Si llega ese sobre, la API sí
+ * respondió: el fallo es del servidor y no debe tratarse como "API sin conexión".
+ */
+function esRespuestaEstructuradaApi(response) {
+  const datos = response?.data;
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos)) return false;
+  return datos.responseFlag !== undefined;
+}
+
+/**
+ * Comprueba si la API responde con una petición ligera. Evita que el POS intente cobrar
+ * en línea cuando el Wi-Fi existe pero el servidor es inalcanzable.
+ */
+export async function verificarAlcanzabilidadApi({ timeoutMs = 3500 } = {}) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    notificarApiSinConexion();
+    return false;
+  }
+  // Con appUrl = '' las peticiones van relativas (/api/...), así que nunca se aprende un
+  // origen absoluto: en navegador se sondea contra el mismo origen (proxy de Vite).
+  const baseUrl = origenApiDetectado ?? (typeof window !== 'undefined' ? '' : null);
+  if (baseUrl === null) return true;
+
+  try {
+    await pingClient.get(`${baseUrl}/api/metodos-pago/activos`, { timeout: timeoutMs });
+    notificarApiDisponible();
+    return true;
+  } catch (error) {
+    const status = Number(error?.response?.status) || 0;
+    if (status > 0 && (status < 500 || esRespuestaEstructuradaApi(error?.response))) {
+      // El servidor respondió (error de permisos o error de negocio en JSON): la API es alcanzable
+      notificarApiDisponible();
+      return true;
+    }
+    if (error?.code !== 'ERR_CANCELED') {
+      notificarApiSinConexion();
+    }
+    return false;
+  }
+}
+
+function notificarApiSinConexion() {
+  if (apiMarcadaSinConexion) return;
+  apiMarcadaSinConexion = true;
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent('apexgym:api-sin-conexion'));
+  } catch {
+    // Ignorar entornos sin eventos DOM
+  }
+}
+
+function notificarApiDisponible() {
+  if (!apiMarcadaSinConexion) return;
+  apiMarcadaSinConexion = false;
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent('apexgym:api-reconectada'));
+  } catch {
+    // Ignorar entornos sin eventos DOM
+  }
+}
+
 function leerHeader(headers, nombre) {
   if (!headers) return null;
   if (typeof headers.get === 'function') {
@@ -171,6 +250,15 @@ httpClient.interceptors.request.use(async (config) => {
   const cacheable = esGetApiCacheable(config, urlCanon);
   config._offlineMeta = { sucursalId, urlCanon, cacheable };
 
+  try {
+    const uriAbsoluta = httpClient.getUri(config);
+    if (/^https?:\/\//i.test(uriAbsoluta)) {
+      origenApiDetectado = new URL(uriAbsoluta).origin;
+    }
+  } catch {
+    // Ignorar solicitudes sin URL absoluta
+  }
+
   if (cacheable && typeof navigator !== 'undefined' && navigator.onLine === false) {
     const cached = await buscarEnCacheOffline(sucursalId, urlCanon);
     if (cached) {
@@ -187,6 +275,10 @@ httpClient.interceptors.request.use(async (config) => {
 httpClient.interceptors.response.use(
   async (response) => {
     apiLoadingStore.finalizar();
+
+    if (!response?.fromOfflineCache) {
+      notificarApiDisponible();
+    }
 
     const meta = response?.config?._offlineMeta;
     if (
@@ -208,7 +300,18 @@ httpClient.interceptors.response.use(
 
     const config = error?.config;
     const meta = config?._offlineMeta;
-    const sinRed = !error?.response || (typeof navigator !== 'undefined' && navigator.onLine === false);
+    const statusRespuesta = Number(error?.response?.status) || 0;
+    // Un 5xx significa que la API no puede atender: se opera con caché local igual que sin red.
+    // Excepción: si el backend devolvió su sobre JSON (responseFlag presente), respondió de
+    // verdad y el error debe propagarse tal cual, sin marcar la API como caída ni servir caché.
+    const servidorNoDisponible = statusRespuesta >= 500 && !esRespuestaEstructuradaApi(error?.response);
+    const sinRed = !error?.response
+      || servidorNoDisponible
+      || (typeof navigator !== 'undefined' && navigator.onLine === false);
+
+    if ((!error?.response || servidorNoDisponible) && error?.code !== 'ERR_CANCELED') {
+      notificarApiSinConexion();
+    }
 
     if (meta?.cacheable && sinRed) {
       const cached = await buscarEnCacheOffline(meta.sucursalId, meta.urlCanon);

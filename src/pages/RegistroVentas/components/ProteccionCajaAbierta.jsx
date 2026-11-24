@@ -4,6 +4,7 @@ import { notifications } from '@mantine/notifications';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { IconWifiOff } from '@tabler/icons-react';
 import { api } from '../../../scripts/services/api.js';
+import { estaApiSinConexion } from '../../../scripts/services/httpClient.js';
 import { obtenerRegistros } from '../../../utils/ventaHelper/ventaHelpers.js';
 import { CajaProvider } from './CajaProvider.jsx';
 
@@ -42,7 +43,8 @@ export function ProteccionCajaAbierta({ onSessionExpired, children }) {
                         onSessionExpired();
                         setEstado({ tipo: 'sesion-expirada' });
                     } else {
-                        const sinRed = typeof navigator !== 'undefined' && navigator.onLine === false;
+                        const sinRed = estaApiSinConexion()
+                            || (typeof navigator !== 'undefined' && navigator.onLine === false);
                         notifications.show({
                             color: 'red',
                             title: sinRed

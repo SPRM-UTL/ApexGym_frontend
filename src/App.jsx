@@ -48,6 +48,7 @@ import { ControlAcceso } from './pages/Asistencias/ControlAcceso.jsx';
 import { PaginaError } from './pages/Error/PaginaError.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary.jsx';
 import { PWABadge } from './PWABadge.jsx';
+import { notifications } from '@mantine/notifications';
 import {
   esSeccionConocida,
   tieneAccesoModulo,
@@ -300,8 +301,10 @@ function App() {
         await espera;
         if (!activo) return;
         const sesionInvalida = error?.statusCode === 401 || error?.statusCode === 403;
-        const sinInternet = typeof navigator !== 'undefined' && navigator.onLine === false;
-        if (!sesionInvalida && sinInternet && usuarioActual) {
+
+        // Solo un 401/403 invalida la sesión. Si el backend falla (5xx) o no hay red,
+        // se conserva la sesión local para poder seguir operando con la caché.
+        if (!sesionInvalida && usuarioActual) {
           setEstaLogeadoEn(true);
         } else {
           setEstaLogeadoEn(false);
@@ -337,6 +340,15 @@ function App() {
       await api.user.logout();
     } catch (error) {
       console.error('error al cerrar sesion', error);
+      const sesionSigueValida = error?.statusCode !== 401 && error?.statusCode !== 403;
+      if (sesionSigueValida) {
+        notifications.show({
+          color: 'orange',
+          title: 'No se pudo cerrar sesión en el servidor',
+          message: 'El servidor no responde. La sesión local se mantiene para no perder el acceso; cierra sesión cuando vuelva la conexión.',
+        });
+        return;
+      }
     }
 
     eliminarUsuarioActual();

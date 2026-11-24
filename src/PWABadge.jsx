@@ -10,6 +10,7 @@ export function PWABadge() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(swUrl, registration) {
+      recargarAlCambiarControlador();
       if (periodoMs <= 0 || !registration) return;
       if (registration.active?.state === 'activated') {
         registrarSincronizacionPeriodica(periodoMs, swUrl, registration);
@@ -67,6 +68,25 @@ export function PWABadge() {
 }
 
 export default PWABadge;
+
+let recargaPorNuevoSWEnCurso = false;
+
+// Con skipWaiting + clientsClaim el service worker nuevo toma el control en cuanto
+// termina de precachear. Si esta pestaña venía del build anterior, sus chunks ya no
+// están en el precaché nuevo (cleanupOutdatedCaches los borra), así que recargamos
+// una sola vez al detectar el cambio de control para que la app use los chunks actuales.
+function recargarAlCambiarControlador() {
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
+  // Primera instalación (la página aún no tenía service worker): no hay nada viejo que reemplazar
+  if (!navigator.serviceWorker.controller) return;
+  if (recargaPorNuevoSWEnCurso) return;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (recargaPorNuevoSWEnCurso) return;
+    recargaPorNuevoSWEnCurso = true;
+    window.location.reload();
+  });
+}
 
 function registrarSincronizacionPeriodica(periodoMs, swUrl, registration) {
   if (periodoMs <= 0) return;

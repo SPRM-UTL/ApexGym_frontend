@@ -4,21 +4,25 @@ import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
 import {
     ActionIcon,
+    Alert,
     Badge,
     Button,
     Card,
     Group,
+    Modal,
     Paper,
     Select,
     SimpleGrid,
     Stack,
     Table,
     Text,
+    Textarea,
     ThemeIcon,
     Title,
     Tooltip,
 } from '@mantine/core';
 import {
+    IconAlertTriangle,
     IconArrowBackUp,
     IconCash,
     IconCashRegister,
@@ -366,9 +370,14 @@ export function Ventas() {
         ventasPendientesTotales,
         sincronizarAhora,
         exportarVentasOffline,
+        descartarVentaOffline,
+        reintentarVentaOffline,
         importarVentasOffline,
     } = useOffline();
     const archivoOfflineRef = useRef(null);
+    const [ventaDescartar, setVentaDescartar] = useState(null);
+    const [motivoDescarte, setMotivoDescarte] = useState('');
+    const [procesandoDescarte, setProcesandoDescarte] = useState(false);
 
     const [detalleVenta, setDetalleVenta] = useState(null);
     const [cargandoDetalle, setCargandoDetalle] = useState(false);
@@ -759,6 +768,30 @@ export function Ventas() {
         </Group>
     );
 
+    const abrirDescarte = (venta) => {
+        setVentaDescartar(venta);
+        setMotivoDescarte('');
+    };
+
+    const confirmarDescarte = async () => {
+        if (!ventaDescartar) return;
+        if (!motivoDescarte.trim()) {
+            notifications.show({
+                color: 'yellow',
+                message: 'Escribe el motivo del descarte para dejar rastro en el registro local.',
+            });
+            return;
+        }
+
+        setProcesandoDescarte(true);
+        const descartada = await descartarVentaOffline(ventaDescartar, motivoDescarte.trim());
+        setProcesandoDescarte(false);
+        if (descartada) {
+            setVentaDescartar(null);
+            setMotivoDescarte('');
+        }
+    };
+
     const manejarImportarArchivo = async (event) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -911,6 +944,44 @@ export function Ventas() {
                                     </Group>
                                 </Group>
 
+                                {ventasPendientes.filter((v) => v.estadoSync === 'ERROR').map((v) => (
+                                    <Alert
+                                        key={`error-offline-${v.uuidIdempotencia}`}
+                                        color="red"
+                                        variant="light"
+                                        icon={<IconAlertTriangle size={18} />}
+                                        title={`No se pudo sincronizar el folio ${v.folioLocal}`}
+                                    >
+                                        <Stack gap="xs">
+                                            <Text size="xs">
+                                                {v.ultimoError || 'El servidor rechazó esta venta al sincronizar.'}
+                                            </Text>
+                                            <Group gap="xs">
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    color="red"
+                                                    leftSection={<IconRefresh size={14} />}
+                                                    disabled={!isOnline}
+                                                    loading={sincronizando}
+                                                    onClick={() => reintentarVentaOffline(v)}
+                                                >
+                                                    Reintentar
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="subtle"
+                                                    color="gray"
+                                                    leftSection={<IconTrash size={14} />}
+                                                    onClick={() => abrirDescarte(v)}
+                                                >
+                                                    Descartar
+                                                </Button>
+                                            </Group>
+                                        </Stack>
+                                    </Alert>
+                                ))}
+
                                 {ventasPendientes.length > 0 && (
                                     <Table.ScrollContainer minWidth={600}>
                                         <Table striped highlightOnHover withTableBorder fz="xs">
@@ -975,6 +1046,41 @@ export function Ventas() {
                     </Stack>
                 )}
             />
+            <Modal
+                opened={Boolean(ventaDescartar)}
+                onClose={() => {
+                    if (!procesandoDescarte) setVentaDescartar(null);
+                }}
+                title="Descartar venta offline"
+                centered
+            >
+                <Stack gap="sm">
+                    <Text size="sm">
+                        La venta <strong>{ventaDescartar?.folioLocal}</strong> no se enviará al servidor.
+                        Quedará archivada en este dispositivo como descartada, con el motivo registrado.
+                    </Text>
+                    <Textarea
+                        label="Motivo"
+                        placeholder="Ej. venta duplicada, el cliente se retiró, artículo descontinuado..."
+                        value={motivoDescarte}
+                        onChange={(event) => setMotivoDescarte(event.currentTarget.value)}
+                        minRows={3}
+                        autosize
+                    />
+                    <Group justify="flex-end" gap="xs">
+                        <Button
+                            variant="default"
+                            onClick={() => setVentaDescartar(null)}
+                            disabled={procesandoDescarte}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button color="red" loading={procesandoDescarte} onClick={confirmarDescarte}>
+                            Descartar venta
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
             <DetalleVentaModal
                 venta={detalleVenta}
                 cargando={cargandoDetalle}

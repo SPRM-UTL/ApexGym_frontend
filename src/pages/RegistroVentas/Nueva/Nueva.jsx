@@ -99,7 +99,7 @@ export function Nueva() {
     const location = useLocation();
     const navigate = useNavigate();
     const { aperturas } = useCaja();
-    const { isOnline, refrescarEstadoLocal } = useOffline();
+    const { isOnline, refrescarEstadoLocal, verificarConexionApi } = useOffline();
     const [ventaPendiente] = useState(leerVentaPendiente);
     const [hora, setHora] = useState('');
     const [ventaCreada, setVentaCreada] = useState(null);
@@ -425,7 +425,11 @@ export function Nueva() {
         const pagoEfectivo = codigoMetodo === 'EFECTIVO';
         const pagoMercadoPago = codigoMetodo === 'MERCADO_PAGO';
         const montoPagado = Number(montoRecibido) || 0;
-        const enLineaActual = isOnline && (typeof navigator === 'undefined' || navigator.onLine !== false);
+        let enLineaActual = isOnline && (typeof navigator === 'undefined' || navigator.onLine !== false);
+        if (enLineaActual) {
+            // Sondeo previo: con Wi-Fi sin backend el cobro en línea fallaría al final
+            enLineaActual = await verificarConexionApi();
+        }
 
         const validacion = validarCobroWeb({
             metodoCodigo: codigoMetodo,
@@ -671,6 +675,8 @@ export function Nueva() {
                 <EncabezadoTabla
                     title="Nueva venta"
                     icon={IconShoppingCart}
+                    onBack={() => navigate('/registro-de-ventas')}
+                    backLabel="Volver a ventas"
                     rightContent={(
                         <>
                             {!isOnline && (

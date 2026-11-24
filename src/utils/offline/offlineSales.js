@@ -354,7 +354,7 @@ export async function listarVentasOffline({ sucursalId = null, soloPendientes = 
     if (sucursalId != null && Number(venta.sucursalId) !== Number(sucursalId)) {
       return false;
     }
-    if (soloPendientes && venta.estadoSync === 'SINCRONIZADA') {
+    if (soloPendientes && (venta.estadoSync === 'SINCRONIZADA' || venta.estadoSync === 'DESCARTADA')) {
       return false;
     }
     return true;
