@@ -1,4 +1,3 @@
-
 import classes from './Nueva.module.css';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../../scripts/services/api.js';
@@ -14,12 +13,12 @@ import {
 
 import {
     IconBottle,
-    IconCheck,
-    IconClipboardList,
     IconCash,
-    IconShoppingCart,
-    IconSearch,
+    IconClipboardList,
     IconClock,
+    IconSearch,
+    IconShoppingCart,
+    IconWifiOff,
 } from '@tabler/icons-react';
 import { EncabezadoTabla } from '../../../components/TablaRegistros/TablaRegistros.jsx';
 import ExportarDocumento from '../../../components/exportar-documento/ExportarDocumento.jsx';
@@ -33,6 +32,7 @@ import { useTicketVenta } from '../hooks/useTicketVenta.js';
 import { useCatalogosVenta } from '../hooks/useCatalogosVenta.js';
 import { useClientesVenta } from '../hooks/useClientesVenta.js';
 import { useCaja } from '../context/useCaja.js';
+import { useOffline } from '../../../context/OfflineContext.jsx';
 import {
     calcularMontos,
     calcularDescuentoUnitario,
@@ -44,6 +44,12 @@ import {
     obtenerMensajeSeguroVenta,
     obtenerVenta,
 } from '../../../utils/ventaHelper/ventaHelpers.js';
+import {
+    esMetodoPagoEfectivo,
+    normalizarCodigoMetodoPago,
+    validarCobroWeb,
+} from '../../../utils/offline/pagosValidacion.js';
+import { registrarVentaOffline } from '../../../utils/offline/offlineSales.js';
 
 
 const channel = new BroadcastChannel('app_sync_channel');
@@ -93,6 +99,7 @@ export function Nueva() {
     const location = useLocation();
     const navigate = useNavigate();
     const { aperturas } = useCaja();
+    const { isOnline, refrescarEstadoLocal, verificarConexionApi } = useOffline();
     const [ventaPendiente] = useState(leerVentaPendiente);
     const [hora, setHora] = useState('');
     const [ventaCreada, setVentaCreada] = useState(null);
@@ -179,6 +186,8 @@ export function Nueva() {
     const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
     const [montoRecibido, setMontoRecibido] = useState(ventaPendiente?.montoRecibido ?? 0);
     const llaveIdempotenciaRef = useRef(null);
+    const limpiarTicketsRef = useRef(limpiarTickets);
+    limpiarTicketsRef.current = limpiarTickets;
 
     useEffect(() => {
         if (!clienteId && !clienteSeleccionado && clienteDefault) {
@@ -186,6 +195,18 @@ export function Nueva() {
             setClienteSeleccionado(clienteDefault);
         }
     }, [clienteId, clienteSeleccionado, clienteDefault]);
+
+    useEffect(() => {
+        if (isOnline || metodosPago.length === 0) return;
+        const seleccionado = metodosPago.find((m) => String(m.id) === String(metodoPago));
+        if (seleccionado && esMetodoPagoEfectivo(seleccionado)) return;
+
+        const efectivo = metodosPago.find((m) => esMetodoPagoEfectivo(m));
+        if (efectivo) {
+            setMetodoPago(String(efectivo.id));
+            setMontoRecibido(0);
+        }
+    }, [isOnline, metodosPago, metodoPago]);
 
     useEffect(() => {
         triggerUpdate(listaProductos);
@@ -246,7 +267,7 @@ export function Nueva() {
             montoRecibido: registro.montoRecibido ?? montoRecibidoVenta,
             cambio: registro.cambio ?? cambioVenta,
             createdAt: registro.createdAt ?? new Date().toISOString(),
-            estado: 'completada',
+            estado: registro.estado ?? 'completada',
         });
         setModalCobroAbierto(false);
         setCobrando(false);
@@ -304,7 +325,7 @@ export function Nueva() {
                             estado: 'completada',
                         });
                         limpiarVentaPendiente();
-                        limpiarTickets();
+                        limpiarTicketsRef.current();
                     }
                 }
             } catch (err) {
@@ -320,7 +341,7 @@ export function Nueva() {
     const cambiarMetodoPago = (value) => {
         setMetodoPago(value);
         const metodo = metodosPago.find((item) => String(item.id) === String(value));
-        const pagoEfectivo = metodo?.codigo === 'EFECTIVO';
+        const pagoEfectivo = esMetodoPagoEfectivo(metodo);
         setMontoRecibido(
             value && !pagoEfectivo
                 ? calcularMontos(listaProductos).total
@@ -398,36 +419,40 @@ export function Nueva() {
             return;
         }
 
-        const { subtotal, total } = calcularMontos(listaProductos);
+        const { subtotal, iva, total } = calcularMontos(listaProductos);
         const metodoActual = metodosPago.find((item) => String(item.id) === String(metodoPago));
-        const pagoEfectivo = metodoActual?.codigo === 'EFECTIVO';
-        const pagoMercadoPago = metodoActual?.codigo === 'MERCADO_PAGO';
-        const pagoTarjeta = metodoActual?.codigo === 'TARJETA';
-        const pagoTransferencia = metodoActual?.codigo === 'TRANSFERENCIA';
+        const codigoMetodo = normalizarCodigoMetodoPago(metodoActual);
+        const pagoEfectivo = codigoMetodo === 'EFECTIVO';
+        const pagoMercadoPago = codigoMetodo === 'MERCADO_PAGO';
         const montoPagado = Number(montoRecibido) || 0;
-
-        if (pagoEfectivo && montoPagado < total) {
-            notifications.show({ color: 'yellow', message: 'El monto recibido no cubre el total de la venta.' });
-            return;
+        let enLineaActual = isOnline && (typeof navigator === 'undefined' || navigator.onLine !== false);
+        if (enLineaActual) {
+            // Sondeo previo: con Wi-Fi sin backend el cobro en línea fallaría al final
+            enLineaActual = await verificarConexionApi();
         }
 
-        const pagoPayload = pagoTarjeta
-            ? {
-                folioVoucher: datosTarjeta.folioVoucher?.trim() || null,
-                tipoTarjeta: datosTarjeta.tipoTarjeta || 'DEBITO',
-                marcaTarjeta: datosTarjeta.marcaTarjeta || 'VISA',
-                ultimosDigitos: datosTarjeta.ultimosDigitos?.trim() ? String(datosTarjeta.ultimosDigitos).trim() : null,
-            }
-            : (pagoTransferencia
-                ? {
-                    referenciaTransferencia: datosTransferencia.referencia?.trim() || null,
-                }
-                : undefined);
+        const validacion = validarCobroWeb({
+            metodoCodigo: codigoMetodo,
+            isOnline: enLineaActual,
+            total,
+            montoRecibido: montoPagado,
+            datosTarjeta,
+            datosTransferencia,
+        });
+
+        if (!validacion.valido) {
+            notifications.show({
+                color: validacion.codigoError === 'SOLO_EFECTIVO_OFFLINE' ? 'red' : 'yellow',
+                message: validacion.mensaje,
+            });
+            return;
+        }
 
         const detalleVenta = listaProductos.map((item) => {
             const precioUnitario = Number(item.precio);
             const linea = {
                 tipoItem: item.tipoItem,
+                articuloNombre: item.nombre,
                 cantidad: item.cantidad,
                 precioUnitario,
                 descuentoUnitario: calcularDescuentoUnitario(item),
@@ -440,7 +465,69 @@ export function Nueva() {
 
             return linea;
         });
+
         setCobrando(true);
+
+        if (!enLineaActual) {
+            try {
+                const registroOffline = await registrarVentaOffline({
+                    sucursalId: Number(sucursalId),
+                    empleadoId: Number(empleadoId),
+                    aperturaCajaId: Number(aperturaCajaId),
+                    clienteId: Number(clienteId),
+                    metodoPagoId: Number(metodoPago),
+                    metodoPago: metodoActual,
+                    subtotal,
+                    iva,
+                    total,
+                    montoRecibido: montoPagado,
+                    detalleVenta,
+                    cliente: clienteSeleccionado,
+                    empleado: {
+                        id: Number(empleadoId),
+                        nombre: aperturaAsignada?.label?.split(' — ')[1] ?? 'Empleado',
+                    },
+                    aperturaCaja: {
+                        id: Number(aperturaCajaId),
+                        caja: { nombre: aperturaAsignada?.label?.split(' — ')[0] ?? 'Caja' },
+                    },
+                });
+                await refrescarEstadoLocal(Number(sucursalId));
+
+                finalizarVentaCompletada({
+                    registro: {
+                        ...registroOffline,
+                        folioVentaId: registroOffline.folioLocal,
+                        estado: 'PENDIENTE_SYNC (Offline)',
+                    },
+                    detalleRegistrado: detalleVenta,
+                    metodoPagoUsado: metodoActual,
+                    totalVenta: total,
+                    montoRecibidoVenta: montoPagado,
+                    cambioVenta: registroOffline.cambio,
+                });
+
+                notifications.show({
+                    color: 'green',
+                    title: 'Venta offline guardada',
+                    message: `Folio local ${registroOffline.folioLocal}. Se sincronizará automáticamente al recuperar la conexión.`,
+                });
+            } catch (error) {
+                notifications.show({
+                    color: 'red',
+                    title: 'No se pudo guardar la venta offline',
+                    message: error?.message || 'Verifica los datos e inténtalo de nuevo.',
+                });
+                setCobrando(false);
+            }
+            return;
+        }
+
+        const detallePayload = detalleVenta.map((linea) => {
+            const copia = { ...linea };
+            delete copia.articuloNombre;
+            return copia;
+        });
 
         try {
             const uuidIdempotencia = pagoMercadoPago
@@ -454,134 +541,130 @@ export function Nueva() {
                 ...(pagoEfectivo ? { montoRecibido: montoPagado } : {}),
                 subtotal,
                 total,
-                detalleVenta,
-                ...(pagoPayload ? { pago: pagoPayload } : {}),
+                detalleVenta: detallePayload,
+                ...(validacion.payloadPago ? { pago: validacion.payloadPago } : {}),
             }, sucursalId, uuidIdempotencia);
 
-        const registro = obtenerVenta(respuesta) ?? {};
+            const registro = obtenerVenta(respuesta) ?? {};
 
-        const detalleRegistrado = Array.isArray(registro.detalleVenta)
-            ? registro.detalleVenta
-            : listaProductos.map((item) => {
-                const detalle = detalleVenta.find((linea) =>
-                    String(linea.tipoItem ?? '').toUpperCase() === item.tipoItem &&
-                    String(linea.productoId ?? linea.servicioId ?? linea.tipoMembresiaId) === String(item.id)
-                );
-                return {
-                    ...detalle,
-                    articuloNombre: item.nombre,
-                    cantidad: item.cantidad,
-                    precioUnitario: Number(item.precio),
-                    descuentoUnitario: calcularDescuentoUnitario(item),
-                    subtotal: calcularSubtotalLinea(item),
-                    tipoItem: item.tipoItem,
-                };
-            });
+            const detalleRegistrado = Array.isArray(registro.detalleVenta)
+                ? registro.detalleVenta
+                : listaProductos.map((item) => {
+                    const detalle = detallePayload.find((linea) =>
+                        String(linea.tipoItem ?? '').toUpperCase() === item.tipoItem &&
+                        String(linea.productoId ?? linea.servicioId ?? linea.tipoMembresiaId) === String(item.id)
+                    );
+                    return {
+                        ...detalle,
+                        articuloNombre: item.nombre,
+                        cantidad: item.cantidad,
+                        precioUnitario: Number(item.precio),
+                        descuentoUnitario: calcularDescuentoUnitario(item),
+                        subtotal: calcularSubtotalLinea(item),
+                        tipoItem: item.tipoItem,
+                    };
+                });
 
-        if (pagoMercadoPago) {
-            if (registro.pagoDigital?.yaPagada || registro.estado === 'completada') {
-                notifications.show({ color: 'green', message: 'Esta venta ya cuenta con un pago confirmado.' });
-                finalizarVentaCompletada({
+            if (pagoMercadoPago) {
+                if (registro.pagoDigital?.yaPagada || registro.estado === 'completada') {
+                    notifications.show({ color: 'green', message: 'Esta venta ya cuenta con un pago confirmado.' });
+                    finalizarVentaCompletada({
+                        registro,
+                        detalleRegistrado,
+                        metodoPagoUsado: metodoActual,
+                        totalVenta: total,
+                        montoRecibidoVenta: total,
+                        cambioVenta: 0,
+                    });
+                    return;
+                }
+                const urlCheckout = registro.pagoDigital?.urlCheckout;
+                if (!urlCheckout) {
+                    throw new Error('La venta quedó pendiente, pero Mercado Pago no devolvió el enlace de pago. Reintenta sin cambiar el carrito.');
+                }
+
+                window.open(urlCheckout, '_blank');
+
+                setEsperaMp({
+                    ventaId: registro.id,
+                    folio: registro.folioVentaId ?? registro.id,
+                    total,
+                    urlCheckout,
                     registro,
                     detalleRegistrado,
                     metodoPagoUsado: metodoActual,
-                    totalVenta: total,
-                    montoRecibidoVenta: total,
-                    cambioVenta: 0,
+                    estado: 'ESPERANDO',
                 });
+                setModalCobroAbierto(false);
+                setCobrando(false);
                 return;
             }
-            const urlCheckout = registro.pagoDigital?.urlCheckout;
-            if (!urlCheckout) {
-                throw new Error('La venta quedó pendiente, pero Mercado Pago no devolvió el enlace de pago. Reintenta sin cambiar el carrito.');
-            }
 
-            // Abrir pasarela de pago en ventana/pestaña nueva para que el cajero permanezca en Nueva Venta
-            window.open(urlCheckout, '_blank');
-
-            // Abrir modal de espera en tiempo real en Nueva Venta
-            setEsperaMp({
-                ventaId: registro.id,
-                folio: registro.folioVentaId ?? registro.id,
-                total,
-                urlCheckout,
+            finalizarVentaCompletada({
                 registro,
                 detalleRegistrado,
                 metodoPagoUsado: metodoActual,
-                estado: 'ESPERANDO',
+                totalVenta: total,
+                montoRecibidoVenta: pagoEfectivo ? montoPagado : total,
+                cambioVenta: pagoEfectivo ? Math.max(0, redondear(montoPagado - total)) : 0,
             });
-            setModalCobroAbierto(false);
-            setCobrando(false);
-            return;
-        }
-
-        finalizarVentaCompletada({
-            registro,
-            detalleRegistrado,
-            metodoPagoUsado: metodoActual,
-            totalVenta: total,
-            montoRecibidoVenta: pagoEfectivo ? montoPagado : total,
-            cambioVenta: pagoEfectivo ? Math.max(0, redondear(montoPagado - total)) : 0,
-        });
-        notifications.show({
-            color: 'green',
-            message: 'Venta creada correctamente.',
-        });
-    } catch (error) {
-        if (pagoMercadoPago && error.statusCode && error.statusCode < 500) {
-            llaveIdempotenciaRef.current = null;
-        }
-        if (esErrorCajaCerrada(error)) {
-            try {
-                sessionStorage.setItem(VENTA_PENDIENTE_KEY, JSON.stringify({
-                    listaProductos,
-                    listaCaja1,
-                    listaCaja2,
-                    cajaActual,
-                    clienteId,
-                    clienteSeleccionado,
-                    metodoPago,
-                    montoRecibido,
-                }));
-            } catch (errorAlGuardar) {
-                console.error('No se pudo conservar el carrito antes de abrir la caja.', errorAlGuardar);
-                notifications.show({
-                    color: 'yellow',
-                    message: 'No se pudo guardar el carrito. Anota los artículos antes de continuar.',
-                });
+            notifications.show({
+                color: 'green',
+                message: 'Venta creada correctamente.',
+            });
+        } catch (error) {
+            if (pagoMercadoPago && error.statusCode && error.statusCode < 500) {
+                llaveIdempotenciaRef.current = null;
             }
+            if (esErrorCajaCerrada(error)) {
+                try {
+                    sessionStorage.setItem(VENTA_PENDIENTE_KEY, JSON.stringify({
+                        listaProductos,
+                        listaCaja1,
+                        listaCaja2,
+                        cajaActual,
+                        clienteId,
+                        clienteSeleccionado,
+                        metodoPago,
+                        montoRecibido,
+                    }));
+                } catch (errorAlGuardar) {
+                    console.error('No se pudo conservar el carrito antes de abrir la caja.', errorAlGuardar);
+                    notifications.show({
+                        color: 'yellow',
+                        message: 'No se pudo guardar el carrito. Anota los artículos antes de continuar.',
+                    });
+                }
+                notifications.show({
+                    color: 'red',
+                    message: 'La caja ya no está abierta. Abre una caja para continuar con la venta.',
+                });
+                navigate('/apertura-caja', { replace: true, state: { from: location } });
+                return;
+            }
+
+            const detalleError = String(error.message ?? '');
             notifications.show({
                 color: 'red',
-                message: 'La caja ya no está abierta. Abre una caja para continuar con la venta.',
+                title: 'No se pudo completar la venta',
+                message: obtenerMensajeSeguroVenta(error, 'la venta'),
             });
-            navigate('/apertura-caja', { replace: true, state: { from: location } });
-            return;
+            if (
+                error.statusCode === 400
+                && /producto|servicio|membres[ií]a|disponible|inactiv[oa]/i.test(detalleError)
+            ) {
+                await recargarCatalogosVenta();
+            }
+        } finally {
+            setCobrando(false);
         }
-
-        const detalleError = String(error.message ?? '');
-        notifications.show({
-            color: 'red',
-            title: 'No se pudo completar la venta',
-            message: obtenerMensajeSeguroVenta(error, 'la venta'),
-        });
-        if (
-            error.statusCode === 400
-            && /producto|servicio|membres[ií]a|disponible|inactiv[oa]/i.test(detalleError)
-        ) {
-            await recargarCatalogosVenta();
-        }
-    } finally {
-        setCobrando(false);
-    }
     };
-
-
 
     const totalVenta = calcularMontos(listaProductos).total;
     const metodoPagoSeleccionado = metodosPago.find(
         (metodo) => String(metodo.id) === String(metodoPago)
     );
-    const esPagoEfectivo = metodoPagoSeleccionado?.codigo === 'EFECTIVO';
+    const esPagoEfectivo = esMetodoPagoEfectivo(metodoPagoSeleccionado);
     const cambio = esPagoEfectivo
         ? Math.max(0, redondear((Number(montoRecibido) || 0) - totalVenta))
         : 0;
@@ -592,8 +675,20 @@ export function Nueva() {
                 <EncabezadoTabla
                     title="Nueva venta"
                     icon={IconShoppingCart}
+                    onBack={() => navigate('/registro-de-ventas')}
+                    backLabel="Volver a ventas"
                     rightContent={(
                         <>
+                            {!isOnline && (
+                                <Badge
+                                    size="lg"
+                                    color="red"
+                                    variant="filled"
+                                    leftSection={<IconWifiOff size={15} />}
+                                >
+                                    Sin conexión · Solo efectivo
+                                </Badge>
+                            )}
                             <Title order={4}>Caja {cajaActual}</Title>
                             <Badge size="lg" variant="light" leftSection={<IconClock size={15} />}>
                                 {hora}
@@ -620,29 +715,23 @@ export function Nueva() {
                                 <Tabs.List className={classes.tabsList}>
                                     <Tabs.Tab
                                         value="productos"
-                                        leftSection={
-                                            <IconBottle size={17} />
-                                        }
+                                        leftSection={<IconBottle size={17} />}
                                     >
                                         Productos
                                     </Tabs.Tab>
 
                                     <Tabs.Tab
                                         value="servicios"
-                                        leftSection={
-                                            <IconCash size={17} />
-                                        }
+                                        leftSection={<IconCash size={17} />}
                                     >
                                         Servicios
                                     </Tabs.Tab>
 
                                     <Tabs.Tab
                                         value="membresias"
-                                        leftSection={
-                                            <IconClipboardList size={17} />
-                                        }
+                                        leftSection={<IconClipboardList size={17} />}
                                     >
-                                        Membresias
+                                        Membresías
                                     </Tabs.Tab>
                                 </Tabs.List>
                                 <div className={classes.catalogoFiltrosToolbar}>
@@ -702,7 +791,7 @@ export function Nueva() {
                                 </div>
                             </div>
 
-                           <Tabs.Panel value="productos" className={classes.tabsPanel}>
+                            <Tabs.Panel value="productos" className={classes.tabsPanel}>
                                 <ListaProductos
                                     tipoItem="PRODUCTO"
                                     productos={productos}
@@ -748,22 +837,24 @@ export function Nueva() {
                     </Paper>
                 </div>
             </div>
-            <Ticket  productos={listaProductos}
-    sumar={sumar}
-    restar={restar}
-    eliminarProducto={eliminarProducto}
-    eliminarTicket={eliminarTicket}
-    cambiarCaja={cambiarCaja}
-    cajaActual={cajaActual}
-    onCobrar={abrirModalCobro}
-    cobrando={cobrando}
-    ></Ticket>
+            <Ticket
+                productos={listaProductos}
+                sumar={sumar}
+                restar={restar}
+                eliminarProducto={eliminarProducto}
+                eliminarTicket={eliminarTicket}
+                cambiarCaja={cambiarCaja}
+                cajaActual={cajaActual}
+                onCobrar={abrirModalCobro}
+                cobrando={cobrando}
+            />
             <ModalCobroVenta
                 opened={modalCobroAbierto}
                 onClose={() => {
                     if (!cobrando) setModalCobroAbierto(false);
                 }}
                 asignacionValida={asignacionValida}
+                isOnline={isOnline}
                 clientes={clientes}
                 clienteDefault={clienteDefault}
                 clienteSeleccionado={clienteSeleccionado}
@@ -813,6 +904,4 @@ export function Nueva() {
             )}
         </div>
     );
-
-    
 }

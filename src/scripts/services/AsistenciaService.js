@@ -47,4 +47,11 @@ export class AsistenciaService extends CatalogoService {
             'Error al obtener historial del cliente'
         );
     }
+
+    obtenerMiQr() {
+        return this.ejecutar(
+            () => httpClient.get(`${this.urlApi}/mi-qr`),
+            'Error al obtener mi pase QR'
+        );
+    }
 }

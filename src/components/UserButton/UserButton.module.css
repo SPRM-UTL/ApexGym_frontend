@@ -1,7 +1,13 @@
+.wrapper {
+    min-width: 0;
+}
+
 .user {
-    display: block;
-    max-width: 280px;
-    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    max-width: 260px;
+    padding: 4px 10px;
     color: #ffffff;
     background: transparent;
     border: 1px solid transparent;
@@ -11,8 +17,14 @@
     transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 
     &:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.14);
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--ag-color-primary);
+        outline-offset: 2px;
+        box-shadow: var(--ag-focus-ring);
     }
 
     &:active {
@@ -35,5 +47,15 @@
 }
 
 .meta {
-    opacity: 0.78;
+    opacity: 0.9;
+}
+
+@media (max-width: 640px) {
+    .details {
+        display: none;
+    }
+
+    .user {
+        padding: 4px 6px;
+    }
 }

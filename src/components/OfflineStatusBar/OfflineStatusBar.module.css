@@ -1,0 +1,216 @@
+
+/* Botón de acción flotante */
+.fab {
+  position: fixed !important;
+  right: 24px;
+  bottom: 24px;
+  z-index: 200;
+
+  width: 52px !important;
+  height: 52px !important;
+
+  border: 2px solid var(--ag-color-surface-elevated);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.25);
+}
+
+.fab:active {
+  transform: scale(0.94);
+}
+
+@media (max-width: 768px) {
+  .fab {
+    right: 16px;
+    bottom: 16px;
+    width: 48px !important;
+    height: 48px !important;
+  }
+}
+
+.bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* Estado sin conexión */
+.barOffline {
+  background-color: transparent;
+  border: none;
+}
+
+/* Información de estados */
+.statusCluster {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+
+  width: 100%;
+  min-width: 0;
+}
+
+/* Etiquetas */
+.statusCluster :global(.mantine-Badge-root) {
+  max-width: 100%;
+  min-height: 26px;
+  height: auto;
+  padding: 5px 9px;
+
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: normal;
+}
+
+.badgeOnline {
+  background-color: var(--ag-color-success) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.badgeOffline {
+  background-color: var(--ag-color-danger) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.badgeLocalYes {
+  background-color: var(--ag-color-info-soft) !important;
+  color: var(--ag-color-info) !important;
+  border: 1px solid rgba(29, 78, 216, 0.25);
+  font-weight: 700;
+}
+
+.badgeLocalNo {
+  background-color: var(--ag-color-warning-soft) !important;
+  color: var(--ag-color-warning) !important;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  font-weight: 700;
+}
+
+.badgePending {
+  background-color: var(--ag-color-warning) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.badgeClear {
+  background-color: #e2e8f0 !important;
+  color: var(--ag-text-primary) !important;
+  font-weight: 600;
+}
+
+/* Última sincronización */
+.syncTimestamp {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+
+  color: var(--ag-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.errorText {
+  width: 100%;
+  padding: 9px 11px;
+
+  color: var(--ag-color-danger);
+  background-color: var(--ag-color-danger-soft);
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Acciones */
+.actionsCluster {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px !important;
+
+  width: 100%;
+  margin-top: 2px;
+}
+
+/* Botones */
+.actionsCluster :global(.mantine-Button-root) {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 9px;
+
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 650;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btnPrimary {
+  background-color: var(--ag-color-primary-dark) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+}
+
+.btnSecondary {
+  background-color: var(--ag-color-surface-elevated) !important;
+  color: var(--ag-text-primary) !important;
+  border: 1px solid var(--ag-color-border) !important;
+  font-weight: 600;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background-color: var(--ag-color-surface) !important;
+  border-color: var(--ag-color-primary) !important;
+}
+
+/* Input de importación */
+.hiddenInput {
+  display: none;
+}
+
+/* Diagnóstico */
+.bar :global(.mantine-Modal-content) {
+  border-radius: 12px;
+}
+
+/* Adaptación a paneles estrechos */
+@media (max-width: 400px) {
+  .bar {
+    gap: 13px;
+  }
+
+  .actionsCluster {
+    grid-template-columns: 1fr;
+  }
+
+  .actionsCluster :global(.mantine-Button-root) {
+    min-height: 40px;
+  }
+}

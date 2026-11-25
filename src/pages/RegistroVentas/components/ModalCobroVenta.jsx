@@ -1,7 +1,6 @@
 import {
     Alert,
     Button,
-    Checkbox,
     Group,
     Loader,
     Modal,
@@ -13,13 +12,25 @@ import {
     Text,
     TextInput,
 } from '@mantine/core';
-import { IconCash, IconCreditCard, IconInfoCircle, IconReceipt2, IconUser } from '@tabler/icons-react';
+import {
+    IconCash,
+    IconCreditCard,
+    IconInfoCircle,
+    IconReceipt2,
+    IconUser,
+    IconWifiOff,
+} from '@tabler/icons-react';
 import { redondear } from '../utils/venta.utils.js';
+import {
+    normalizarCodigoMetodoPago,
+    validarCobroWeb,
+} from '../../../utils/offline/pagosValidacion.js';
 
 export function ModalCobroVenta({
     opened,
     onClose,
     asignacionValida,
+    isOnline = true,
     clientes,
     clienteDefault,
     clienteSeleccionado,
@@ -60,17 +71,27 @@ export function ModalCobroVenta({
     })();
 
     const metodoSeleccionado = metodosPago.find((item) => String(item.id) === String(metodoPago));
-    const esEfectivo = esPagoEfectivo || metodoSeleccionado?.codigo === 'EFECTIVO';
-    const esTarjeta = metodoSeleccionado?.codigo === 'TARJETA';
-    const esTransferencia = metodoSeleccionado?.codigo === 'TRANSFERENCIA';
-    const esDigital = metodoSeleccionado?.codigo === 'MERCADO_PAGO';
+    const codigoMetodo = normalizarCodigoMetodoPago(metodoSeleccionado);
+    const esEfectivo = esPagoEfectivo || codigoMetodo === 'EFECTIVO';
+    const esTarjeta = codigoMetodo === 'TARJETA';
+    const esTransferencia = codigoMetodo === 'TRANSFERENCIA';
+    const esDigital = codigoMetodo === 'MERCADO_PAGO';
 
-    const efectivoValido = !esEfectivo || Number(montoRecibido || 0) >= total;
+    const validacionCobro = metodoSeleccionado
+        ? validarCobroWeb({
+            metodoPago: metodoSeleccionado,
+            isOnline,
+            total,
+            montoRecibido,
+            datosTarjeta,
+            datosTransferencia,
+        })
+        : { valido: false, mensaje: '' };
 
     const puedeConfirmar = asignacionValida
         && Boolean(metodoPago)
         && Boolean(clienteId)
-        && efectivoValido;
+        && validacionCobro.valido;
 
     return (
         <Modal
@@ -84,6 +105,17 @@ export function ModalCobroVenta({
             closeOnEscape={!cobrando}
         >
             <Stack>
+                {!isOnline && (
+                    <Alert
+                        color="orange"
+                        variant="light"
+                        icon={<IconWifiOff size={18} />}
+                        title="Modo sin conexión: solo efectivo"
+                    >
+                        Sin conexión a internet únicamente se permiten pagos en <strong>EFECTIVO</strong>. La venta se guardará en la cola local y se sincronizará al reconectar.
+                    </Alert>
+                )}
+
                 {!asignacionValida && (
                     <Alert color="red" title="Faltan datos para completar la venta">
                         Necesitas una caja abierta asignada para registrar esta venta.
@@ -129,10 +161,15 @@ export function ModalCobroVenta({
                     value={metodoPago}
                     onChange={onMetodoPagoChange}
                     comboboxProps={{ zIndex: 1400 }}
-                    data={metodosPago.map((metodo) => ({
-                        value: String(metodo.id),
-                        label: metodo.nombre,
-                    }))}
+                    data={metodosPago.map((metodo) => {
+                        const esMetodoEfectivo = normalizarCodigoMetodoPago(metodo) === 'EFECTIVO';
+                        const deshabilitado = !isOnline && !esMetodoEfectivo;
+                        return {
+                            value: String(metodo.id),
+                            label: deshabilitado ? `${metodo.nombre} (requiere conexión)` : metodo.nombre,
+                            disabled: deshabilitado,
+                        };
+                    })}
                 />
                 <Group justify="space-between">
                     <Text fw={700}>Total a pagar</Text>
@@ -270,6 +307,13 @@ export function ModalCobroVenta({
                         Al confirmar se generará el enlace de pago de Mercado Pago para procesar la transacción.
                     </Alert>
                 )}
+
+                {metodoSeleccionado && !validacionCobro.valido && validacionCobro.codigoError !== 'MONTO_INSUFICIENTE' && (
+                    <Alert color="red" variant="light">
+                        {validacionCobro.mensaje}
+                    </Alert>
+                )}
+
                 <Group justify="flex-end">
                     <Button variant="default" onClick={onClose} disabled={cobrando}>
                         Volver
@@ -280,7 +324,7 @@ export function ModalCobroVenta({
                         loading={cobrando}
                         disabled={!puedeConfirmar}
                     >
-                        Confirmar venta
+                        {isOnline ? 'Confirmar venta' : 'Guardar venta offline (Efectivo)'}
                     </Button>
                 </Group>
             </Stack>

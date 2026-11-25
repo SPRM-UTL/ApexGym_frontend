@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { esUsuarioCliente } from '../scripts/constantes.js';
 import { api } from '../scripts/services/api.js';
 
 const STORAGE_KEY_EMPRESA = 'apexgym_empresa_actual';
@@ -64,6 +65,9 @@ export function EmpresaProvider({ estaLogeadoEn, children }) {
     const [cargandoEmpresa, setCargandoEmpresa] = useState(false);
 
     const recargarEmpresa = useCallback(async () => {
+        if (esUsuarioCliente()) {
+            return obtenerEmpresaCache();
+        }
         setCargandoEmpresa(true);
         try {
             const respuesta = await api.empresa.obtenerActual();
