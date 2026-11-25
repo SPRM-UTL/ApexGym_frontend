@@ -233,6 +233,7 @@ export function TiposMembresia() {
             permitirEliminar={false}
             formMode="drawer"
             drawerSize={560}
+            permitirEditar={false}
             headerVariant="unified"
             tableHeaderVariant="neutral"
         />
