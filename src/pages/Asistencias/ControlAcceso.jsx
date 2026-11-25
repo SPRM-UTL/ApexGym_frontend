@@ -17,7 +17,10 @@ import {
     ActionIcon,
     Tooltip,
     Divider,
-    Textarea
+    Textarea,
+    Modal,
+    Alert,
+    Progress
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -34,37 +37,85 @@ import {
     IconMail,
     IconNotes,
     IconShieldCheck,
-    IconHistory
+    IconHistory,
+    IconQrcode,
+    IconCamera,
+    IconBarcode,
+    IconAlertTriangle,
+    IconVolume,
+    IconVolumeOff
 } from '@tabler/icons-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { DrawerRegistrarVisita } from './DrawerRegistrarVisita.jsx';
 import { HistorialAsistencias } from './HistorialAsistencias.jsx';
 
+/**
+ * Emite sonido sintetizado de acceso autorizado o denegado mediante Web Audio API
+ */
+function reproducirSonidoAcceso(autorizado) {
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const audioCtx = new AudioContextClass();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (autorizado) {
+            // Tono agudo de éxito (D5 -> A5)
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.35);
+        } else {
+            // Tono grave de denegación (A3 -> F3)
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(174.61, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.45);
+        }
+    } catch {
+        // Ignorar si el navegador restringe audio sin interacción previa
+    }
+}
+
 export function ControlAcceso() {
     cambioNombreWeb('Control de Accesos y Visitas');
 
-    // Estados de navegación y Drawer
+    // Navegación de pestañas y modales
     const [tabActiva, setTabActiva] = useState('recepcion');
     const [drawerVisitaAbierto, setDrawerVisitaAbierto] = useState(false);
+    const [modalCamaraAbierto, setModalCamaraAbierto] = useState(false);
     const [refreshHistorialKey, setRefreshHistorialKey] = useState(0);
+    const [sonidoHabilitado, setSonidoHabilitado] = useState(true);
 
-    // Búsqueda de socio
+    // Entrada de búsqueda / lector rápido
     const [busqueda, setBusqueda] = useState('');
     const [buscando, setBuscando] = useState(false);
     const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
     const [mostrarResultados, setMostrarResultados] = useState(false);
 
-    // Socio seleccionado y validación
+    // Estado del Semáforo Flash en vivo (resultado del último escaneo o validación)
+    const [resultadoSemaforo, setResultadoSemaforo] = useState(null);
+    // { acceso: boolean, codigo, mensaje, cliente, membresia, diasRestantes, fechaExpiracion, advertencia, tipoAcceso }
+    const [temporizadorSemaforo, setTemporizadorSemaforo] = useState(null);
+
+    // Flujo de confirmación manual de socio seleccionado
     const [socioSeleccionado, setSocioSeleccionado] = useState(null);
-    const [estadoValidacion, setEstadoValidacion] = useState(null); 
-    // { acceso: boolean, codigo, membresia, diasRestantes, fechaExpiracion, mensaje }
     const [validandoMembresia, setValidandoMembresia] = useState(false);
     const [registrandoIngreso, setRegistrandoIngreso] = useState(false);
     const [observacionesIngreso, setObservacionesIngreso] = useState('');
 
-    // Ref para autofocus continuo
+    // Referencias
     const inputBusquedaRef = useRef(null);
+    const html5QrCodeRef = useRef(null);
 
     const enfocarBusqueda = useCallback(() => {
         setTimeout(() => {
@@ -78,9 +129,77 @@ export function ControlAcceso() {
         enfocarBusqueda();
     }, [enfocarBusqueda, tabActiva]);
 
-    // Búsqueda en vivo con debounce de 300ms
+    // Limpieza de temporizadores al desmontar
+    useEffect(() => {
+        return () => {
+            if (temporizadorSemaforo) clearTimeout(temporizadorSemaforo);
+        };
+    }, [temporizadorSemaforo]);
+
+    // Control de la cámara Web para escaneo QR
+    useEffect(() => {
+        if (!modalCamaraAbierto) {
+            if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+                html5QrCodeRef.current.stop()
+                    .then(() => html5QrCodeRef.current.clear())
+                    .catch((e) => console.error('Error deteniendo escáner:', e));
+            }
+            return;
+        }
+
+        let isMounted = true;
+        const startScanner = async () => {
+            try {
+                // Esperar a que el elemento DOM del modal exista
+                await new Promise((r) => setTimeout(r, 300));
+                if (!isMounted) return;
+
+                const scanner = new Html5Qrcode('qr-reader-container');
+                html5QrCodeRef.current = scanner;
+
+                await scanner.start(
+                    { facingMode: 'environment' },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        // QR detectado con éxito
+                        setModalCamaraAbierto(false);
+                        procesarEscaneoRapido(decodedText);
+                    },
+                    () => {}
+                );
+            } catch (err) {
+                console.error('Error al inicializar cámara QR:', err);
+                notifications.show({
+                    title: 'Cámara no disponible',
+                    message: 'No se pudo acceder a la cámara web. Puedes usar el lector de código de barras o búsqueda rápida.',
+                    color: 'orange'
+                });
+                setModalCamaraAbierto(false);
+            }
+        };
+
+        startScanner();
+
+        return () => {
+            isMounted = false;
+            if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+                html5QrCodeRef.current.stop()
+                    .then(() => html5QrCodeRef.current.clear())
+                    .catch((e) => console.error('Error limpiando cámara:', e));
+            }
+        };
+    }, [modalCamaraAbierto]);
+
+    // Autocompletado de búsqueda con debounce para nombres
     useEffect(() => {
         const query = busqueda.trim();
+        // Si parece un payload QR de ráfaga o ID exacto (#00001), no buscar en vivo por letras
+        if (query.startsWith('APEXGYM|') || query.startsWith('APX-')) {
+            setResultadosBusqueda([]);
+            setMostrarResultados(false);
+            return;
+        }
+
         if (query.length < 2) {
             setResultadosBusqueda([]);
             setMostrarResultados(false);
@@ -105,14 +224,101 @@ export function ControlAcceso() {
         return () => clearTimeout(timer);
     }, [busqueda]);
 
-    // Seleccionar socio para pre-validación visual
+    // Activar semáforo visual con auto-ocultamiento programado
+    const mostrarSemaforo = (datos) => {
+        if (temporizadorSemaforo) clearTimeout(temporizadorSemaforo);
+        setResultadoSemaforo(datos);
+
+        if (sonidoHabilitado) {
+            reproducirSonidoAcceso(datos.acceso);
+        }
+
+        // Si el acceso fue autorizado, limpiar en 5 segundos automáticamente
+        // Si fue denegado, dejarlo 7 segundos para que el recepcionista atienda la incidencia
+        const duracion = datos.acceso ? 5000 : 7000;
+        const timer = setTimeout(() => {
+            setResultadoSemaforo(null);
+            enfocarBusqueda();
+        }, duracion);
+        setTemporizadorSemaforo(timer);
+    };
+
+    // Procesar código inmediato (Pistola Láser USB, Escáner QR o Enter en campo)
+    const procesarEscaneoRapido = async (codigoOTexto) => {
+        const valor = (codigoOTexto || busqueda).trim();
+        if (!valor) return;
+
+        setBusqueda('');
+        setMostrarResultados(false);
+        setSocioSeleccionado(null);
+
+        try {
+            setBuscando(true);
+            const res = await api.asistencia.escanearAcceso(valor, observacionesIngreso);
+
+            if (res.responseFlag === 0 && res.data) {
+                const data = res.data;
+                const diasRestantes = data.diasRestantes ?? 0;
+                const advertencia = data.acceso && diasRestantes <= 3;
+
+                mostrarSemaforo({
+                    acceso: data.acceso,
+                    codigo: data.codigo,
+                    mensaje: data.mensaje || (data.acceso ? 'Acceso Autorizado' : 'Acceso Denegado'),
+                    cliente: data.cliente,
+                    membresia: data.membresia,
+                    diasRestantes,
+                    fechaExpiracion: data.fechaExpiracion,
+                    advertencia,
+                    metodo: valor.startsWith('APEXGYM|') || valor.startsWith('APX-') ? 'Pase QR' : 'Credencial / Código'
+                });
+
+                if (data.acceso) {
+                    setRefreshHistorialKey((k) => k + 1);
+                }
+            } else {
+                throw new Error(res.message || 'Error al validar código');
+            }
+        } catch (err) {
+            console.error('Error en escaneo rápido:', err);
+            mostrarSemaforo({
+                acceso: false,
+                codigo: 'ERROR',
+                mensaje: err.message || 'Código no reconocido o socio inexistente',
+                cliente: null,
+                membresia: null
+            });
+        } finally {
+            setBuscando(false);
+            setObservacionesIngreso('');
+            enfocarBusqueda();
+        }
+    };
+
+    // Manejar presionar Enter en el input de búsqueda (pistola lectora o tecleo manual de ID)
+    const handleKeyDownBusqueda = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = busqueda.trim();
+            if (!query) return;
+
+            // Si hay un solo resultado desplegado y coincide con la búsqueda
+            if (resultadosBusqueda.length === 1 && mostrarResultados) {
+                seleccionarSocio(resultadosBusqueda[0]);
+            } else {
+                // Procesar como escaneo rápido de código o ID
+                procesarEscaneoRapido(query);
+            }
+        }
+    };
+
+    // Seleccionar socio desde la lista desplegable para revisión manual
     const seleccionarSocio = async (cliente) => {
         setSocioSeleccionado(cliente);
         setMostrarResultados(false);
         setBusqueda('');
         setObservacionesIngreso('');
 
-        // Consultar membresía activa del cliente para semáforo visual
         try {
             setValidandoMembresia(true);
             const res = await api.clienteMembresia.obtenerActivaPorCliente(cliente.id);
@@ -126,53 +332,58 @@ export function ControlAcceso() {
                 const diffTime = fin.getTime() - hoy.getTime();
                 const diasRestantes = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-                setEstadoValidacion({
+                mostrarSemaforo({
                     acceso: true,
                     codigo: 'ACCESO_AUTORIZADO',
+                    mensaje: 'Membresía Vigente - Listo para confirmar ingreso',
+                    cliente,
                     membresia: membresiaActiva,
                     diasRestantes,
                     fechaExpiracion: membresiaActiva.fechaFin,
-                    mensaje: 'Acceso Autorizado - Membresía Vigente'
+                    advertencia: diasRestantes <= 3,
+                    metodo: 'Búsqueda Manual'
                 });
             } else {
-                // Consultar última membresía para saber cuándo expiró
                 const resHistorial = await api.clienteMembresia.obtenerHistorialPorCliente(cliente.id);
                 const historial = Array.isArray(resHistorial.data) ? resHistorial.data : [];
                 const ultima = historial.length > 0 ? historial[0] : null;
 
                 let mensajeDetalle = 'Membresía Inexistente o Sin Asignar';
                 if (ultima && ultima.fechaFin) {
-                    const fechaFinUTC = new Date(ultima.fechaFin);
-                    const d = String(fechaFinUTC.getUTCDate()).padStart(2, '0');
-                    const m = String(fechaFinUTC.getUTCMonth() + 1).padStart(2, '0');
-                    const y = fechaFinUTC.getUTCFullYear();
+                    const f = new Date(ultima.fechaFin);
+                    const d = String(f.getUTCDate()).padStart(2, '0');
+                    const m = String(f.getUTCMonth() + 1).padStart(2, '0');
+                    const y = f.getUTCFullYear();
                     mensajeDetalle = `Membresía Vencida el ${d}/${m}/${y}`;
                 }
 
-                setEstadoValidacion({
+                mostrarSemaforo({
                     acceso: false,
                     codigo: 'ACCESO_DENEGADO',
+                    mensaje: `Acceso Denegado - ${mensajeDetalle}`,
+                    cliente,
                     membresia: ultima,
                     diasRestantes: 0,
                     fechaExpiracion: ultima?.fechaFin || null,
-                    mensaje: `Acceso Denegado - ${mensajeDetalle}`
+                    advertencia: false,
+                    metodo: 'Búsqueda Manual'
                 });
             }
         } catch (err) {
             console.error('Error pre-validando membresía:', err);
-            setEstadoValidacion({
+            mostrarSemaforo({
                 acceso: false,
                 codigo: 'ERROR',
-                membresia: null,
-                mensaje: 'Error al verificar vigencia de membresía'
+                mensaje: 'Error al verificar vigencia de membresía',
+                cliente
             });
         } finally {
             setValidandoMembresia(false);
         }
     };
 
-    // Confirmar y registrar ingreso en el sistema
-    const confirmarIngreso = async () => {
+    // Confirmar ingreso manual de socio previamente seleccionado
+    const confirmarIngresoManual = async () => {
         if (!socioSeleccionado) return;
 
         try {
@@ -191,9 +402,7 @@ export function ControlAcceso() {
                     icon: <IconCheck size={18} />
                 });
 
-                // Limpiar y reenfocar para el siguiente socio
                 setSocioSeleccionado(null);
-                setEstadoValidacion(null);
                 setObservacionesIngreso('');
                 setRefreshHistorialKey((k) => k + 1);
                 enfocarBusqueda();
@@ -214,12 +423,11 @@ export function ControlAcceso() {
 
     const cancelarSeleccion = () => {
         setSocioSeleccionado(null);
-        setEstadoValidacion(null);
+        setResultadoSemaforo(null);
         setObservacionesIngreso('');
         enfocarBusqueda();
     };
 
-    // Formatear identificador del socio: #00042
     const formatoIdentificador = (id) => `#${String(id || 0).padStart(5, '0')}`;
 
     return (
@@ -236,23 +444,46 @@ export function ControlAcceso() {
                                 Control de Accesos y Visitas
                             </Title>
                             <Text size="xs" c="dimmed">
-                                Validación en tiempo real de membresías y registro de visitas temporales
+                                Semáforo visual en tiempo real con validación QR, código o credencial
                             </Text>
                         </div>
                     </Group>
 
-                    <Button
-                        color="apex"
-                        size="md"
-                        leftSection={<IconUserPlus size={20} />}
-                        onClick={() => setDrawerVisitaAbierto(true)}
-                        style={{
-                            backgroundColor: '#FF6A00',
-                            boxShadow: '0 4px 12px rgba(255, 106, 0, 0.25)'
-                        }}
-                    >
-                        Registrar Visita
-                    </Button>
+                    <Group gap="sm">
+                        <Tooltip label={sonidoHabilitado ? 'Silenciar alertas de acceso' : 'Habilitar sonido de semáforo'} withArrow>
+                            <ActionIcon
+                                size="lg"
+                                variant="light"
+                                color={sonidoHabilitado ? 'apex' : 'gray'}
+                                onClick={() => setSonidoHabilitado(!sonidoHabilitado)}
+                            >
+                                {sonidoHabilitado ? <IconVolume size={20} /> : <IconVolumeOff size={20} />}
+                            </ActionIcon>
+                        </Tooltip>
+
+                        <Button
+                            variant="light"
+                            color="apex"
+                            size="md"
+                            leftSection={<IconCamera size={20} />}
+                            onClick={() => setModalCamaraAbierto(true)}
+                        >
+                            Escanear con Cámara
+                        </Button>
+
+                        <Button
+                            color="apex"
+                            size="md"
+                            leftSection={<IconUserPlus size={20} />}
+                            onClick={() => setDrawerVisitaAbierto(true)}
+                            style={{
+                                backgroundColor: '#FF6A00',
+                                boxShadow: '0 4px 12px rgba(255, 106, 0, 0.25)'
+                            }}
+                        >
+                            Registrar Visita
+                        </Button>
+                    </Group>
                 </Group>
             </Paper>
 
@@ -260,7 +491,7 @@ export function ControlAcceso() {
             <Tabs value={tabActiva} onChange={setTabActiva} color="apex" variant="outline" radius="md">
                 <Tabs.List style={{ marginBottom: 16 }}>
                     <Tabs.Tab value="recepcion" leftSection={<IconIdBadge2 size={18} />}>
-                        Control de Entrada (Recepción)
+                        Control de Entrada (Recepción & Semáforo)
                     </Tabs.Tab>
                     <Tabs.Tab value="historial" leftSection={<IconHistory size={18} />}>
                         Historial y Aforo
@@ -269,26 +500,132 @@ export function ControlAcceso() {
 
                 {/* ─── TAB 1: RECEPCIÓN Y ENTRADA ───────────────────────────────────── */}
                 <Tabs.Panel value="recepcion">
-                    <SimpleGrid cols={{ base: 1, md: socioSeleccionado ? 2 : 1 }} spacing="lg">
-                        {/* Columna Izquierda: Input de Búsqueda y Resultados */}
-                        <Stack gap="md">
-                            <Paper p="lg" radius="md" withBorder style={{ position: 'relative' }}>
-                                <Text fw={700} size="md" mb="xs">
-                                    Búsqueda rápida de socio
-                                </Text>
-                                <Text size="xs" c="dimmed" mb="md">
-                                    Escribe el nombre o apellido del cliente para validar su acceso de inmediato.
-                                </Text>
+                    <Stack gap="lg">
+                        {/* ─── SEMÁFORO VISUAL PROMINENTE (FLASH BANNER) ─── */}
+                        {resultadoSemaforo && (
+                            <Paper
+                                p="lg"
+                                radius="md"
+                                shadow="md"
+                                withBorder
+                                style={{
+                                    backgroundColor: resultadoSemaforo.acceso ? '#f0fdf4' : '#fef2f2',
+                                    borderColor: resultadoSemaforo.acceso ? '#86efac' : '#fca5a5',
+                                    borderLeft: `10px solid ${resultadoSemaforo.acceso ? '#16a34a' : '#dc2626'}`,
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                                    <Group gap="md">
+                                        <ThemeIcon
+                                            size={60}
+                                            radius="xl"
+                                            variant="filled"
+                                            color={resultadoSemaforo.acceso ? 'green' : 'red'}
+                                            style={{
+                                                boxShadow: `0 0 20px ${resultadoSemaforo.acceso ? 'rgba(22, 163, 74, 0.4)' : 'rgba(220, 38, 38, 0.4)'}`
+                                            }}
+                                        >
+                                            {resultadoSemaforo.acceso ? (
+                                                <IconCircleCheck size={40} />
+                                            ) : (
+                                                <IconCircleX size={40} />
+                                            )}
+                                        </ThemeIcon>
 
+                                        <div>
+                                            <Group gap="xs" mb={4}>
+                                                <Badge
+                                                    size="md"
+                                                    variant="filled"
+                                                    color={resultadoSemaforo.acceso ? 'green' : 'red'}
+                                                >
+                                                    {resultadoSemaforo.acceso ? 'ACCESO AUTORIZADO' : 'ACCESO DENEGADO'}
+                                                </Badge>
+                                                {resultadoSemaforo.metodo && (
+                                                    <Badge size="sm" variant="light" color="gray">
+                                                        {resultadoSemaforo.metodo}
+                                                    </Badge>
+                                                )}
+                                                {resultadoSemaforo.advertencia && (
+                                                    <Badge size="sm" variant="filled" color="yellow" leftSection={<IconAlertTriangle size={12} />}>
+                                                        ¡Vence pronto!
+                                                    </Badge>
+                                                )}
+                                            </Group>
+
+                                            <Title order={3} c={resultadoSemaforo.acceso ? 'green.9' : 'red.9'}>
+                                                {resultadoSemaforo.mensaje}
+                                            </Title>
+
+                                            {resultadoSemaforo.cliente && (
+                                                <Text size="sm" fw={600} c="dark" mt={2}>
+                                                    Socio: {resultadoSemaforo.cliente.nombre} {resultadoSemaforo.cliente.apellidoPaterno} {resultadoSemaforo.cliente.apellidoMaterno || ''} ({formatoIdentificador(resultadoSemaforo.cliente.id)})
+                                                </Text>
+                                            )}
+
+                                            {resultadoSemaforo.membresia && resultadoSemaforo.acceso && (
+                                                <Group gap="md" mt={4}>
+                                                    <Text size="xs" c="dimmed">
+                                                        Plan: <b>{resultadoSemaforo.membresia.tipoMembresia?.nombre || 'General'}</b>
+                                                    </Text>
+                                                    <Text size="xs" c="dimmed">
+                                                        Vence el:{' '}
+                                                        <b>
+                                                            {new Date(resultadoSemaforo.fechaExpiracion).toLocaleDateString('es-MX', { timeZone: 'UTC' })}
+                                                        </b>{' '}
+                                                        ({resultadoSemaforo.diasRestantes === 0 ? 'Hoy' : `${resultadoSemaforo.diasRestantes} días restantes`})
+                                                    </Text>
+                                                </Group>
+                                            )}
+                                        </div>
+                                    </Group>
+
+                                    <Button
+                                        variant="subtle"
+                                        color={resultadoSemaforo.acceso ? 'green' : 'red'}
+                                        onClick={() => setResultadoSemaforo(null)}
+                                        size="sm"
+                                    >
+                                        Cerrar Semáforo
+                                    </Button>
+                                </Group>
+                            </Paper>
+                        )}
+
+                        {/* Input Principal de Escaneo Rápido / Búsqueda */}
+                        <Paper p="lg" radius="md" withBorder style={{ position: 'relative' }}>
+                            <Group justify="space-between" align="center" mb="xs">
+                                <div>
+                                    <Text fw={700} size="md">
+                                        Terminal de Entrada y Lector de Códigos
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                        Escanea con la pistola lectora de código QR / barras o busca por nombre, teléfono o ID de socio (#00042).
+                                    </Text>
+                                </div>
+
+                                <Group gap="xs">
+                                    <Badge variant="outline" color="apex" leftSection={<IconBarcode size={14} />}>
+                                        Lector USB Activo
+                                    </Badge>
+                                    <Badge variant="outline" color="blue" leftSection={<IconQrcode size={14} />}>
+                                        QR Scan & Go
+                                    </Badge>
+                                </Group>
+                            </Group>
+
+                            <Group gap="sm" mt="sm">
                                 <TextInput
                                     ref={inputBusquedaRef}
-                                    placeholder="Buscar socio por nombre o apellido..."
+                                    placeholder="Escanea el código QR, credencial o escribe el nombre del socio..."
                                     value={busqueda}
                                     onChange={(e) => setBusqueda(e.currentTarget.value)}
-                                    leftSection={<IconSearch size={18} color="#FF6A00" />}
+                                    onKeyDown={handleKeyDownBusqueda}
+                                    leftSection={<IconSearch size={20} color="#FF6A00" />}
                                     rightSection={
                                         buscando ? (
-                                            <IconRefresh size={16} className="mantine-rotate" />
+                                            <IconRefresh size={18} className="mantine-rotate" />
                                         ) : busqueda ? (
                                             <ActionIcon size="sm" variant="subtle" onClick={() => setBusqueda('')}>
                                                 ✕
@@ -297,117 +634,103 @@ export function ControlAcceso() {
                                     }
                                     size="lg"
                                     radius="md"
+                                    style={{ flex: 1 }}
                                     autoFocus
                                 />
 
-                                {/* Lista desplegable de coincidencias */}
-                                {mostrarResultados && (
-                                    <Paper
-                                        withBorder
-                                        shadow="md"
-                                        radius="md"
-                                        mt="xs"
-                                        style={{
-                                            maxHeight: 280,
-                                            overflowY: 'auto',
-                                            backgroundColor: '#ffffff'
-                                        }}
-                                    >
-                                        {resultadosBusqueda.length === 0 ? (
-                                            <Text p="md" size="sm" c="dimmed" ta="center">
-                                                No se encontraron socios con ese nombre.
-                                            </Text>
-                                        ) : (
-                                            resultadosBusqueda.map((c) => {
-                                                const nombreCompleto = `${c.nombre} ${c.apellidoPaterno} ${c.apellidoMaterno || ''}`.trim();
-                                                const foto = c.usuario?.fotoUrl || null;
-                                                const iniciales = `${c.nombre?.charAt(0) || ''}${c.apellidoPaterno?.charAt(0) || ''}`.toUpperCase();
+                                <Button
+                                    size="lg"
+                                    color="apex"
+                                    onClick={() => procesarEscaneoRapido(busqueda)}
+                                    loading={buscando}
+                                    disabled={!busqueda.trim()}
+                                >
+                                    Validar Entrada
+                                </Button>
+                            </Group>
 
-                                                return (
-                                                    <Group
-                                                        key={c.id}
-                                                        justify="space-between"
-                                                        p="sm"
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            borderBottom: '1px solid #f1f3f5',
-                                                            transition: 'background-color 0.15s ease'
-                                                        }}
-                                                        onClick={() => seleccionarSocio(c)}
-                                                    >
-                                                        <Group gap="sm">
-                                                            <Avatar src={foto} radius="xl" color="apex">
-                                                                {iniciales}
-                                                            </Avatar>
-                                                            <div>
-                                                                <Text size="sm" fw={600}>
-                                                                    {nombreCompleto}
-                                                                </Text>
-                                                                <Group gap="xs">
-                                                                    <Badge size="xs" variant="light" color="gray">
-                                                                        {formatoIdentificador(c.id)}
-                                                                    </Badge>
-                                                                    {c.telefono && (
-                                                                        <Text size="xs" c="dimmed">
-                                                                            Tel: {c.telefono}
-                                                                        </Text>
-                                                                    )}
-                                                                </Group>
-                                                            </div>
-                                                        </Group>
-
-                                                        <Button size="xs" variant="light" color="apex">
-                                                            Seleccionar
-                                                        </Button>
-                                                    </Group>
-                                                );
-                                            })
-                                        )}
-                                    </Paper>
-                                )}
-                            </Paper>
-
-                            {!socioSeleccionado && (
+                            {/* Lista desplegable de coincidencias */}
+                            {mostrarResultados && (
                                 <Paper
-                                    p="xl"
-                                    radius="md"
                                     withBorder
+                                    shadow="md"
+                                    radius="md"
+                                    mt="xs"
                                     style={{
-                                        textAlign: 'center',
-                                        backgroundColor: '#fafbfc',
-                                        borderStyle: 'dashed'
+                                        maxHeight: 280,
+                                        overflowY: 'auto',
+                                        backgroundColor: '#ffffff'
                                     }}
                                 >
-                                    <ThemeIcon size={64} radius="xl" color="gray" variant="light" mb="md">
-                                        <IconIdBadge2 size={36} color="#adb5bd" />
-                                    </ThemeIcon>
-                                    <Text fw={700} size="md" c="dimmed">
-                                        Ningún socio seleccionado
-                                    </Text>
-                                    <Text size="xs" c="dimmed" mt={4}>
-                                        Busca un cliente arriba para verificar su membresía y autorizar su acceso.
-                                    </Text>
+                                    {resultadosBusqueda.length === 0 ? (
+                                        <Text p="md" size="sm" c="dimmed" ta="center">
+                                            No se encontraron socios con ese término. Puedes presionar [Enter] para validarlo como código directo.
+                                        </Text>
+                                    ) : (
+                                        resultadosBusqueda.map((c) => {
+                                            const nombreCompleto = `${c.nombre} ${c.apellidoPaterno} ${c.apellidoMaterno || ''}`.trim();
+                                            const foto = c.usuario?.fotoUrl || null;
+                                            const iniciales = `${c.nombre?.charAt(0) || ''}${c.apellidoPaterno?.charAt(0) || ''}`.toUpperCase();
+
+                                            return (
+                                                <Group
+                                                    key={c.id}
+                                                    justify="space-between"
+                                                    p="sm"
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        borderBottom: '1px solid #f1f3f5',
+                                                        transition: 'background-color 0.15s ease'
+                                                    }}
+                                                    onClick={() => seleccionarSocio(c)}
+                                                >
+                                                    <Group gap="sm">
+                                                        <Avatar src={foto} radius="xl" color="apex">
+                                                            {iniciales}
+                                                        </Avatar>
+                                                        <div>
+                                                            <Text size="sm" fw={600}>
+                                                                {nombreCompleto}
+                                                            </Text>
+                                                            <Group gap="xs">
+                                                                <Badge size="xs" variant="light" color="gray">
+                                                                    {formatoIdentificador(c.id)}
+                                                                </Badge>
+                                                                {c.telefono && (
+                                                                    <Text size="xs" c="dimmed">
+                                                                        Tel: {c.telefono}
+                                                                    </Text>
+                                                                )}
+                                                            </Group>
+                                                        </div>
+                                                    </Group>
+
+                                                    <Button size="xs" variant="light" color="apex">
+                                                        Seleccionar
+                                                    </Button>
+                                                </Group>
+                                            );
+                                        })
+                                    )}
                                 </Paper>
                             )}
-                        </Stack>
+                        </Paper>
 
-                        {/* Columna Derecha: Tarjeta de Validación del Socio con Semáforo */}
+                        {/* Tarjeta de Confirmación Manual del Socio (si fue seleccionado por búsqueda) */}
                         {socioSeleccionado && (
                             <Paper
                                 p="lg"
                                 radius="md"
                                 withBorder
                                 style={{
-                                    position: 'relative',
                                     borderTop: `6px solid ${
-                                        estadoValidacion?.acceso ? '#2b8a3e' : '#c92a2a'
+                                        resultadoSemaforo?.acceso ? '#2b8a3e' : '#c92a2a'
                                     }`,
                                     backgroundColor: '#ffffff'
                                 }}
                             >
                                 <LoadingOverlay visible={validandoMembresia} overlayProps={{ blur: 1 }} />
 
-                                {/* Encabezado de la Tarjeta con Foto/Avatar y Datos */}
                                 <Group justify="space-between" align="flex-start" mb="md">
                                     <Group gap="md">
                                         <Avatar
@@ -417,7 +740,7 @@ export function ControlAcceso() {
                                             color="apex"
                                             style={{
                                                 border: `3px solid ${
-                                                    estadoValidacion?.acceso ? '#2b8a3e' : '#c92a2a'
+                                                    resultadoSemaforo?.acceso ? '#2b8a3e' : '#c92a2a'
                                                 }`
                                             }}
                                         >
@@ -455,72 +778,6 @@ export function ControlAcceso() {
 
                                 <Divider my="sm" />
 
-                                {/* ─── INDICADOR SEMÁFORO VISUAL ─── */}
-                                {estadoValidacion && (
-                                    <Paper
-                                        p="md"
-                                        radius="md"
-                                        withBorder
-                                        mb="md"
-                                        style={{
-                                            backgroundColor: estadoValidacion.acceso ? '#ebfbee' : '#fff5f5',
-                                            borderColor: estadoValidacion.acceso ? '#b2f2bb' : '#ffc9c9'
-                                        }}
-                                    >
-                                        <Group align="flex-start" gap="md">
-                                            <ThemeIcon
-                                                size={48}
-                                                radius="xl"
-                                                variant="filled"
-                                                color={estadoValidacion.acceso ? 'green' : 'red'}
-                                            >
-                                                {estadoValidacion.acceso ? (
-                                                    <IconCircleCheck size={32} />
-                                                ) : (
-                                                    <IconCircleX size={32} />
-                                                )}
-                                            </ThemeIcon>
-
-                                            <div style={{ flex: 1 }}>
-                                                <Text
-                                                    fw={800}
-                                                    size="lg"
-                                                    c={estadoValidacion.acceso ? 'green.9' : 'red.9'}
-                                                >
-                                                    {estadoValidacion.mensaje}
-                                                </Text>
-
-                                                {estadoValidacion.acceso ? (
-                                                    <Stack gap={2} mt="xs">
-                                                        <Group gap="xs">
-                                                            <Text size="sm" fw={600} c="dark">
-                                                                Plan: {estadoValidacion.membresia?.tipoMembresia?.nombre || 'General'}
-                                                            </Text>
-                                                        </Group>
-                                                        <Group gap="xs">
-                                                            <IconCalendar size={15} color="#2b8a3e" />
-                                                            <Text size="xs" c="dimmed">
-                                                                Vigencia: Vence el{' '}
-                                                                {new Date(estadoValidacion.fechaExpiracion).toLocaleDateString('es-MX', { timeZone: 'UTC' })}
-                                                            </Text>
-                                                            <Badge size="xs" color="green" variant="light">
-                                                                {estadoValidacion.diasRestantes === 0
-                                                                    ? 'Vence hoy'
-                                                                    : `Quedan ${estadoValidacion.diasRestantes} días`}
-                                                            </Badge>
-                                                        </Group>
-                                                    </Stack>
-                                                ) : (
-                                                    <Text size="xs" c="red.8" mt="xs">
-                                                        El socio no puede ingresar al gimnasio sin renovar o regularizar su membresía.
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        </Group>
-                                    </Paper>
-                                )}
-
-                                {/* Observaciones opcionales del recepcionista */}
                                 <Textarea
                                     label="Observaciones de ingreso"
                                     placeholder="Incidencia, casillero asignado o nota del recepcionista (opcional)"
@@ -531,7 +788,6 @@ export function ControlAcceso() {
                                     leftSection={<IconNotes size={16} stroke={1.5} />}
                                 />
 
-                                {/* Botón de confirmación rápida */}
                                 <Group justify="space-between" mt="md">
                                     <Button variant="default" onClick={cancelarSeleccion}>
                                         Cancelar
@@ -539,20 +795,20 @@ export function ControlAcceso() {
 
                                     <Button
                                         size="md"
-                                        color={estadoValidacion?.acceso ? 'green' : 'red'}
-                                        disabled={!estadoValidacion?.acceso}
+                                        color={resultadoSemaforo?.acceso ? 'green' : 'red'}
+                                        disabled={!resultadoSemaforo?.acceso}
                                         loading={registrandoIngreso}
                                         leftSection={<IconCheck size={20} />}
-                                        onClick={confirmarIngreso}
+                                        onClick={confirmarIngresoManual}
                                     >
-                                        {estadoValidacion?.acceso
+                                        {resultadoSemaforo?.acceso
                                             ? 'Confirmar Ingreso (Registrar Asistencia)'
                                             : 'Ingreso Bloqueado (Membresía No Válida)'}
                                     </Button>
                                 </Group>
                             </Paper>
                         )}
-                    </SimpleGrid>
+                    </Stack>
                 </Tabs.Panel>
 
                 {/* ─── TAB 2: HISTORIAL Y AFORO ───────────────────────────────────────── */}
@@ -560,6 +816,41 @@ export function ControlAcceso() {
                     <HistorialAsistencias refreshKey={refreshHistorialKey} />
                 </Tabs.Panel>
             </Tabs>
+
+            {/* Modal de Cámara Web para Escaneo de Códigos QR */}
+            <Modal
+                opened={modalCamaraAbierto}
+                onClose={() => setModalCamaraAbierto(false)}
+                title={
+                    <Group gap="xs">
+                        <IconQrcode size={22} color="#FF6A00" />
+                        <Text fw={700} size="lg">Escanear Pase QR con Cámara</Text>
+                    </Group>
+                }
+                size="md"
+                centered
+            >
+                <Stack gap="md" align="center">
+                    <Text size="xs" c="dimmed" ta="center">
+                        Coloca el código QR frente a la cámara web. El sistema lo detectará automáticamente.
+                    </Text>
+
+                    <div
+                        id="qr-reader-container"
+                        style={{
+                            width: '100%',
+                            minHeight: 280,
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            backgroundColor: '#000000'
+                        }}
+                    />
+
+                    <Button variant="default" onClick={() => setModalCamaraAbierto(false)} fullWidth>
+                        Cancelar Escaneo
+                    </Button>
+                </Stack>
+            </Modal>
 
             {/* Modal Drawer para registro de visitas temporales */}
             <DrawerRegistrarVisita

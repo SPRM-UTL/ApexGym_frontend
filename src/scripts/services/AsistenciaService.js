@@ -13,6 +13,20 @@ export class AsistenciaService extends CatalogoService {
         );
     }
 
+    validarQr(qr, registrar = false, observaciones = null) {
+        return this.ejecutar(
+            () => httpClient.post(`${this.urlApi}/validar-qr`, { qr, registrar, observaciones }),
+            'Error al validar código QR'
+        );
+    }
+
+    escanearAcceso(codigo, observaciones = null) {
+        return this.ejecutar(
+            () => httpClient.post(`${this.urlApi}/escanear-acceso`, { codigo, observaciones }),
+            'Error al registrar acceso por código'
+        );
+    }
+
     validarYRegistrar(clienteId, observaciones = null) {
         return this.ejecutar(
             () => httpClient.post(`${this.urlApi}/validar-y-registrar`, { clienteId, observaciones }),

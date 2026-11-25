@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  ActionIcon,
   Badge,
   Button,
   Group,
@@ -72,6 +73,7 @@ export function OfflineStatusBar() {
     exportarVentasOffline,
     importarVentasOffline,
   } = useOffline();
+  const [panelAbierto, setPanelAbierto] = useState(false);
 
   const fileInputRef = useRef(null);
   const [diagnosticoAbierto, setDiagnosticoAbierto] = useState(false);
@@ -120,228 +122,279 @@ export function OfflineStatusBar() {
   };
 
   return (
-    <section
-      className={`${classes.bar} ${!isOnline ? classes.barOffline : ''}`}
-      aria-label="Estado de conexión y sincronización sin conexión"
-    >
-      <div className={classes.statusCluster}>
-        <Badge
-          size="md"
-          radius="sm"
-          variant="filled"
-          className={isOnline ? classes.badgeOnline : classes.badgeOffline}
-          leftSection={isOnline ? <IconWifi size={14} /> : <IconWifiOff size={14} />}
-        >
-          {etiquetaConexion}
-        </Badge>
-
-        <Tooltip
-          label={
-            datosLocales?.hayDatosLocales
-              ? `Colecciones en caché local: ${datosLocales.nombresColecciones?.join(', ') || 'catálogos'}`
-              : 'Sincroniza para precargar catálogos y poder operar sin internet'
-          }
-          withArrow
-        >
-          <Badge
-            size="md"
-            radius="sm"
-            variant="light"
-            className={datosLocales?.hayDatosLocales ? classes.badgeLocalYes : classes.badgeLocalNo}
-            leftSection={<IconDatabase size={14} />}
-          >
-            {textoDatosLocales}
-          </Badge>
-        </Tooltip>
-
-        <Tooltip
-          label={estadoServiceWorker?.detalle || 'Estado del service worker que sirve la app sin conexión'}
-          withArrow
-        >
-          <Badge
-            size="md"
-            radius="sm"
-            variant="light"
-            color={swActivo ? 'green' : 'yellow'}
-            className={swActivo ? classes.badgeLocalYes : classes.badgeLocalNo}
-          >
-            {etiquetaSw}
-          </Badge>
-        </Tooltip>
-
-        <Tooltip
-          label={
-            almacenamientoEsMemoria
-              ? (almacenamiento?.motivo || 'Los datos solo viven en memoria y se pierden al recargar')
-              : 'Las ventas y catálogos offline quedan guardados en IndexedDB'
-          }
-          withArrow
-        >
-          <Badge
-            size="md"
-            radius="sm"
-            variant="light"
-            color={almacenamientoEsMemoria ? 'red' : 'green'}
-            className={almacenamientoEsMemoria ? classes.badgeLocalNo : classes.badgeLocalYes}
-          >
-            {etiquetaAlmacenamiento}
-          </Badge>
-        </Tooltip>
-
-        {ultimaSyncTexto && (
-          <Text size="xs" className={classes.syncTimestamp}>
-            Última sync: {ultimaSyncTexto}
-            {datosLocales?.ultimaActualizacion && ` (${formatearAntiguedad(datosLocales.ultimaActualizacion)})`}
-          </Text>
-        )}
-
-        <Badge
-          size="md"
-          radius="sm"
-          variant={ventasPendientesTotales > 0 ? 'filled' : 'light'}
-          className={ventasPendientesTotales > 0 ? classes.badgePending : classes.badgeClear}
-          leftSection={ventasPendientesTotales > 0 ? <IconCloudOff size={14} /> : <IconCloudCheck size={14} />}
-        >
-          Pendientes offline: {ventasPendientesTotales}
-        </Badge>
-
-        {ultimoErrorSync && (
-          <Text size="xs" className={classes.errorText}>
-            {ultimoErrorSync}
-          </Text>
-        )}
-      </div>
-
-      <Group gap="xs" className={classes.actionsCluster}>
-        <Button
-          size="xs"
-          radius="md"
-          variant="filled"
-          className={classes.btnPrimary}
-          loading={sincronizando}
-          disabled={!isOnline}
-          leftSection={<IconRefresh size={14} />}
-          onClick={() => sincronizarAhora({ silencioso: false })}
-        >
-          Sincronizar ahora
-        </Button>
-
-        <Button
-          size="xs"
-          radius="md"
-          variant="light"
-          color="secondary"
-          className={classes.btnSecondary}
-          disabled={ventasPendientesTotales === 0}
-          leftSection={<IconDownload size={14} />}
-          onClick={exportarVentasOffline}
-        >
-          Exportar
-        </Button>
-
-        <Button
-          size="xs"
-          radius="md"
-          variant="light"
-          color="secondary"
-          className={classes.btnSecondary}
-          leftSection={<IconUpload size={14} />}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Importar
-        </Button>
-
-        <Button
-          size="xs"
-          radius="md"
-          variant="subtle"
-          color="secondary"
-          className={classes.btnSecondary}
-          loading={revisando}
-          leftSection={<IconInfoCircle size={14} />}
-          onClick={abrirDiagnostico}
-        >
-          Diagnóstico
-        </Button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          className={classes.hiddenInput}
-          aria-label="Importar paquete JSON de ventas offline"
-          onChange={manejarArchivo}
-        />
-      </Group>
-
-      <Modal
-        opened={diagnosticoAbierto}
-        onClose={() => setDiagnosticoAbierto(false)}
-        title="Diagnóstico del modo sin conexión"
-        centered
-        size="lg"
+    <>
+      {/* Botón flotante */}
+      <Tooltip
+        label="Estado de conexión y modo offline"
+        position="left"
+        withArrow
       >
-        <Stack gap="sm">
-          <Group justify="space-between">
-            <Text size="sm" fw={600}>Service Worker</Text>
-            <Badge color={swActivo ? 'green' : 'yellow'} variant="light">
-              {etiquetaSw}
-            </Badge>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {diagnosticoOffline?.serviceWorker?.detalle
-              || estadoServiceWorker?.detalle
-              || 'Se consulta al abrir la app; también puedes usar «Volver a comprobar».'}
-          </Text>
+        <ActionIcon
+          className={`${classes.fab} ${isOnline ? classes.fabOnline : classes.fabOffline
+            }`}
+          size={52}
+          radius="xl"
+          variant="filled"
+          onClick={() => setPanelAbierto(true)}
+          aria-label="Abrir información del modo offline"
+        >
+          {isOnline
+            ? <IconWifi size={23} />
+            : <IconWifiOff size={23} />
+          }
+        </ActionIcon>
+      </Tooltip>
 
-          <Group justify="space-between">
-            <Text size="sm" fw={600}>Almacenamiento local</Text>
-            <Badge color={almacenamientoEsMemoria ? 'red' : 'green'} variant="light">
-              {pruebaAlmacenamiento
-                ? (pruebaAlmacenamiento.modo === 'indexeddb' ? 'IndexedDB' : 'Memoria')
-                : (almacenamiento?.modo || 'sin revisar')}
-            </Badge>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {pruebaAlmacenamiento
-              ? `${pruebaAlmacenamiento.correcto ? 'Escritura y lectura verificadas' : 'La prueba de escritura falló'} · Permiso: ${pruebaAlmacenamiento.permiso}`
-              : 'Ejecuta el diagnóstico para probar la escritura local.'}
-          </Text>
-          {(pruebaAlmacenamiento?.motivo || almacenamiento?.motivo) && (
-            <Text size="xs" c="red">
-              {pruebaAlmacenamiento?.motivo || almacenamiento?.motivo}
+      {/* Modal principal */}
+      <Modal
+        opened={panelAbierto}
+        onClose={() => setPanelAbierto(false)}
+        title={
+          <Group gap="xs">
+            <IconCloudCheck size={20} color="var(--ag-color-primary)" />
+            <Text fw={700} size="md">
+              Estado de conexión
             </Text>
-          )}
+          </Group>
+        }
+        centered
+        size="sm"
+        radius="lg"
+        overlayProps={{ backgroundOpacity: 0.45, blur: 3 }}
+      >
+        <Stack gap="md">
 
-          <Text size="sm" fw={600} mt="xs">Catálogos guardados para cobrar sin conexión</Text>
-          {(diagnosticoOffline?.catalogos || []).length === 0 && (
-            <Text size="xs" c="dimmed">Aún no se ha ejecutado el diagnóstico.</Text>
-          )}
-          {(diagnosticoOffline?.catalogos || []).map((catalogo) => (
-            <Group key={catalogo.url} justify="space-between">
-              <Text size="xs">
-                {catalogo.etiqueta}{' '}
-                <Text span size="xs" c="dimmed">{catalogo.url}</Text>
+          {/* Estado de conexión */}
+          <div className={classes.statusCluster}>
+
+            <Badge
+              size="md"
+              radius="sm"
+              variant="filled"
+              className={isOnline ? classes.badgeOnline : classes.badgeOffline}
+              leftSection={isOnline ? <IconWifi size={14} /> : <IconWifiOff size={14} />}
+            >
+              {etiquetaConexion}
+            </Badge>
+
+            <Tooltip
+              label={
+                datosLocales?.hayDatosLocales
+                  ? `Colecciones en caché local: ${datosLocales.nombresColecciones?.join(', ') || 'catálogos'}`
+                  : 'Sincroniza para precargar catálogos y poder operar sin internet'
+              }
+              withArrow
+            >
+              <Badge
+                size="md"
+                radius="sm"
+                variant="light"
+                className={datosLocales?.hayDatosLocales ? classes.badgeLocalYes : classes.badgeLocalNo}
+                leftSection={<IconDatabase size={14} />}
+              >
+                {textoDatosLocales}
+              </Badge>
+            </Tooltip>
+
+            <Tooltip
+              label={estadoServiceWorker?.detalle || 'Estado del service worker que sirve la app sin conexión'}
+              withArrow
+            >
+              <Badge
+                size="md"
+                radius="sm"
+                variant="light"
+                color={swActivo ? 'green' : 'yellow'}
+                className={swActivo ? classes.badgeLocalYes : classes.badgeLocalNo}
+              >
+                {etiquetaSw}
+              </Badge>
+            </Tooltip>
+
+            <Tooltip
+              label={
+                almacenamientoEsMemoria
+                  ? (almacenamiento?.motivo || 'Los datos solo viven en memoria y se pierden al recargar')
+                  : 'Las ventas y catálogos offline quedan guardados en IndexedDB'
+              }
+              withArrow
+            >
+              <Badge
+                size="md"
+                radius="sm"
+                variant="light"
+                color={almacenamientoEsMemoria ? 'red' : 'green'}
+                className={almacenamientoEsMemoria ? classes.badgeLocalNo : classes.badgeLocalYes}
+              >
+                {etiquetaAlmacenamiento}
+              </Badge>
+            </Tooltip>
+
+            {/* Última sincronización */}
+            {ultimaSyncTexto && (
+              <Text size="xs" className={classes.syncTimestamp}>
+                Última sync: {ultimaSyncTexto}
+                {datosLocales?.ultimaActualizacion &&
+                  ` (${formatearAntiguedad(datosLocales.ultimaActualizacion)})`}
               </Text>
-              <Badge size="sm" variant="light" color={catalogo.disponible ? 'green' : 'red'}>
-                {catalogo.disponible ? 'Guardado' : 'Falta'}
+            )}
+
+            {/* Pendientes offline */}
+            <Badge
+              size="md"
+              radius="sm"
+              variant={ventasPendientesTotales > 0 ? 'filled' : 'light'}
+              className={
+                ventasPendientesTotales > 0
+                  ? classes.badgePending
+                  : classes.badgeClear
+              }
+              leftSection={
+                ventasPendientesTotales > 0
+                  ? <IconCloudOff size={14} />
+                  : <IconCloudCheck size={14} />
+              }
+            >
+              Pendientes offline: {ventasPendientesTotales}
+            </Badge>
+
+            {ultimoErrorSync && (
+              <Text size="xs" className={classes.errorText}>
+                {ultimoErrorSync}
+              </Text>
+            )}
+          </div>
+
+          {/* Acciones */}
+          <div className={classes.actionsCluster}>
+            <Button
+              size="sm"
+              radius="md"
+              className={classes.btnPrimary}
+              loading={sincronizando}
+              disabled={!isOnline}
+              leftSection={<IconRefresh size={16} />}
+              onClick={() => sincronizarAhora({ silencioso: false })}
+            >
+              Sincronizar ahora
+            </Button>
+
+            <Button
+              size="sm"
+              radius="md"
+              variant="light"
+              className={classes.btnSecondary}
+              disabled={ventasPendientesTotales === 0}
+              leftSection={<IconDownload size={16} />}
+              onClick={exportarVentasOffline}
+            >
+              Exportar
+            </Button>
+
+            <Button
+              size="sm"
+              radius="md"
+              variant="light"
+              className={classes.btnSecondary}
+              leftSection={<IconUpload size={16} />}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Importar
+            </Button>
+
+            <Button
+              size="sm"
+              radius="md"
+              variant="light"
+              className={classes.btnSecondary}
+              loading={revisando}
+              leftSection={<IconInfoCircle size={16} />}
+              onClick={abrirDiagnostico}
+            >
+              Diagnóstico
+            </Button>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className={classes.hiddenInput}
+            aria-label="Importar paquete JSON de ventas offline"
+            onChange={manejarArchivo}
+          />
+
+        </Stack>
+
+        <Modal
+          opened={diagnosticoAbierto}
+          onClose={() => setDiagnosticoAbierto(false)}
+          title="Diagnóstico del modo sin conexión"
+          centered
+          size="lg"
+        >
+          <Stack gap="sm">
+            <Group justify="space-between">
+              <Text size="sm" fw={600}>Service Worker</Text>
+              <Badge color={swActivo ? 'green' : 'yellow'} variant="light">
+                {etiquetaSw}
               </Badge>
             </Group>
-          ))}
-          {(diagnosticoOffline?.faltantes ?? 0) > 0 && (
-            <Text size="xs" c="yellow.8">
-              Faltan {diagnosticoOffline.faltantes} catálogo(s): conéctate a la API y pulsa «Sincronizar ahora» para poder cobrar sin conexión.
+            <Text size="xs" c="dimmed">
+              {diagnosticoOffline?.serviceWorker?.detalle
+                || estadoServiceWorker?.detalle
+                || 'Se consulta al abrir la app; también puedes usar «Volver a comprobar».'}
             </Text>
-          )}
 
-          <Group justify="flex-end">
-            <Button size="xs" variant="light" loading={revisando} onClick={abrirDiagnostico}>
-              Volver a comprobar
-            </Button>
-          </Group>
-        </Stack>
+            <Group justify="space-between">
+              <Text size="sm" fw={600}>Almacenamiento local</Text>
+              <Badge color={almacenamientoEsMemoria ? 'red' : 'green'} variant="light">
+                {pruebaAlmacenamiento
+                  ? (pruebaAlmacenamiento.modo === 'indexeddb' ? 'IndexedDB' : 'Memoria')
+                  : (almacenamiento?.modo || 'sin revisar')}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed">
+              {pruebaAlmacenamiento
+                ? `${pruebaAlmacenamiento.correcto ? 'Escritura y lectura verificadas' : 'La prueba de escritura falló'} · Permiso: ${pruebaAlmacenamiento.permiso}`
+                : 'Ejecuta el diagnóstico para probar la escritura local.'}
+            </Text>
+            {(pruebaAlmacenamiento?.motivo || almacenamiento?.motivo) && (
+              <Text size="xs" c="red">
+                {pruebaAlmacenamiento?.motivo || almacenamiento?.motivo}
+              </Text>
+            )}
+
+            <Text size="sm" fw={600} mt="xs">Catálogos guardados para cobrar sin conexión</Text>
+            {(diagnosticoOffline?.catalogos || []).length === 0 && (
+              <Text size="xs" c="dimmed">Aún no se ha ejecutado el diagnóstico.</Text>
+            )}
+            {(diagnosticoOffline?.catalogos || []).map((catalogo) => (
+              <Group key={catalogo.url} justify="space-between">
+                <Text size="xs">
+                  {catalogo.etiqueta}{' '}
+                  <Text span size="xs" c="dimmed">{catalogo.url}</Text>
+                </Text>
+                <Badge size="sm" variant="light" color={catalogo.disponible ? 'green' : 'red'}>
+                  {catalogo.disponible ? 'Guardado' : 'Falta'}
+                </Badge>
+              </Group>
+            ))}
+            {(diagnosticoOffline?.faltantes ?? 0) > 0 && (
+              <Text size="xs" c="yellow.8">
+                Faltan {diagnosticoOffline.faltantes} catálogo(s): conéctate a la API y pulsa «Sincronizar ahora» para poder cobrar sin conexión.
+              </Text>
+            )}
+
+            <Group justify="flex-end">
+              <Button size="xs" variant="light" loading={revisando} onClick={abrirDiagnostico}>
+                Volver a comprobar
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Modal>
-    </section>
+    </>
   );
 }
 
