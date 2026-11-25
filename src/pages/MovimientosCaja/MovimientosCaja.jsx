@@ -46,8 +46,31 @@ import {
 import { notifications } from '@mantine/notifications';
 import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
-import { SectionCard } from '../../components/SectionCard/SectionCard.jsx';
+import { EncabezadoTabla } from '../../components/TablaRegistros/TablaRegistros.jsx';
 import { DENOMINACIONES, desglosarMonto, formatearFechaHora } from '../../scripts/cajaUtils.js';
+
+function SectionCard({ icon, title, rightAmount, rightAmountColor, children }) {
+    const IconComp = icon?.type ?? null;
+    return (
+        <Stack gap="sm">
+            <EncabezadoTabla
+                title={title}
+                icon={IconComp}
+                rightContent={rightAmount ? (
+                    <Badge
+                        variant="light"
+                        size="lg"
+                        radius="sm"
+                        style={rightAmountColor ? { color: rightAmountColor } : undefined}
+                    >
+                        {rightAmount}
+                    </Badge>
+                ) : undefined}
+            />
+            {children}
+        </Stack>
+    );
+}
 
 /* ─── Catálogo oficial de tipos de concepto por movimiento ────────────────── */
 const CATALOGO_CONCEPTOS = {
@@ -702,9 +725,8 @@ function DrawerDetalleMovimiento({ movimiento, opened, onClose, onValidar }) {
             zIndex={999999}
             title={
                 <Group gap="sm">
-                    <ThemeIcon size={38} radius="md" variant="light" color="orange" style={{ backgroundColor: '#FFF4EC', color: '#FF6A00' }}>
-                        <IconArrowsExchange size={22} stroke={1.8} />
-                    </ThemeIcon>
+                    <IconArrowsExchange size={32} stroke={1.8} color="var(--ag-color-secondary)" />
+                    <Divider orientation="vertical" color="secondary.9" size="2" />
                     <div>
                         <Title order={4} fw={700} c="#1E293B">Detalle de Movimiento de Caja #{movimiento.id}</Title>
                         <Text size="xs" c="dimmed">Información completa de la transacción y desglose de efectivo</Text>

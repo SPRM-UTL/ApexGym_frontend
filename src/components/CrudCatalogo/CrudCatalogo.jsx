@@ -183,6 +183,7 @@ export function CrudCatalogo({
     onCreateSuccess,
     onFetchError,
     topContent,
+    headerRightContent,
 }) {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -674,31 +675,34 @@ export function CrudCatalogo({
                                 {titulo}
                             </Title>
                         </Group>
-                        {permitirAgregar && (
-                            createButtonLabel ? (
-                                <Button
-                                    onClick={openCreate}
-                                    color="apex"
-                                    size="sm"
-                                    radius="md"
-                                    leftSection={<IconPlus size={18} stroke={2.5} />}
-                                >
-                                    {createButtonLabel}
-                                </Button>
-                            ) : (
-                                <ActionIcon
-                                    className={classes.addButtonUnified}
-                                    onClick={openCreate}
-                                    aria-label={`Agregar ${singular.toLowerCase()}`}
-                                    size={42}
-                                    radius="xl"
-                                    color="apex"
-                                    variant="filled"
-                                >
-                                    <IconPlus size={20} stroke={2.5} />
-                                </ActionIcon>
-                            )
-                        )}
+                        <Group gap="sm" align="center" wrap="wrap">
+                            {headerRightContent}
+                            {permitirAgregar && (
+                                createButtonLabel ? (
+                                    <Button
+                                        onClick={openCreate}
+                                        color="apex"
+                                        size="sm"
+                                        radius="md"
+                                        leftSection={<IconPlus size={18} stroke={2.5} />}
+                                    >
+                                        {createButtonLabel}
+                                    </Button>
+                                ) : (
+                                    <ActionIcon
+                                        className={classes.addButtonUnified}
+                                        onClick={openCreate}
+                                        aria-label={`Agregar ${singular.toLowerCase()}`}
+                                        size={42}
+                                        radius="xl"
+                                        color="apex"
+                                        variant="filled"
+                                    >
+                                        <IconPlus size={20} stroke={2.5} />
+                                    </ActionIcon>
+                                )
+                            )}
+                        </Group>
                     </div>
                 ) : (
                     <BarraAcciones onAdd={openCreate} title={titulo} entityLabel={titulo.toLowerCase()} icon={IconoHeader} />

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
+    Divider,
     Drawer,
     Stack,
     TextInput,
@@ -8,6 +9,7 @@ import {
     Button,
     Group,
     Text,
+    Title,
     Badge,
     Paper,
     ScrollArea,
@@ -123,10 +125,15 @@ export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
             onClose={handleClose}
             position="right"
             size="md"
+            zIndex={999999}
             title={
-                <Group gap="xs">
-                    <IconUserPlus size={22} color="var(--mantine-color-apex-6, #FF6A00)" />
-                    <Text fw={700} size="lg">Registrar Visita Temporal</Text>
+                <Group gap="sm">
+                    <IconUserPlus size={28} stroke={1.8} color="var(--ag-color-secondary)" />
+                    <Divider orientation="vertical" color="secondary.9" size="2" />
+                    <div>
+                        <Title order={4} fw={700} c="#1E293B">Registrar Visita Temporal</Title>
+                        <Text size="xs" c="dimmed">Acceso por pase diario o visitante externo</Text>
+                    </div>
                 </Group>
             }
             scrollAreaComponent={ScrollArea.Autosize}

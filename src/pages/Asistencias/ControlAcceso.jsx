@@ -50,6 +50,7 @@ import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { DrawerRegistrarVisita } from './DrawerRegistrarVisita.jsx';
 import { HistorialAsistencias } from './HistorialAsistencias.jsx';
+import { EncabezadoTabla } from '../../components/TablaRegistros/TablaRegistros.jsx';
 
 /**
  * Emite sonido sintetizado de acceso autorizado o denegado mediante Web Audio API
@@ -136,14 +137,53 @@ export function ControlAcceso() {
         };
     }, [temporizadorSemaforo]);
 
+    const detenerTracksVideo = () => {
+        try {
+            const container = document.getElementById('qr-reader-container');
+            if (!container) return;
+            const videos = container.querySelectorAll('video');
+            videos.forEach((video) => {
+                const stream = video.srcObject;
+                if (stream && typeof stream.getTracks === 'function') {
+                    stream.getTracks().forEach((track) => track.stop());
+                }
+                video.srcObject = null;
+            });
+        } catch {
+            // Ignorar errores al liberar tracks manualmente
+        }
+    };
+
+    const detenerCamaraSegura = async () => {
+        const scanner = html5QrCodeRef.current;
+        html5QrCodeRef.current = null;
+        if (scanner) {
+            try {
+                if (scanner.isScanning) {
+                    await scanner.stop();
+                }
+            } catch (e) {
+                console.warn('Aviso al detener escáner QR:', e);
+            }
+            try {
+                if (document.getElementById('qr-reader-container')) {
+                    await scanner.clear();
+                }
+            } catch {
+                // Ignorar si el modal ya desmontó el contenedor DOM
+            }
+        }
+        detenerTracksVideo();
+    };
+
+    const cerrarModalCamara = async () => {
+        await detenerCamaraSegura();
+        setModalCamaraAbierto(false);
+    };
+
     // Control de la cámara Web para escaneo QR
     useEffect(() => {
         if (!modalCamaraAbierto) {
-            if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-                html5QrCodeRef.current.stop()
-                    .then(() => html5QrCodeRef.current.clear())
-                    .catch((e) => console.error('Error deteniendo escáner:', e));
-            }
             return;
         }
 
@@ -154,19 +194,34 @@ export function ControlAcceso() {
                 await new Promise((r) => setTimeout(r, 300));
                 if (!isMounted) return;
 
+                const container = document.getElementById('qr-reader-container');
+                if (!container) return;
+
                 const scanner = new Html5Qrcode('qr-reader-container');
                 html5QrCodeRef.current = scanner;
 
                 await scanner.start(
                     { facingMode: 'environment' },
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    {
+                        fps: 15,
+                        disableFlip: false,
+                        qrbox: (vw, vh) => {
+                            const s = Math.floor(Math.min(vw, vh) * 0.82);
+                            return { width: Math.max(220, s), height: Math.max(220, s) };
+                        },
+                    },
                     (decodedText) => {
                         // QR detectado con éxito
-                        setModalCamaraAbierto(false);
+                        cerrarModalCamara();
                         procesarEscaneoRapido(decodedText);
                     },
                     () => {}
                 );
+
+                // Si el modal se cerró mientras la cámara terminaba de inicializar, apagarla de inmediato
+                if (!isMounted) {
+                    await detenerCamaraSegura();
+                }
             } catch (err) {
                 console.error('Error al inicializar cámara QR:', err);
                 notifications.show({
@@ -174,7 +229,7 @@ export function ControlAcceso() {
                     message: 'No se pudo acceder a la cámara web. Puedes usar el lector de código de barras o búsqueda rápida.',
                     color: 'orange'
                 });
-                setModalCamaraAbierto(false);
+                cerrarModalCamara();
             }
         };
 
@@ -182,11 +237,7 @@ export function ControlAcceso() {
 
         return () => {
             isMounted = false;
-            if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-                html5QrCodeRef.current.stop()
-                    .then(() => html5QrCodeRef.current.clear())
-                    .catch((e) => console.error('Error limpiando cámara:', e));
-            }
+            detenerCamaraSegura();
         };
     }, [modalCamaraAbierto]);
 
@@ -431,61 +482,48 @@ export function ControlAcceso() {
     const formatoIdentificador = (id) => `#${String(id || 0).padStart(5, '0')}`;
 
     return (
-        <Stack gap="lg" style={{ padding: '8px 0' }}>
-            {/* Barra superior del módulo */}
-            <Paper p="md" radius="md" withBorder style={{ backgroundColor: '#ffffff' }}>
-                <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                    <Group gap="sm">
-                        <ThemeIcon color="apex" size={42} radius="md" variant="filled">
-                            <IconShieldCheck size={26} stroke={1.8} />
-                        </ThemeIcon>
-                        <div>
-                            <Title order={3} style={{ color: 'var(--ag-color-primary, #1a1a1a)' }}>
-                                Control de Accesos y Visitas
-                            </Title>
-                            <Text size="xs" c="dimmed">
-                                Semáforo visual en tiempo real con validación QR, código o credencial
-                            </Text>
-                        </div>
-                    </Group>
-
-                    <Group gap="sm">
+        <Stack gap="md">
+            {/* Barra superior unificada estilo CRUD */}
+            <EncabezadoTabla
+                title="Control de Accesos y Visitas"
+                icon={IconShieldCheck}
+                rightContent={(
+                    <Group gap="xs" wrap="wrap">
                         <Tooltip label={sonidoHabilitado ? 'Silenciar alertas de acceso' : 'Habilitar sonido de semáforo'} withArrow>
                             <ActionIcon
-                                size="lg"
+                                size={38}
+                                radius="md"
                                 variant="light"
                                 color={sonidoHabilitado ? 'apex' : 'gray'}
                                 onClick={() => setSonidoHabilitado(!sonidoHabilitado)}
+                                aria-label={sonidoHabilitado ? 'Silenciar alertas de acceso' : 'Habilitar sonido de semáforo'}
                             >
-                                {sonidoHabilitado ? <IconVolume size={20} /> : <IconVolumeOff size={20} />}
+                                {sonidoHabilitado ? <IconVolume size={19} /> : <IconVolumeOff size={19} />}
                             </ActionIcon>
                         </Tooltip>
 
                         <Button
-                            variant="light"
-                            color="apex"
-                            size="md"
-                            leftSection={<IconCamera size={20} />}
+                            variant="default"
+                            size="sm"
+                            radius="md"
+                            leftSection={<IconCamera size={17} />}
                             onClick={() => setModalCamaraAbierto(true)}
                         >
-                            Escanear con Cámara
+                            Escanear QR
                         </Button>
 
                         <Button
                             color="apex"
-                            size="md"
-                            leftSection={<IconUserPlus size={20} />}
+                            size="sm"
+                            radius="md"
+                            leftSection={<IconUserPlus size={17} />}
                             onClick={() => setDrawerVisitaAbierto(true)}
-                            style={{
-                                backgroundColor: '#FF6A00',
-                                boxShadow: '0 4px 12px rgba(255, 106, 0, 0.25)'
-                            }}
                         >
                             Registrar Visita
                         </Button>
                     </Group>
-                </Group>
-            </Paper>
+                )}
+            />
 
             {/* Pestañas: Recepción vs Historial y Aforo */}
             <Tabs value={tabActiva} onChange={setTabActiva} color="apex" variant="outline" radius="md">
@@ -820,11 +858,11 @@ export function ControlAcceso() {
             {/* Modal de Cámara Web para Escaneo de Códigos QR */}
             <Modal
                 opened={modalCamaraAbierto}
-                onClose={() => setModalCamaraAbierto(false)}
+                onClose={cerrarModalCamara}
                 title={
                     <Group gap="xs">
-                        <IconQrcode size={22} color="#FF6A00" />
-                        <Text fw={700} size="lg">Escanear Pase QR con Cámara</Text>
+                        <IconQrcode size={22} color="#ffffff" />
+                        <Text fw={700} size="md" c="#ffffff">Escanear Pase QR con Cámara</Text>
                     </Group>
                 }
                 size="md"
@@ -835,6 +873,7 @@ export function ControlAcceso() {
                         Coloca el código QR frente a la cámara web. El sistema lo detectará automáticamente.
                     </Text>
 
+                    <style>{`#qr-reader-container video { transform: scaleX(-1); }`}</style>
                     <div
                         id="qr-reader-container"
                         style={{
@@ -846,7 +885,7 @@ export function ControlAcceso() {
                         }}
                     />
 
-                    <Button variant="default" onClick={() => setModalCamaraAbierto(false)} fullWidth>
+                    <Button variant="default" onClick={cerrarModalCamara} fullWidth>
                         Cancelar Escaneo
                     </Button>
                 </Stack>

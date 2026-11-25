@@ -1,0 +1,69 @@
+/* Contenedor fijo encima del FAB de estado de conexión */
+.fabWrapper {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 200;
+}
+
+.fab {
+  width: 52px !important;
+  height: 52px !important;
+  background-color: var(--ag-color-primary-dark) !important;
+  color: #ffffff !important;
+  border: 2px solid var(--ag-color-surface-elevated);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.25);
+}
+
+.fab:active {
+  transform: scale(0.94);
+}
+
+@media (max-width: 768px) {
+  .fabWrapper {
+    right: 16px;
+    bottom: 76px;
+  }
+
+  .fab {
+    width: 48px !important;
+    height: 48px !important;
+  }
+}
+
+/* Drawer homologado con SidebarUsuario */
+.drawerHeader {
+  background-color: var(--ag-color-surface-elevated);
+  border-bottom: 1px solid var(--ag-color-border);
+  padding: 16px var(--mantine-spacing-lg);
+}
+
+.drawerTitle {
+  color: var(--ag-text-primary) !important;
+}
+
+.drawerClose {
+  min-width: 36px !important;
+  min-height: 36px !important;
+  color: var(--ag-text-muted) !important;
+}
+
+.drawerClose:hover {
+  background-color: #f1f5f9 !important;
+  color: var(--ag-text-primary) !important;
+}
+
+.drawerBody {
+  padding: var(--mantine-spacing-md);
+  background-color: var(--ag-color-surface-elevated);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 69px);
+  overflow: hidden;
+}
