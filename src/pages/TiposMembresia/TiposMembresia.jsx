@@ -3,6 +3,7 @@ import {
     ActionIcon,
     Badge,
     Box,
+    Button,
     Divider,
     Group,
     NativeSelect,
@@ -22,6 +23,7 @@ import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { FInput, FSelect, FTextarea, SectionTitle } from '../../components/Controles/ControlesComponent.jsx';
+import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Membresía', required: true },
@@ -39,13 +41,41 @@ const COLUMNAS = [
     { key: 'estado', label: 'Estado', sortable: true, filterable: true },
 ];
 
-const INICIAL = { nombre: '', descripcion: '', duracionDias: '', precio: '', estado: 'ACTIVO' };
+const INICIAL = { nombre: '', descripcion: '', duracionDias: '', precio: '', estado: 'ACTIVO', imagen: null, imagenUrl: '', quitarImagen: false };
 
 function TipoMembresiaForm({ form, errors, onChange }) {
     return (
         <Stack gap="md" style={{ width: '100%' }}>
             <Box>
                 <SectionTitle>Datos de la membresía</SectionTitle>
+                <Box mb="md">
+                    <SectionTitle
+                        rightSection={form.imagen instanceof File || (form.imagenUrl && !form.quitarImagen) ? (
+                            <Button
+                                variant="outline"
+                                color="red"
+                                size="compact-xs"
+                                radius="md"
+                                leftSection={<IconTrash size={14} stroke={1.8} />}
+                                onClick={() => {
+                                    onChange('imagen', null);
+                                    onChange('quitarImagen', Boolean(form.imagenUrl));
+                                }}
+                            >
+                                Quitar imagen
+                            </Button>
+                        ) : null}
+                    >
+                        Imagen de la membresía
+                    </SectionTitle>
+                    <CampoImagen
+                        imagen={form.imagen instanceof File ? form.imagen : form.quitarImagen ? null : form.imagenUrl}
+                        onChange={(imagen) => {
+                            onChange('imagen', imagen);
+                            onChange('quitarImagen', false);
+                        }}
+                    />
+                </Box>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
                     <FInput
                         label="Nombre de Membresía"
@@ -109,6 +139,9 @@ export function TiposMembresia() {
         duracionDias: record.duracionDias ?? '',
         precio: record.precio ?? '',
         estado: record.estado ?? 'ACTIVO',
+        imagen: null,
+        imagenUrl: record.imagenUrl ?? '',
+        quitarImagen: false,
     }), []);
 
     const mapFormToPayload = (form) => ({
@@ -117,6 +150,8 @@ export function TiposMembresia() {
         duracionDias: Number(form.duracionDias),
         precio: Number(form.precio),
         estado: form.estado,
+        imagen: form.imagen instanceof File ? form.imagen : null,
+        quitarImagen: Boolean(form.quitarImagen),
     });
 
     const colorEstado = (estado) => {
@@ -195,7 +230,6 @@ export function TiposMembresia() {
             mapRecordToRow={mapRecordToRow}
             renderForm={(props) => <TipoMembresiaForm {...props} />}
             renderAccionesFila={renderAccionesFila}
-            permitirEditar={false}
             permitirEliminar={false}
             formMode="drawer"
             drawerSize={560}

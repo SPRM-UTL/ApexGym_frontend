@@ -1,5 +1,6 @@
 import { CatalogoService } from './CatalogoService.js';
 import { httpClient } from './httpClient.js';
+import { prepararDatos } from '../globales.js';
 
 export class TipoMembresiaService extends CatalogoService {
     constructor(urlBase) {
@@ -12,6 +13,22 @@ export class TipoMembresiaService extends CatalogoService {
                 headers: { 'x-sucursal-id': String(sucursalId) },
             }),
             'Error al obtener membresías disponibles para venta'
+        );
+    }
+
+    crear(datos) {
+        const datosMembresia = prepararDatos(datos);
+        return this.ejecutar(
+            () => httpClient.post(`${this.urlApi}/`, datosMembresia),
+            'Error al crear el tipo de membresía'
+        );
+    }
+
+    actualizar(id, datos) {
+        const datosMembresia = prepararDatos(datos);
+        return this.ejecutar(
+            () => httpClient.put(`${this.urlApi}/${id}`, datosMembresia),
+            'Error al actualizar el tipo de membresía'
         );
     }
 }
