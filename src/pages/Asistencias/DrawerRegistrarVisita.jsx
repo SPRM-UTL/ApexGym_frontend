@@ -11,15 +11,17 @@ import {
     Badge,
     Paper,
     ScrollArea,
-    LoadingOverlay
+    LoadingOverlay,
+    SegmentedControl
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUserPlus, IconCash, IconNotes, IconUser } from '@tabler/icons-react';
+import { IconUserPlus, IconCash, IconNotes, IconUser, IconCreditCard, IconBuildingBank } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 
 export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
     const [nombreVisitante, setNombreVisitante] = useState('');
     const [tipoVisitaId, setTipoVisitaId] = useState('');
+    const [metodoPago, setMetodoPago] = useState('EFECTIVO');
     const [observaciones, setObservaciones] = useState('');
     const [tiposVisita, setTiposVisita] = useState([]);
     const [guardando, setGuardando] = useState(false);
@@ -59,6 +61,7 @@ export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
     const limpiarFormulario = () => {
         setNombreVisitante('');
         setObservaciones('');
+        setMetodoPago('EFECTIVO');
         setErrores({});
         if (tiposVisita.length > 0) {
             setTipoVisitaId(String(tiposVisita[0].id));
@@ -91,13 +94,14 @@ export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
             const res = await api.visita.crear({
                 nombreVisitante: nombreVisitante.trim(),
                 tipoVisitaId: Number(tipoVisitaId),
+                metodoPago,
                 observaciones: observaciones.trim() || null
             });
 
             if (res.responseFlag === 0) {
                 notifications.show({
                     title: 'Visita registrada',
-                    message: `Se registró la visita de ${nombreVisitante.trim()} ($${costoActual})`,
+                    message: `Se registró la visita de ${nombreVisitante.trim()} ($${costoActual} MXN en ${metodoPago.toLowerCase()}) y se ingresó a caja.`,
                     color: 'green'
                 });
                 limpiarFormulario();
@@ -175,6 +179,21 @@ export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
                         error={errores.tipoVisitaId}
                     />
 
+                    <Stack gap={4}>
+                        <Text size="sm" fw={500}>Método de Pago</Text>
+                        <SegmentedControl
+                            value={metodoPago}
+                            onChange={setMetodoPago}
+                            color="apex"
+                            fullWidth
+                            data={[
+                                { label: 'Efectivo', value: 'EFECTIVO' },
+                                { label: 'Tarjeta', value: 'TARJETA' },
+                                { label: 'Transferencia', value: 'TRANSFERENCIA' },
+                            ]}
+                        />
+                    </Stack>
+
                     <Paper p="md" withBorder radius="md" style={{ backgroundColor: '#fff9f4', borderColor: '#ffd8be' }}>
                         <Group justify="space-between" align="center">
                             <Group gap="xs">
@@ -188,6 +207,9 @@ export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
                                 ${costoActual} MXN
                             </Badge>
                         </Group>
+                        <Text size="xs" c="dimmed" mt="xs">
+                            💡 El cobro se registrará automáticamente como entrada en la caja abierta de recepción.
+                        </Text>
                     </Paper>
 
                     <Textarea
@@ -209,7 +231,7 @@ export function DrawerRegistrarVisita({ opened, onClose, onVisitaRegistrada }) {
                             loading={guardando}
                             leftSection={<IconUserPlus size={18} />}
                         >
-                            Registrar Visita
+                            Registrar y Cobrar Visita
                         </Button>
                     </Group>
                 </Stack>
