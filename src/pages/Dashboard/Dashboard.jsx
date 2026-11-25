@@ -23,6 +23,7 @@ import {
     IconChartBar,
     IconChevronDown,
     IconChevronRight,
+    IconClipboardList,
     IconHome,
     IconLayoutGrid,
     IconLogout,
@@ -60,6 +61,9 @@ const iconoModulo = (nombre) => {
     }
     if (nombre === 'Almacenes') {
         return IconBuildingWarehouse;
+    }
+    if (nombre === 'Pedidos de Compra') {
+        return IconClipboardList;
     }
     return IconLayoutGrid;
 };

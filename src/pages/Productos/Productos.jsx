@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import {
     ActionIcon,
     Badge,
@@ -8,26 +7,18 @@ import {
     Group,
     SimpleGrid,
     Stack,
-    Tabs,
     Tooltip,
 } from '@mantine/core';
 import {
-    IconBuildingWarehouse,
-    IconCheck,
     IconEdit,
-    IconExternalLink,
     IconPackage,
     IconTrash,
 } from '@tabler/icons-react';
 import { api } from '../../scripts/services/api.js';
 import { cambioNombreWeb } from '../../scripts/globales.js';
-import { useSecciones } from '../../context/SeccionesContext.jsx';
-import { rutaModulo, tieneAccesoModulo } from '../../scripts/modulosRutas.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { SectionTitle, FInput, FSelect, FTextarea, FCheckbox } from '../../components/Controles/ControlesComponent.jsx';
 import { CampoImagen } from '../../components/CampoImagen/CampoImagen.jsx';
-import { PedidosCompraPanel } from './PedidosCompraPanel.jsx';
-import { Almacenes } from '../Almacenes/Almacenes.jsx';
 
 const CAMPOS = [
     { key: 'nombre', label: 'Nombre de Producto', required: true },
@@ -250,35 +241,6 @@ function ProductoForm({ form, errors, onChange, fieldOptions }) {
 
 export function Productos() {
     cambioNombreWeb('Productos');
-    const navigate = useNavigate();
-    const { secciones } = useSecciones();
-    const [tabActiva, setTabActiva] = useState('catalogo');
-    const [refreshCatalogoKey, setRefreshCatalogoKey] = useState(0);
-    const [pendientesPedidos, setPendientesPedidos] = useState(0);
-
-    const puedeAbrirModuloAlmacenes = useMemo(
-        () => tieneAccesoModulo(secciones, 'inventario', 'almacenes'),
-        [secciones]
-    );
-    const rutaAlmacenes = rutaModulo('Almacenes', 'Inventario') || '/inventario/almacenes';
-
-    const cargarConteoPendientes = useCallback(async () => {
-        try {
-            const res = await api.pedidoCompra.obtenerTodos('PENDIENTE');
-            const lista = Array.isArray(res?.data) ? res.data : [];
-            setPendientesPedidos(lista.length);
-        } catch {
-            // El contador inicial es informativo; PedidosCompraPanel muestra errores si falla al abrir.
-        }
-    }, []);
-
-    useEffect(() => {
-        cargarConteoPendientes();
-    }, [cargarConteoPendientes]);
-
-    const handleInventarioActualizado = useCallback(() => {
-        setRefreshCatalogoKey((prev) => prev + 1);
-    }, []);
 
     const mapRecordToForm = useMemo(() => (record) => ({
         nombre: record.nombre ?? '',
@@ -421,92 +383,27 @@ export function Productos() {
     );
 
     return (
-        <Tabs
-            value={tabActiva}
-            onChange={(val) => setTabActiva(val || 'catalogo')}
-            color="orange"
-            variant="outline"
-            radius="md"
-        >
-            <Tabs.List mb="md">
-                <Tabs.Tab value="catalogo" leftSection={<IconPackage size={16} stroke={1.8} />}>
-                    Catálogo de Productos
-                </Tabs.Tab>
-                <Tabs.Tab
-                    value="pedidos"
-                    leftSection={<IconCheck size={16} stroke={1.8} />}
-                    rightSection={
-                        pendientesPedidos > 0 ? (
-                            <Badge size="xs" variant="filled" color="red" circle>
-                                {pendientesPedidos}
-                            </Badge>
-                        ) : null
-                    }
-                >
-                    Pedidos de Compra
-                </Tabs.Tab>
-                <Tabs.Tab
-                    value="almacenes"
-                    leftSection={<IconBuildingWarehouse size={16} stroke={1.8} />}
-                >
-                    Stock por Almacén
-                </Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value="catalogo">
-                <CrudCatalogo
-                    key={refreshCatalogoKey}
-                    titulo="Productos"
-                    singular="Producto"
-                    icon={IconPackage}
-                    servicio={api.Productos}
-                    columnas={COLUMNAS_PRODUCTOS}
-                    campos={CAMPOS}
-                    valoresIniciales={INICIAL}
-                    mapRecordToForm={mapRecordToForm}
-                    mapFormToPayload={mapFormToPayload}
-                    mapRecordToRow={mapRecordToRow}
-                    renderForm={(props) => <ProductoForm {...props} />}
-                    renderAccionesFila={renderAccionesFila}
-                    permitirEditar={false}
-                    permitirEliminar={false}
-                    formMode="drawer"
-                    drawerSize={580}
-                    headerVariant="unified"
-                    tableHeaderVariant="neutral"
-                    tableMinWidth={1500}
-                />
-            </Tabs.Panel>
-
-            <Tabs.Panel value="pedidos">
-                <PedidosCompraPanel
-                    onInventarioActualizado={handleInventarioActualizado}
-                    onConteoPendientesChange={setPendientesPedidos}
-                />
-            </Tabs.Panel>
-
-            <Tabs.Panel value="almacenes">
-                {tabActiva === 'almacenes' && (
-                    <Almacenes
-                        embedded
-                        onInventarioActualizado={handleInventarioActualizado}
-                        extraHeaderAction={
-                            puedeAbrirModuloAlmacenes ? (
-                                <Button
-                                    size="xs"
-                                    variant="default"
-                                    leftSection={<IconExternalLink size={15} />}
-                                    onClick={() => navigate(rutaAlmacenes)}
-                                    style={{ minHeight: 36, fontWeight: 600 }}
-                                >
-                                    Ir a Almacenes
-                                </Button>
-                            ) : null
-                        }
-                    />
-                )}
-            </Tabs.Panel>
-        </Tabs>
+        <CrudCatalogo
+            titulo="Productos"
+            singular="Producto"
+            icon={IconPackage}
+            servicio={api.Productos}
+            columnas={COLUMNAS_PRODUCTOS}
+            campos={CAMPOS}
+            valoresIniciales={INICIAL}
+            mapRecordToForm={mapRecordToForm}
+            mapFormToPayload={mapFormToPayload}
+            mapRecordToRow={mapRecordToRow}
+            renderForm={(props) => <ProductoForm {...props} />}
+            renderAccionesFila={renderAccionesFila}
+            permitirEditar={false}
+            permitirEliminar={false}
+            formMode="drawer"
+            drawerSize={580}
+            headerVariant="unified"
+            tableHeaderVariant="neutral"
+            tableMinWidth={1500}
+        />
     );
 }
 
