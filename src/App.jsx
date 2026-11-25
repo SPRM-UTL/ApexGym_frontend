@@ -40,6 +40,7 @@ import { Empresa } from './pages/Empresa/Empresa.jsx';
 import { Sucursales } from './pages/Sucursales/Sucursales.jsx';
 import { DashboardReportes } from './pages/DashboardReportes/DashboardReportes.jsx';
 import { Almacenes } from './pages/Almacenes/Almacenes.jsx';
+import { PedidosCompra } from './pages/PedidosCompra/PedidosCompra.jsx';
 import { EmpresaProvider } from './context/EmpresaContext.jsx';
 import { SucursalProvider } from './context/SucursalContext.jsx';
 import { OfflineProvider } from './context/OfflineContext.jsx';
@@ -140,6 +141,7 @@ const RUTAS_MODULOS = [
   { seccion: 'inventario', modulo: 'categorias-productos', element: <CategoriaProducto /> },
   { seccion: 'inventario', modulo: 'productos', element: <Productos /> },
   { seccion: 'inventario', modulo: 'almacenes', element: <Almacenes /> },
+  { seccion: 'inventario', modulo: 'pedidos-compra', element: <PedidosCompra /> },
 
   // Rendimiento Laboral
   { seccion: 'rendimiento-laboral', modulo: 'tipos-actividad', element: <TiposActividad /> },
