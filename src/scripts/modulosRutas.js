@@ -64,6 +64,7 @@ export const RUTAS_POR_MODULO = {
     'Categorías de Productos': { seccion: 'inventario', modulo: 'categorias-productos' },
     'Productos': { seccion: 'inventario', modulo: 'productos' },
     'Almacenes': { seccion: 'inventario', modulo: 'almacenes' },
+    'Pedidos de Compra': { seccion: 'inventario', modulo: 'pedidos-compra' },
 
     'Tipos de Actividad': { seccion: 'rendimiento-laboral', modulo: 'tipos-actividad' },
 
