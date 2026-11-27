@@ -108,10 +108,7 @@ export function ControlAcceso() {
     // { acceso: boolean, codigo, mensaje, cliente, membresia, diasRestantes, fechaExpiracion, advertencia, tipoAcceso }
     const [temporizadorSemaforo, setTemporizadorSemaforo] = useState(null);
 
-    // Flujo de confirmación manual de socio seleccionado
-    const [socioSeleccionado, setSocioSeleccionado] = useState(null);
-    const [validandoMembresia, setValidandoMembresia] = useState(false);
-    const [registrandoIngreso, setRegistrandoIngreso] = useState(false);
+    // Observaciones opcionales para el ingreso inmediato
     const [observacionesIngreso, setObservacionesIngreso] = useState('');
 
     // Referencias
@@ -363,89 +360,37 @@ export function ControlAcceso() {
         }
     };
 
-    // Seleccionar socio desde la lista desplegable para revisión manual
+    // Registrar acceso inmediato al seleccionar socio desde la barra de búsqueda (sin confirmación)
     const seleccionarSocio = async (cliente) => {
-        setSocioSeleccionado(cliente);
+        if (!cliente) return;
         setMostrarResultados(false);
         setBusqueda('');
-        setObservacionesIngreso('');
 
         try {
-            setValidandoMembresia(true);
-            const res = await api.clienteMembresia.obtenerActivaPorCliente(cliente.id);
-            const membresiaActiva = res.data;
+            setBuscando(true);
+            const res = await api.asistencia.validarYRegistrar(
+                cliente.id,
+                observacionesIngreso
+            );
 
-            if (membresiaActiva && membresiaActiva.estadoMembresia?.nombre === 'Vigente') {
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                const fin = new Date(membresiaActiva.fechaFin);
-                fin.setHours(0, 0, 0, 0);
-                const diffTime = fin.getTime() - hoy.getTime();
-                const diasRestantes = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+            if (res.responseFlag === 0 && res.data) {
+                const data = res.data;
+                const diasRestantes = data.diasRestantes ?? 0;
+                const advertencia = data.acceso && diasRestantes <= 3;
+                const nombreSocio = `${cliente.nombre} ${cliente.apellidoPaterno} ${cliente.apellidoMaterno || ''}`.trim();
 
                 mostrarSemaforo({
                     acceso: true,
                     codigo: 'ACCESO_AUTORIZADO',
-                    mensaje: 'Membresía Vigente - Listo para confirmar ingreso',
-                    cliente,
-                    membresia: membresiaActiva,
+                    mensaje: 'Acceso Registrado - Membresía Vigente',
+                    cliente: data.cliente || cliente,
+                    membresia: data.membresia,
                     diasRestantes,
-                    fechaExpiracion: membresiaActiva.fechaFin,
-                    advertencia: diasRestantes <= 3,
-                    metodo: 'Búsqueda Manual'
+                    fechaExpiracion: data.fechaExpiracion,
+                    advertencia,
+                    metodo: 'Búsqueda de Socio'
                 });
-            } else {
-                const resHistorial = await api.clienteMembresia.obtenerHistorialPorCliente(cliente.id);
-                const historial = Array.isArray(resHistorial.data) ? resHistorial.data : [];
-                const ultima = historial.length > 0 ? historial[0] : null;
 
-                let mensajeDetalle = 'Membresía Inexistente o Sin Asignar';
-                if (ultima && ultima.fechaFin) {
-                    const f = new Date(ultima.fechaFin);
-                    const d = String(f.getUTCDate()).padStart(2, '0');
-                    const m = String(f.getUTCMonth() + 1).padStart(2, '0');
-                    const y = f.getUTCFullYear();
-                    mensajeDetalle = `Membresía Vencida el ${d}/${m}/${y}`;
-                }
-
-                mostrarSemaforo({
-                    acceso: false,
-                    codigo: 'ACCESO_DENEGADO',
-                    mensaje: `Acceso Denegado - ${mensajeDetalle}`,
-                    cliente,
-                    membresia: ultima,
-                    diasRestantes: 0,
-                    fechaExpiracion: ultima?.fechaFin || null,
-                    advertencia: false,
-                    metodo: 'Búsqueda Manual'
-                });
-            }
-        } catch (err) {
-            console.error('Error pre-validando membresía:', err);
-            mostrarSemaforo({
-                acceso: false,
-                codigo: 'ERROR',
-                mensaje: 'Error al verificar vigencia de membresía',
-                cliente
-            });
-        } finally {
-            setValidandoMembresia(false);
-        }
-    };
-
-    // Confirmar ingreso manual de socio previamente seleccionado
-    const confirmarIngresoManual = async () => {
-        if (!socioSeleccionado) return;
-
-        try {
-            setRegistrandoIngreso(true);
-            const res = await api.asistencia.validarYRegistrar(
-                socioSeleccionado.id,
-                observacionesIngreso
-            );
-
-            if (res.responseFlag === 0) {
-                const nombreSocio = `${socioSeleccionado.nombre} ${socioSeleccionado.apellidoPaterno}`;
                 notifications.show({
                     title: 'Acceso Registrado',
                     message: `Bienvenido(a), ${nombreSocio}. Asistencia guardada.`,
@@ -453,30 +398,38 @@ export function ControlAcceso() {
                     icon: <IconCheck size={18} />
                 });
 
-                setSocioSeleccionado(null);
-                setObservacionesIngreso('');
                 setRefreshHistorialKey((k) => k + 1);
-                enfocarBusqueda();
             } else {
-                throw new Error(res.message);
+                throw new Error(res.message || 'Membresía no vigente');
             }
         } catch (err) {
+            console.error('Error registrando acceso de socio:', err);
+            const dataError = err.response?.data?.data;
+            const mensajeError = err.response?.data?.message || err.message || 'Acceso denegado: membresía no vigente o vencida';
+
+            mostrarSemaforo({
+                acceso: false,
+                codigo: 'ACCESO_DENEGADO',
+                mensaje: mensajeError,
+                cliente: dataError?.cliente || cliente,
+                membresia: dataError?.membresia || null,
+                diasRestantes: 0,
+                fechaExpiracion: dataError?.membresia?.fechaFin || null,
+                advertencia: false,
+                metodo: 'Búsqueda de Socio'
+            });
+
             notifications.show({
-                title: 'No se pudo registrar el acceso',
-                message: err.message || 'Membresía no vigente o error interno.',
+                title: 'Acceso Denegado',
+                message: mensajeError,
                 color: 'red',
                 icon: <IconCircleX size={18} />
             });
         } finally {
-            setRegistrandoIngreso(false);
+            setBuscando(false);
+            setObservacionesIngreso('');
+            enfocarBusqueda();
         }
-    };
-
-    const cancelarSeleccion = () => {
-        setSocioSeleccionado(null);
-        setResultadoSemaforo(null);
-        setObservacionesIngreso('');
-        enfocarBusqueda();
     };
 
     const formatoIdentificador = (id) => `#${String(id || 0).padStart(5, '0')}`;
@@ -687,6 +640,21 @@ export function ControlAcceso() {
                                 </Button>
                             </Group>
 
+                            {/* Campo opcional para observaciones del ingreso */}
+                            <Group justify="space-between" align="center" mt="xs">
+                                <TextInput
+                                    placeholder="Observaciones de ingreso (opcional, ej. casillero asignado)..."
+                                    value={observacionesIngreso}
+                                    onChange={(e) => setObservacionesIngreso(e.currentTarget.value)}
+                                    size="xs"
+                                    leftSection={<IconNotes size={14} color="#868e96" />}
+                                    style={{ flex: 1, maxWidth: 450 }}
+                                />
+                                <Text size="xs" c="dimmed">
+                                    💡 Al hacer clic en un socio o escanear QR, el acceso se registra automáticamente.
+                                </Text>
+                            </Group>
+
                             {/* Lista desplegable de coincidencias */}
                             {mostrarResultados && (
                                 <Paper
@@ -743,8 +711,8 @@ export function ControlAcceso() {
                                                         </div>
                                                     </Group>
 
-                                                    <Button size="xs" variant="light" color="apex">
-                                                        Seleccionar
+                                                    <Button size="xs" variant="light" color="green" leftSection={<IconCheck size={14} />}>
+                                                        Registrar Acceso
                                                     </Button>
                                                 </Group>
                                             );
@@ -753,99 +721,6 @@ export function ControlAcceso() {
                                 </Paper>
                             )}
                         </Paper>
-
-                        {/* Tarjeta de Confirmación Manual del Socio (si fue seleccionado por búsqueda) */}
-                        {socioSeleccionado && (
-                            <Paper
-                                p="lg"
-                                radius="md"
-                                withBorder
-                                style={{
-                                    borderTop: `6px solid ${
-                                        resultadoSemaforo?.acceso ? '#2b8a3e' : '#c92a2a'
-                                    }`,
-                                    backgroundColor: '#ffffff'
-                                }}
-                            >
-                                <LoadingOverlay visible={validandoMembresia} overlayProps={{ blur: 1 }} />
-
-                                <Group justify="space-between" align="flex-start" mb="md">
-                                    <Group gap="md">
-                                        <Avatar
-                                            src={socioSeleccionado.usuario?.fotoUrl || null}
-                                            size={72}
-                                            radius="xl"
-                                            color="apex"
-                                            style={{
-                                                border: `3px solid ${
-                                                    resultadoSemaforo?.acceso ? '#2b8a3e' : '#c92a2a'
-                                                }`
-                                            }}
-                                        >
-                                            {`${socioSeleccionado.nombre?.charAt(0) || ''}${socioSeleccionado.apellidoPaterno?.charAt(0) || ''}`.toUpperCase()}
-                                        </Avatar>
-
-                                        <div>
-                                            <Badge size="sm" variant="filled" color="dark" mb={4}>
-                                                Socio {formatoIdentificador(socioSeleccionado.id)}
-                                            </Badge>
-                                            <Title order={4}>
-                                                {`${socioSeleccionado.nombre} ${socioSeleccionado.apellidoPaterno} ${socioSeleccionado.apellidoMaterno || ''}`.trim()}
-                                            </Title>
-                                            <Group gap="md" mt={2}>
-                                                {socioSeleccionado.telefono && (
-                                                    <Group gap={4}>
-                                                        <IconPhone size={14} color="#868e96" />
-                                                        <Text size="xs" c="dimmed">{socioSeleccionado.telefono}</Text>
-                                                    </Group>
-                                                )}
-                                                {socioSeleccionado.correo && (
-                                                    <Group gap={4}>
-                                                        <IconMail size={14} color="#868e96" />
-                                                        <Text size="xs" c="dimmed">{socioSeleccionado.correo}</Text>
-                                                    </Group>
-                                                )}
-                                            </Group>
-                                        </div>
-                                    </Group>
-
-                                    <Button variant="subtle" color="gray" size="xs" onClick={cancelarSeleccion}>
-                                        Cambiar
-                                    </Button>
-                                </Group>
-
-                                <Divider my="sm" />
-
-                                <Textarea
-                                    label="Observaciones de ingreso"
-                                    placeholder="Incidencia, casillero asignado o nota del recepcionista (opcional)"
-                                    value={observacionesIngreso}
-                                    onChange={(e) => setObservacionesIngreso(e.currentTarget.value)}
-                                    minRows={2}
-                                    mb="md"
-                                    leftSection={<IconNotes size={16} stroke={1.5} />}
-                                />
-
-                                <Group justify="space-between" mt="md">
-                                    <Button variant="default" onClick={cancelarSeleccion}>
-                                        Cancelar
-                                    </Button>
-
-                                    <Button
-                                        size="md"
-                                        color={resultadoSemaforo?.acceso ? 'green' : 'red'}
-                                        disabled={!resultadoSemaforo?.acceso}
-                                        loading={registrandoIngreso}
-                                        leftSection={<IconCheck size={20} />}
-                                        onClick={confirmarIngresoManual}
-                                    >
-                                        {resultadoSemaforo?.acceso
-                                            ? 'Confirmar Ingreso (Registrar Asistencia)'
-                                            : 'Ingreso Bloqueado (Membresía No Válida)'}
-                                    </Button>
-                                </Group>
-                            </Paper>
-                        )}
                     </Stack>
                 </Tabs.Panel>
 
