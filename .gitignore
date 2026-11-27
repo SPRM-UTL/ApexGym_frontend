@@ -62,7 +62,6 @@ usuarios/
 .user_uploaded/
 media_*
 *.png
-*.jpg
 *.jpeg
 *.webp
 *.gif
