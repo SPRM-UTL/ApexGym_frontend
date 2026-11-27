@@ -27,10 +27,13 @@ export class ErrorBoundary extends React.Component {
 
     render() {
         if (this.state.hasError) {
+            const mensajeError = typeof this.state.error === 'string'
+                ? this.state.error
+                : this.state.error?.message;
             return (
                 <PaginaError
                     codigo={500}
-                    mensaje={this.state.error?.message || 'Ocurrió un error inesperado durante el procesamiento de la interfaz.'}
+                    mensaje={mensajeError || 'Ocurrió un error inesperado durante el procesamiento de la interfaz.'}
                     estaLogeadoEn={this.props.estaLogeadoEn ?? false}
                 />
             );
