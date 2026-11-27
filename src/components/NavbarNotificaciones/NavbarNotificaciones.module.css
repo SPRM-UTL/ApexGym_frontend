@@ -21,17 +21,213 @@
 .panel,
 .panelCompact {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.panelTitle {
+.panelFullHeight {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Filtros tipo pill */
+.filterTrack {
+  background-color: #f1f5f9 !important;
+  padding: 4px !important;
+}
+
+.filterIndicator {
+  background-color: var(--ag-color-secondary) !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+.filterLabel {
+  font-weight: 600 !important;
+  font-size: 0.78rem !important;
+  color: var(--ag-text-primary) !important;
+  padding: 6px 8px !important;
+}
+
+.filterLabel[data-active='true'] {
+  color: #ffffff !important;
+}
+
+.toolbar {
+  padding: 0 2px;
+}
+
+/* Contenedor scrollable de la lista */
+.listScrollFull {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.listScrollCompact {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fila de notificación estilo lista limpia */
+.listItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--ag-color-border);
+  background-color: var(--ag-color-surface-elevated);
+  transition: background-color 150ms ease;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.listItemUnread {
+  background-color: rgba(22, 163, 74, 0.08);
+  border-radius: 10px;
+  border-bottom-color: transparent;
+  margin-bottom: 4px;
+}
+
+/* Punto de estado */
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 13px;
+  flex-shrink: 0;
+}
+
+.dotSuccess {
+  background-color: #16a34a;
+}
+
+.dotInfo {
+  background-color: #3b82f6;
+}
+
+.dotWarning {
+  background-color: #f59e0b;
+}
+
+.dotRead {
+  background-color: #cbd5e1;
+}
+
+/* Icono circular */
+.itemIconCircle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.iconSuccess {
+  background-color: #16a34a;
+}
+
+.iconInfo {
+  background-color: #3b82f6;
+}
+
+.iconWarning {
+  background-color: #f59e0b;
+}
+
+/* Contenido de la notificación */
+.itemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.itemTitle {
   color: var(--ag-text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
+.itemMessage {
+  color: var(--ag-text-muted);
+  font-size: 0.83rem;
+  margin-top: 3px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.itemFooterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.itemDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  color: var(--ag-text-muted);
+}
+
+/* Pill de categoría */
+.categoryPill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pillSistema {
+  background-color: rgba(22, 163, 74, 0.14);
+  color: #15803d;
+}
+
+.pillActividad {
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+
+.pillWarning {
+  background-color: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+/* Barra Push inferior */
 .pushBar {
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
   background-color: var(--ag-color-surface);
   border: 1px solid var(--ag-color-border);
+  flex-shrink: 0;
 }
 
 .pushTitle {
@@ -48,42 +244,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 20px 12px;
+  gap: 8px;
+  padding: 40px 16px;
   text-align: center;
-}
-
-.item {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--ag-color-border);
-  background-color: var(--ag-color-surface-elevated);
-  transition: border-color 150ms ease, background-color 150ms ease;
-}
-
-.itemPendiente {
-  border-left: 3px solid var(--ag-color-primary);
-  background-color: var(--ag-color-primary-softer);
-}
-
-.itemContent {
-  flex: 1;
-  min-width: 0;
-}
-
-.itemTitle {
-  color: var(--ag-text-primary);
-  line-height: 1.3;
-}
-
-.itemMessage {
-  color: var(--ag-text-primary);
-  margin-top: 2px;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-.itemDate {
-  color: var(--ag-text-muted);
-  margin-top: 4px;
 }

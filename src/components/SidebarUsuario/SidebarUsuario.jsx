@@ -11,14 +11,12 @@ import {
     Tooltip,
 } from '@mantine/core';
 import {
-    IconBell,
     IconMail,
     IconShieldCheck,
     IconUser,
     IconZoomIn,
 } from '@tabler/icons-react';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
-import { PanelNotificaciones } from '../NavbarNotificaciones/NavbarNotificaciones.jsx';
 import classes from './SidebarUsuario.module.css';
 
 const obtenerIniciales = (nombre = '') =>
@@ -59,7 +57,7 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                                 Información del Usuario
                             </Title>
                             <Text size="xs" c="var(--ag-text-muted)">
-                                Perfil, alertas Push y permisos de cuenta
+                                Perfil y permisos de cuenta
                             </Text>
                         </div>
                     </Group>
@@ -156,17 +154,6 @@ export function SidebarUsuario({ opened, onClose, usuario }) {
                             <div className={classes.infoValue}>{rolPrincipal}</div>
                         </div>
                     </div>
-                </div>
-
-                {/* Panel de Notificaciones y Push Web */}
-                <div className={classes.infoCard}>
-                    <Group gap={6} mb="xs">
-                        <IconBell size={16} stroke={1.9} color="var(--ag-color-primary-dark)" />
-                        <div className={classes.cardSectionTitle} style={{ marginBottom: 0 }}>
-                            Centro de Notificaciones y Push
-                        </div>
-                    </Group>
-                    <PanelNotificaciones compact />
                 </div>
             </Drawer>
 

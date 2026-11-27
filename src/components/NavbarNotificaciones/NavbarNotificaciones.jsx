@@ -17,13 +17,16 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
+  IconActivity,
+  IconAlertTriangle,
   IconBell,
   IconBellOff,
   IconBellRinging,
   IconCheck,
   IconChecks,
-  IconDeviceMobile,
+  IconClock,
   IconEyeOff,
+  IconInfoCircle,
   IconRefresh,
 } from '@tabler/icons-react';
 import {
@@ -41,6 +44,11 @@ function formatearTiempoNotificacion(fechaIso) {
   if (!fechaIso) return '';
   const fecha = new Date(fechaIso);
   if (Number.isNaN(fecha.getTime())) return '';
+  const diffMin = Math.max(0, Math.round((Date.now() - fecha.getTime()) / 60000));
+  if (diffMin < 1) return 'Hace instantes';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const diffHoras = Math.round(diffMin / 60);
+  if (diffHoras < 24) return `Hace ${diffHoras} h`;
   return fecha.toLocaleString('es-MX', {
     day: '2-digit',
     month: 'short',
@@ -49,7 +57,7 @@ function formatearTiempoNotificacion(fechaIso) {
   });
 }
 
-export function PanelNotificaciones({ compact = false }) {
+export function PanelNotificaciones({ compact = false, fullHeight = false }) {
   const {
     notificaciones,
     noLeidasCount,
@@ -63,6 +71,11 @@ export function PanelNotificaciones({ compact = false }) {
     registrandoPush,
   } = useNotificaciones();
 
+  const actividadCount = useMemo(
+    () => notificaciones.filter((n) => n.tipo === 'ACTIVIDAD_EMPLEADO').length,
+    [notificaciones]
+  );
+
   const notificacionesFiltradas = useMemo(() => {
     if (filtro === 'NO_LEIDAS') {
       return notificaciones.filter((n) => n.estado === 'PENDIENTE');
@@ -74,25 +87,59 @@ export function PanelNotificaciones({ compact = false }) {
   }, [notificaciones, filtro]);
 
   return (
-    <Stack gap="xs" className={compact ? classes.panelCompact : classes.panel}>
-      <Group justify="space-between" align="center" wrap="nowrap">
-        <Group gap={6} wrap="nowrap">
-          <Text fw={700} size="sm" className={classes.panelTitle}>
-            Notificaciones
-          </Text>
-          {noLeidasCount > 0 && (
-            <Badge size="xs" color="apex" variant="filled">
-              {noLeidasCount}
-            </Badge>
-          )}
-          <Badge
-            size="xs"
-            variant="dot"
-            color={streamEstado === 'conectado' ? 'green' : 'gray'}
-          >
-            {streamEstado === 'conectado' ? 'En vivo' : 'Auto 30s'}
-          </Badge>
-        </Group>
+    <div className={fullHeight ? classes.panelFullHeight : (compact ? classes.panelCompact : classes.panel)}>
+      {/* Barra de filtros tipo pestañas pill */}
+      <SegmentedControl
+        size="xs"
+        radius="xl"
+        fullWidth
+        value={filtro}
+        onChange={cambiarFiltroNotificaciones}
+        classNames={{
+          root: classes.filterTrack,
+          indicator: classes.filterIndicator,
+          label: classes.filterLabel,
+        }}
+        data={[
+          {
+            value: 'TODAS',
+            label: (
+              <Group gap={5} justify="center" wrap="nowrap">
+                <IconBell size={14} stroke={2} />
+                <span>Todas ({notificaciones.length})</span>
+              </Group>
+            ),
+          },
+          {
+            value: 'NO_LEIDAS',
+            label: (
+              <Group gap={5} justify="center" wrap="nowrap">
+                <IconChecks size={14} stroke={2} />
+                <span>Sin leer ({noLeidasCount})</span>
+              </Group>
+            ),
+          },
+          {
+            value: 'ACTIVIDAD_ANDROID',
+            label: (
+              <Group gap={5} justify="center" wrap="nowrap">
+                <IconActivity size={14} stroke={2} />
+                <span>Actividad ({actividadCount})</span>
+              </Group>
+            ),
+          },
+        ]}
+      />
+
+      {/* Barra de acciones rápidas y estado */}
+      <Group justify="space-between" align="center" wrap="nowrap" className={classes.toolbar}>
+        <Badge
+          size="xs"
+          variant="dot"
+          color={streamEstado === 'conectado' ? 'green' : 'gray'}
+        >
+          {streamEstado === 'conectado' ? 'En vivo' : 'Auto 30s'}
+        </Badge>
 
         <Group gap={4} wrap="nowrap">
           <Tooltip label="Actualizar notificaciones" withArrow>
@@ -120,17 +167,151 @@ export function PanelNotificaciones({ compact = false }) {
         </Group>
       </Group>
 
+      {error && (
+        <Alert color="red" variant="light" py={6} px={10}>
+          <Text size="xs">{error}</Text>
+        </Alert>
+      )}
+
+      {/* Lista de notificaciones ocupando el espacio disponible */}
+      <div className={fullHeight ? classes.listScrollFull : classes.listScrollCompact}>
+        {cargando ? (
+          <Group justify="center" py="xl">
+            <Loader size="sm" color="apex" />
+            <Text size="xs" className={classes.mutedText}>Cargando alertas...</Text>
+          </Group>
+        ) : notificacionesFiltradas.length === 0 ? (
+          <div className={classes.emptyState}>
+            <IconBell size={32} stroke={1.5} color="var(--ag-text-muted)" />
+            <Text size="sm" fw={600} className={classes.mutedText}>
+              No hay notificaciones en esta vista.
+            </Text>
+          </div>
+        ) : (
+          <div className={classes.listContainer}>
+            {notificacionesFiltradas.map((notif) => {
+              const pendiente = notif.estado === 'PENDIENTE';
+              const esActividad = notif.tipo === 'ACTIVIDAD_EMPLEADO';
+              const esAlerta = notif.estado === 'IGNORADA' || /error|alerta|advertencia|fall|venc/i.test(`${notif.titulo || ''} ${notif.mensaje || ''}`);
+
+              const variante = esActividad ? 'info' : (esAlerta ? 'warning' : 'success');
+
+              return (
+                <div
+                  key={notif.id ?? `${notif.titulo}-${notif.createdAt}`}
+                  className={`${classes.listItem} ${pendiente ? classes.listItemUnread : ''}`}
+                >
+                  <span
+                    className={`${classes.statusDot} ${
+                      pendiente
+                        ? (variante === 'info'
+                          ? classes.dotInfo
+                          : variante === 'warning'
+                            ? classes.dotWarning
+                            : classes.dotSuccess)
+                        : classes.dotRead
+                    }`}
+                  />
+
+                  <div
+                    className={`${classes.itemIconCircle} ${
+                      variante === 'info'
+                        ? classes.iconInfo
+                        : variante === 'warning'
+                          ? classes.iconWarning
+                          : classes.iconSuccess
+                    }`}
+                  >
+                    {variante === 'info' ? (
+                      <IconInfoCircle size={18} stroke={2.2} />
+                    ) : variante === 'warning' ? (
+                      <IconAlertTriangle size={18} stroke={2.2} />
+                    ) : (
+                      <IconCheck size={18} stroke={2.5} />
+                    )}
+                  </div>
+
+                  <div className={classes.itemContent}>
+                    <div className={classes.itemHeaderRow}>
+                      <Text className={classes.itemTitle}>
+                        {notif.titulo || 'Notificación'}
+                      </Text>
+                      <span
+                        className={`${classes.categoryPill} ${
+                          esActividad
+                            ? classes.pillActividad
+                            : variante === 'warning'
+                              ? classes.pillWarning
+                              : classes.pillSistema
+                        }`}
+                      >
+                        {esActividad ? 'Actividad' : 'Sistema'}
+                      </span>
+                    </div>
+
+                    {notif.mensaje && (
+                      <Text className={classes.itemMessage}>
+                        {notif.mensaje}
+                      </Text>
+                    )}
+
+                    <div className={classes.itemFooterRow}>
+                      <span className={classes.itemDate}>
+                        <IconClock size={13} stroke={1.8} />
+                        <span>{formatearTiempoNotificacion(notif.createdAt)}</span>
+                      </span>
+
+                      {notif.id && (
+                        <Group gap={4} wrap="nowrap">
+                          {pendiente && (
+                            <Tooltip label="Marcar como leída" withArrow>
+                              <ActionIcon
+                                size="sm"
+                                variant="light"
+                                color="green"
+                                aria-label="Marcar notificación como leída"
+                                onClick={() => marcarNotificacionLeida(notif.id)}
+                              >
+                                <IconCheck size={14} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          {notif.estado !== 'IGNORADA' && (
+                            <Tooltip label="Ignorar notificación" withArrow>
+                              <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="gray"
+                                aria-label="Ignorar notificación"
+                                onClick={() => marcarNotificacionIgnorada(notif.id)}
+                              >
+                                <IconEyeOff size={14} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                        </Group>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Configuración Push en la parte inferior */}
       <div className={classes.pushBar}>
         <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
-          <Group gap={6} wrap="nowrap">
+          <Group gap={8} wrap="nowrap">
             {pushHabilitado ? (
-              <IconBellRinging size={16} color="var(--ag-color-primary-dark)" />
+              <IconBellRinging size={17} color="var(--ag-color-primary-dark)" />
             ) : (
-              <IconBellOff size={16} color="var(--ag-text-muted)" />
+              <IconBellOff size={17} color="var(--ag-text-muted)" />
             )}
             <div>
               <Text size="xs" fw={600} className={classes.pushTitle}>
-                Notificaciones Push del navegador
+                Notificaciones Push
               </Text>
               <Text size="11px" className={classes.pushMeta}>
                 {pushPermiso === 'unsupported'
@@ -138,7 +319,7 @@ export function PanelNotificaciones({ compact = false }) {
                   : pushPermiso === 'denied'
                     ? 'Permiso bloqueado en el navegador'
                     : pushHabilitado
-                      ? 'Dispositivo WEB activo'
+                      ? 'Alertas activas en este navegador'
                       : 'Activa para recibir alertas en tiempo real'}
               </Text>
             </div>
@@ -153,124 +334,7 @@ export function PanelNotificaciones({ compact = false }) {
           />
         </Group>
       </div>
-
-      <SegmentedControl
-        size="xs"
-        fullWidth
-        value={filtro}
-        onChange={cambiarFiltroNotificaciones}
-        data={[
-          { label: 'Todas', value: 'TODAS' },
-          { label: `No leídas (${noLeidasCount})`, value: 'NO_LEIDAS' },
-          { label: 'Actividad Android', value: 'ACTIVIDAD_ANDROID' },
-        ]}
-      />
-
-      <Divider />
-
-      {error && (
-        <Alert color="red" variant="light" py={6} px={10}>
-          <Text size="xs">{error}</Text>
-        </Alert>
-      )}
-
-      {cargando ? (
-        <Group justify="center" py="md">
-          <Loader size="sm" color="apex" />
-          <Text size="xs" className={classes.mutedText}>Cargando alertas...</Text>
-        </Group>
-      ) : notificacionesFiltradas.length === 0 ? (
-        <div className={classes.emptyState}>
-          <IconBell size={26} stroke={1.5} color="var(--ag-text-muted)" />
-          <Text size="xs" fw={600} className={classes.mutedText}>
-            No hay notificaciones en esta vista.
-          </Text>
-        </div>
-      ) : (
-        <ScrollArea.Autosize mah={compact ? 260 : 340} type="auto" offsetScrollbars>
-          <Stack gap="xs">
-            {notificacionesFiltradas.map((notif) => {
-              const pendiente = notif.estado === 'PENDIENTE';
-              const esAndroid = notif.tipo === 'ACTIVIDAD_EMPLEADO';
-
-              return (
-                <div
-                  key={notif.id ?? `${notif.titulo}-${notif.createdAt}`}
-                  className={`${classes.item} ${pendiente ? classes.itemPendiente : ''}`}
-                >
-                  <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
-                    <div className={classes.itemContent}>
-                      <Group gap={6} wrap="wrap" mb={2}>
-                        {pendiente && (
-                          <Badge size="xs" color="apex" variant="filled">
-                            Nueva
-                          </Badge>
-                        )}
-                        {esAndroid && (
-                          <Badge
-                            size="xs"
-                            color="blue"
-                            variant="light"
-                            leftSection={<IconDeviceMobile size={11} />}
-                          >
-                            Android
-                          </Badge>
-                        )}
-                        {notif.estado === 'IGNORADA' && (
-                          <Badge size="xs" color="gray" variant="light">
-                            Ignorada
-                          </Badge>
-                        )}
-                      </Group>
-                      <Text size="xs" fw={700} className={classes.itemTitle}>
-                        {notif.titulo || 'Notificación'}
-                      </Text>
-                      <Text size="xs" className={classes.itemMessage}>
-                        {notif.mensaje}
-                      </Text>
-                      <Text size="11px" className={classes.itemDate}>
-                        {formatearTiempoNotificacion(notif.createdAt)}
-                      </Text>
-                    </div>
-
-                    {notif.id && (
-                      <Group gap={4} wrap="nowrap">
-                        {pendiente && (
-                          <Tooltip label="Marcar como leída" withArrow>
-                            <ActionIcon
-                              size="sm"
-                              variant="light"
-                              color="green"
-                              aria-label="Marcar notificación como leída"
-                              onClick={() => marcarNotificacionLeida(notif.id)}
-                            >
-                              <IconCheck size={14} />
-                            </ActionIcon>
-                          </Tooltip>
-                        )}
-                        {notif.estado !== 'IGNORADA' && (
-                          <Tooltip label="Ignorar notificación" withArrow>
-                            <ActionIcon
-                              size="sm"
-                              variant="subtle"
-                              color="gray"
-                              aria-label="Ignorar notificación"
-                              onClick={() => marcarNotificacionIgnorada(notif.id)}
-                            >
-                              <IconEyeOff size={14} />
-                            </ActionIcon>
-                          </Tooltip>
-                        )}
-                      </Group>
-                    )}
-                  </Group>
-                </div>
-              );
-            })}
-          </Stack>
-        </ScrollArea.Autosize>
-      )}
-    </Stack>
+    </div>
   );
 }
 

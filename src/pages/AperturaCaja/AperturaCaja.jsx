@@ -46,7 +46,7 @@ import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { ModalConfirmacion } from '../../components/ModalConfirmacion/ModalConfirmacion.jsx';
 import { obtenerUsuarioActual } from '../../scripts/constantes.js';
 import { DENOMINACIONES, desglosarMonto, formatearFechaHora } from '../../scripts/cajaUtils.js';
-import { SectionCard } from '../../components/SectionCard/SectionCard.jsx';
+import { EncabezadoTabla } from '../../components/TablaRegistros/TablaRegistros.jsx';
 
 /* ─── Obtener fecha y hora local en formato YYYY-MM-DDTHH:mm ───────────────── */
 const obtenerFechaHoraActualLocal = () => {
@@ -185,24 +185,82 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
         onChange('montoInicial', 0);
     };
 
+    const billetes = useMemo(
+        () => DENOMINACIONES.filter((d) => d.tipo === 'billete'),
+        []
+    );
+    const monedas = useMemo(
+        () => DENOMINACIONES.filter((d) => d.tipo === 'moneda'),
+        []
+    );
+
+    const renderTablaDenominaciones = (lista, titulo, subtotalGrupo, badgeColor) => (
+        <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFFFFF' }}>
+            <Group justify="space-between" mb="xs">
+                <Text fw={700} size="xs" tt="uppercase" c="#475569">
+                    {titulo}
+                </Text>
+                <Badge color={badgeColor} variant="light" size="sm" radius="sm">
+                    ${subtotalGrupo.toFixed(2)}
+                </Badge>
+            </Group>
+            <Table withTableBorder withColumnBorders style={{ fontSize: 12.5 }}>
+                <Table.Thead>
+                    <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                        <Table.Th>Denom.</Table.Th>
+                        <Table.Th style={{ width: 88, textAlign: 'center' }}>Cant.</Table.Th>
+                        <Table.Th style={{ textAlign: 'right', width: 92 }}>Subtotal</Table.Th>
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {lista.map((d) => {
+                        const cantStr = conteo[d.valor] ?? '';
+                        const cantNum = cantStr === '' ? 0 : Number(cantStr);
+                        const subtotal = d.valor * cantNum;
+
+                        return (
+                            <Table.Tr key={d.valor}>
+                                <Table.Td fw={600} style={{ color: '#1E293B' }}>{d.label}</Table.Td>
+                                <Table.Td style={{ padding: 4 }}>
+                                    <NumberInput
+                                        size="xs"
+                                        min={0}
+                                        max={1000}
+                                        clampBehavior="strict"
+                                        allowDecimal={false}
+                                        placeholder="0"
+                                        value={cantStr}
+                                        onChange={(v) => actualizarConteoInicio(d.valor, v)}
+                                        styles={{ input: { textAlign: 'center', fontWeight: 600 } }}
+                                    />
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                    ${subtotal.toFixed(2)}
+                                </Table.Td>
+                            </Table.Tr>
+                        );
+                    })}
+                </Table.Tbody>
+            </Table>
+        </Paper>
+    );
+
     return (
-        <Stack gap="md">
-            {/* ── Card 1: Datos de la apertura ── */}
-            <SectionCard
-                icon={<IconFileText size={22} stroke={1.8} />}
-                iconBg="#FFF4EC"
-                iconColor="#FF6A00"
-                title="Datos de la apertura"
-                subtitle="Selecciona la caja, el empleado responsable y la fecha de apertura."
-                collapsible={false}
-            >
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xs">
+        <Stack gap="lg">
+            {/* ── Sección 1: Datos de la apertura ── */}
+            <Stack gap="sm">
+                <EncabezadoTabla
+                    title="Datos de la apertura"
+                    icon={IconFileText}
+                />
+
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                     <NativeSelect
                         label="Caja"
                         withAsterisk
                         value={form.cajaId ?? ''}
                         error={errors.cajaId}
-                        size="md"
+                        size="sm"
                         radius="md"
                         leftSection={<IconCash size={16} stroke={1.5} />}
                         data={[{ value: '', label: 'Selecciona una caja' }, ...(fieldOptions.cajaId ?? [])]}
@@ -213,134 +271,86 @@ function AperturaForm({ form, errors, onChange, fieldOptions }) {
                         withAsterisk
                         value={form.empleadoId ?? ''}
                         error={errors.empleadoId}
-                        size="md"
+                        size="sm"
                         radius="md"
                         leftSection={<IconUser size={16} stroke={1.5} />}
                         data={[{ value: '', label: 'Selecciona un empleado' }, ...(fieldOptions.empleadoId ?? [])]}
                         onChange={(e) => onChange('empleadoId', e.currentTarget.value)}
                     />
-                    <TextInput
-                        label="Fecha y Hora de Apertura"
-                        withAsterisk
-                        type="datetime-local"
-                        value={form.fechaApertura || obtenerFechaHoraActualLocal()}
-                        error={errors.fechaApertura}
-                        size="md"
-                        radius="md"
-                        leftSection={<IconCalendar size={16} stroke={1.5} />}
-                        onChange={(e) => onChange('fechaApertura', e.currentTarget.value)}
-                    />
-                    <Textarea
-                        label="Observaciones"
-                        placeholder="Observaciones de la apertura"
-                        value={form.observaciones ?? ''}
-                        error={errors.observaciones}
-                        maxLength={500}
-                        description="Máximo 500 caracteres"
-                        size="md"
-                        radius="md"
-                        minRows={2}
-                        onChange={(e) => onChange('observaciones', e.currentTarget.value)}
-                    />
                 </SimpleGrid>
-            </SectionCard>
 
-            {/* ── Card 2: Conteo y Arqueo de Efectivo ── */}
-            <SectionCard
-                icon={<IconCash size={22} stroke={1.8} />}
-                iconBg="#FFF4EC"
-                iconColor="#FF6A00"
-                title="Conteo y Arqueo de Efectivo"
-                subtitle="Desglose por denominación de billetes y monedas del fondo inicial"
-                collapsible={true}
-                defaultOpen={true}
-            >
-                <Stack gap="sm">
-                    <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
-                        <Table.Thead>
-                            <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
-                                <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ width: 120, textAlign: 'center' }}>Cantidad</Table.Th>
-                                <Table.Th style={{ textAlign: 'right', width: 140 }}>Subtotal</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {DENOMINACIONES.map((d) => {
-                                const cantStr = conteo[d.valor] ?? '';
-                                const cantNum = cantStr === '' ? 0 : Number(cantStr);
-                                const subtotal = d.valor * cantNum;
+                <TextInput
+                    label="Fecha y Hora de Apertura"
+                    withAsterisk
+                    type="datetime-local"
+                    value={form.fechaApertura || obtenerFechaHoraActualLocal()}
+                    error={errors.fechaApertura}
+                    size="sm"
+                    radius="md"
+                    leftSection={<IconCalendar size={16} stroke={1.5} />}
+                    onChange={(e) => onChange('fechaApertura', e.currentTarget.value)}
+                />
 
-                                return (
-                                    <Table.Tr key={d.valor}>
-                                        <Table.Td fw={600} style={{ color: '#1E293B' }}>{d.label}</Table.Td>
-                                        <Table.Td style={{ padding: 4 }}>
-                                            <NumberInput
-                                                size="xs"
-                                                min={0}
-                                                max={1000}
-                                                clampBehavior="strict"
-                                                allowDecimal={false}
-                                                placeholder="0"
-                                                value={cantStr}
-                                                onChange={(v) => actualizarConteoInicio(d.valor, v)}
-                                                styles={{ input: { textAlign: 'center', fontWeight: 600 } }}
-                                            />
-                                        </Table.Td>
-                                        <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
-                                            ${subtotal.toFixed(2)}
-                                        </Table.Td>
-                                    </Table.Tr>
-                                );
-                            })}
-                        </Table.Tbody>
-                    </Table>
+                <Textarea
+                    label="Observaciones"
+                    placeholder="Observaciones de la apertura (opcional)"
+                    value={form.observaciones ?? ''}
+                    error={errors.observaciones}
+                    maxLength={500}
+                    size="sm"
+                    radius="md"
+                    minRows={2}
+                    onChange={(e) => onChange('observaciones', e.currentTarget.value)}
+                />
+            </Stack>
 
-                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
-                        <Group justify="space-between" align="center">
-                            <Text fw={700} size="xs" c="#FF6A00">TOTAL FONDO INICIAL (FÍSICO):</Text>
-                            <Text fw={800} size="md" c="#FF6A00">${totalFondo.toFixed(2)}</Text>
-                        </Group>
-                    </Paper>
-                </Stack>
-            </SectionCard>
-
-            {/* ── Card 3: Resumen del Fondo Inicial ── */}
-            <SectionCard
-                icon={<IconCoins size={22} stroke={1.8} />}
-                iconBg="#E7F5FF"
-                iconColor="#1C7ED6"
-                title="Resumen del Fondo Inicial"
-                subtitle="Composición del fondo físico de apertura"
-                rightAmount={`$${totalFondo.toFixed(2)}`}
-                rightAmountColor="#1C7ED6"
-                collapsible={true}
-                defaultOpen={true}
-            >
-                <Stack gap="xs">
-                    <Group justify="space-between">
-                        <Text size="xs" c="dimmed">Total en Billetes:</Text>
-                        <Text fw={700} size="xs">${totalBilletes.toFixed(2)}</Text>
-                    </Group>
-                    <Group justify="space-between">
-                        <Text size="xs" c="dimmed">Total en Monedas:</Text>
-                        <Text fw={700} size="xs">${totalMonedas.toFixed(2)}</Text>
-                    </Group>
-                    {totalFondo > 0 && (
-                        <Group justify="flex-end" mt="xs">
-                            <Button
-                                variant="light"
-                                color="red"
-                                size="xs"
-                                radius="md"
-                                leftSection={<IconRefresh size={14} />}
-                                onClick={limpiarConteo}
-                            >
-                                Limpiar conteo
-                            </Button>
-                        </Group>
+            {/* ── Sección 2: Conteo y Arqueo de Efectivo ── */}
+            <Stack gap="sm">
+                <EncabezadoTabla
+                    title="Conteo y Arqueo de Efectivo"
+                    icon={IconCoins}
+                    rightContent={(
+                        <Badge color="orange" variant="light" size="lg" radius="sm">
+                            ${totalFondo.toFixed(2)}
+                        </Badge>
                     )}
-                </Stack>
-            </SectionCard>
+                />
+
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                    {renderTablaDenominaciones(billetes, 'Billetes', totalBilletes, 'blue')}
+                    {renderTablaDenominaciones(monedas, 'Monedas', totalMonedas, 'orange')}
+                </SimpleGrid>
+
+                <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                    <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+                        <div>
+                            <Text fw={700} size="xs" c="#9A3412" tt="uppercase">
+                                Total fondo inicial (físico)
+                            </Text>
+                            <Text size="xs" c="#C2410C">
+                                Billetes: ${totalBilletes.toFixed(2)} · Monedas: ${totalMonedas.toFixed(2)}
+                            </Text>
+                        </div>
+                        <Group gap="sm" align="center">
+                            {totalFondo > 0 && (
+                                <Button
+                                    variant="light"
+                                    color="red"
+                                    size="xs"
+                                    radius="md"
+                                    leftSection={<IconRefresh size={14} />}
+                                    onClick={limpiarConteo}
+                                >
+                                    Limpiar
+                                </Button>
+                            )}
+                            <Text fw={800} size="lg" c="#EA580C">
+                                ${totalFondo.toFixed(2)}
+                            </Text>
+                        </Group>
+                    </Group>
+                </Paper>
+            </Stack>
 
             {/* Banner de errores si los hay */}
             {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
@@ -450,31 +460,30 @@ function DrawerDetalleApertura({ apertura, opened, onClose }) {
 
                     {/* ── Tab: Resumen ── */}
                     <Tabs.Panel value="resumen">
-                        <Stack gap="md">
-                            {/* Card 1: Fondo Inicial */}
-                            <SectionCard
-                                icon={<IconCoins size={22} stroke={1.8} />}
-                                iconBg="#E7F5FF"
-                                iconColor="#1C7ED6"
+                        <Stack gap="lg">
+                            {/* Sección 1: Fondo Inicial */}
+                            <EncabezadoTabla
                                 title="Fondo inicial"
-                                subtitle="Monto asignado al inicio del turno"
-                                rightAmount={`$${fondoInicial.toFixed(2)}`}
-                                rightAmountColor="#1C7ED6"
-                                collapsible={false}
+                                icon={IconCoins}
+                                rightContent={(
+                                    <Badge color="blue" variant="light" size="lg" radius="sm">
+                                        ${fondoInicial.toFixed(2)}
+                                    </Badge>
+                                )}
                             />
 
-                            {/* Card 2: Conteo final de efectivo */}
-                            <SectionCard
-                                icon={<IconCash size={22} stroke={1.8} />}
-                                iconBg="#EBFBEE"
-                                iconColor="#2B8A3E"
-                                title="Conteo de efectivo inicial"
-                                subtitle="Desglose físico registrado en la apertura"
-                                rightAmount={`$${fondoInicial.toFixed(2)}`}
-                                rightAmountColor="#2B8A3E"
-                                collapsible={true}
-                                defaultOpen={true}
-                            >
+                            {/* Sección 2: Conteo de efectivo inicial */}
+                            <Stack gap="sm">
+                                <EncabezadoTabla
+                                    title="Conteo de efectivo inicial"
+                                    icon={IconCash}
+                                    rightContent={(
+                                        <Badge color="green" variant="light" size="lg" radius="sm">
+                                            ${fondoInicial.toFixed(2)}
+                                        </Badge>
+                                    )}
+                                />
+
                                 <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
                                     <Table.Thead>
                                         <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
@@ -499,7 +508,7 @@ function DrawerDetalleApertura({ apertura, opened, onClose }) {
                                         })}
                                     </Table.Tbody>
                                 </Table>
-                            </SectionCard>
+                            </Stack>
 
                             {/* Observaciones */}
                             {apertura.observaciones && (

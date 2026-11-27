@@ -12,7 +12,6 @@ import {
     Pagination,
     Stack,
     LoadingOverlay,
-    Divider,
     Button,
     Card
 } from '@mantine/core';
@@ -128,8 +127,6 @@ export function HistorialAsistencias({ refreshKey = 0 }) {
     return (
         <Stack gap="lg" style={{ position: 'relative' }}>
             <LoadingOverlay visible={cargando} overlayProps={{ blur: 1 }} />
-
-            <Divider my="xs" label="Resumen de aforo e historial" labelPosition="center" />
 
             {/* Tarjetas de métricas superiores */}
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">

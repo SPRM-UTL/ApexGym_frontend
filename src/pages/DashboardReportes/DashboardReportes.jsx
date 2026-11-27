@@ -6,6 +6,7 @@ import {
     Group,
     Loader,
     Menu,
+    Modal,
     Paper,
     SegmentedControl,
     Select,
@@ -31,8 +32,8 @@ import {
     IconCheck,
     IconChevronDown,
     IconDownload,
-    IconFileCode,
     IconFileSpreadsheet,
+    IconFileTypePdf,
     IconIdBadge,
     IconPackage,
     IconRefresh,
@@ -47,6 +48,11 @@ import { appUrl } from '../../scripts/constantes.js';
 import { api } from '../../scripts/services/api.js';
 import { ReporteService } from '../../scripts/services/ReporteService.js';
 import { AlmacenService } from '../../scripts/services/AlmacenService.js';
+import { EncabezadoTabla } from '../../components/TablaRegistros/TablaRegistros.jsx';
+import { ModuloCard } from '../../components/ModuloCard/ModuloCard.jsx';
+import imgReporteVentas from '../../assets/reporte_ventas.jpg';
+import imgReporteRendimiento from '../../assets/reporte_rendimiento.jpg';
+import imgReporteTopProductos from '../../assets/reporte_top_productos.jpg';
 import classes from './DashboardReportes.module.css';
 
 const formatoMoneda = new Intl.NumberFormat('es-MX', {
@@ -856,21 +862,15 @@ function SeccionVentas({ reporte }) {
 
     return (
         <Stack gap="md" component="section" aria-labelledby="sec-ventas-titulo">
-            <div className={classes.sectionHeader}>
-                <Group gap="xs">
-                    <ThemeIcon size={34} radius="md" color="orange" variant="light">
-                        <IconCash size={20} stroke={1.8} />
-                    </ThemeIcon>
-                    <div>
-                        <Title order={3} id="sec-ventas-titulo" className={classes.sectionTitle}>
-                            1. Reportes de Ventas
-                        </Title>
-                        <Text size="xs" c="#475569">
-                            Ingresos, volumen de transacciones, métodos de pago y actividad reciente
-                        </Text>
-                    </div>
-                </Group>
-            </div>
+            <EncabezadoTabla
+                title="1. Reportes de Ventas"
+                icon={IconCash}
+                rightContent={(
+                    <Text size="xs" c="#475569">
+                        Ingresos, volumen de transacciones, métodos de pago y actividad reciente
+                    </Text>
+                )}
+            />
 
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
                 <KpiCard
@@ -1031,119 +1031,39 @@ function SeccionRendimiento({ reporte }) {
 
     return (
         <Stack gap="md" component="section" aria-labelledby="sec-rendimiento-titulo">
-            <div className={classes.sectionHeader}>
-                <Group gap="xs">
-                    <ThemeIcon size={34} radius="md" color="indigo" variant="light">
-                        <IconUsers size={20} stroke={1.8} />
-                    </ThemeIcon>
-                    <div>
-                        <Title order={3} id="sec-rendimiento-titulo" className={classes.sectionTitle}>
-                            2. Reportes de Rendimiento
-                        </Title>
-                        <Text size="xs" c="#475569">
-                            Productividad por empleado, flujo de asistencias/visitas, membresías y control de caja
-                        </Text>
-                    </div>
-                </Group>
-            </div>
-
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-                <Paper className={classes.panelCard}>
-                    <Group justify="space-between" mb="xs">
-                        <Group gap="xs">
-                            <IconIdBadge size={18} color="#1B1F3A" />
-                            <Text className={classes.panelHeading}>Resumen de membresías</Text>
-                        </Group>
-                        <Badge variant="light" color="teal" size="sm">
-                            {formatoNumero.format(membresias.clientesActivos)} clientes activos
-                        </Badge>
-                    </Group>
-                    <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
-                        <KpiCard label="Vigentes" value={formatoNumero.format(membresias.vigentes)} accent="green" />
-                        <KpiCard label="Por vencer (7 días)" value={formatoNumero.format(membresias.porVencer7Dias)} accent="orange" />
-                        <KpiCard label="Vencidas" value={formatoNumero.format(membresias.vencidas)} accent="red" />
-                        <KpiCard label="Canceladas" value={formatoNumero.format(membresias.canceladas)} accent="navy" />
-                        <KpiCard label="Clientes activos" value={formatoNumero.format(membresias.clientesActivos)} accent="blue" />
-                    </SimpleGrid>
-                </Paper>
-
-                <Paper className={classes.panelCard}>
-                    <Group justify="space-between" mb="xs">
-                        <Group gap="xs">
-                            <IconCashRegister size={18} color="#1B1F3A" />
-                            <Text className={classes.panelHeading}>Resumen de caja</Text>
-                        </Group>
-                        <Badge
-                            variant="light"
-                            color={caja.diferenciaAcumulada === 0 ? 'green' : caja.diferenciaAcumulada > 0 ? 'blue' : 'red'}
-                            size="sm"
-                        >
-                            Dif: {formatoMoneda.format(caja.diferenciaAcumulada)}
-                        </Badge>
-                    </Group>
-                    <SimpleGrid cols={{ base: 2 }} spacing="xs">
-                        <KpiCard
-                            label="Aperturas abiertas"
-                            value={formatoNumero.format(caja.aperturasAbiertas)}
-                            hint="Cajas actualmente activas"
-                            accent="orange"
-                        />
-                        <KpiCard
-                            label="Cortes realizados"
-                            value={formatoNumero.format(caja.cortes)}
-                            hint="En el rango seleccionado"
-                            accent="navy"
-                        />
-                        <KpiCard
-                            label="Cortes cuadrados"
-                            value={formatoNumero.format(caja.cortesCuadrados)}
-                            hint="Diferencia igual a $0.00"
-                            accent="green"
-                        />
-                        <KpiCard
-                            label="Diferencia acumulada"
-                            value={formatoMoneda.format(caja.diferenciaAcumulada)}
-                            hint="Suma neta de cortes"
-                            accent={caja.diferenciaAcumulada < 0 ? 'red' : 'blue'}
-                        />
-                    </SimpleGrid>
-                </Paper>
-            </SimpleGrid>
-
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-                <KpiCard
-                    label="Total asistencias (socios)"
-                    value={formatoNumero.format(asistencias.totalAsistencias)}
-                    hint="Entradas registradas"
-                    icon={IconCheck}
-                    accent="navy"
-                    iconColor="indigo"
-                />
-                <KpiCard
-                    label="Total visitas (externos)"
-                    value={formatoNumero.format(asistencias.totalVisitas)}
-                    hint="Pases y visitas por día"
-                    icon={IconUsers}
-                    accent="orange"
-                    iconColor="orange"
-                />
-                <KpiCard
-                    label="Ingresos por visitas"
-                    value={formatoMoneda.format(asistencias.ingresosVisitas)}
-                    hint="Cobro de visitas diarias"
-                    icon={IconCash}
-                    accent="green"
-                    iconColor="green"
-                />
-            </SimpleGrid>
-
-            <GraficaBarrasDiariaSvg
-                idTitulo="titulo-grafica-asistencias"
-                titulo="Asistencias y visitas diarias"
-                subtitulo="Comparativo diario de acceso de socios vs visitas externas"
-                items={asistencias.serieDiaria}
-                modo="asistencias"
+            <EncabezadoTabla
+                title="2. Reportes de Rendimiento"
+                icon={IconUsers}
+                rightContent={(
+                    <Text size="xs" c="#475569">
+                        Membresías vigentes y vencidas, control de caja, ingresos por visitas y ventas por empleado
+                    </Text>
+                )}
             />
+
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                <SimpleGrid cols={{ base: 2 }} spacing="sm">
+                    <KpiCard label="Vigentes" value={formatoNumero.format(membresias.vigentes)} accent="green" />
+                    <KpiCard label="Por vencer (7 días)" value={formatoNumero.format(membresias.porVencer7Dias)} accent="orange" />
+                    <KpiCard label="Vencidas" value={formatoNumero.format(membresias.vencidas)} accent="red" />
+                    <KpiCard label="Canceladas" value={formatoNumero.format(membresias.canceladas)} accent="navy" />
+                </SimpleGrid>
+
+                <SimpleGrid cols={{ base: 1 }} spacing="sm">
+                    <KpiCard
+                        label="Diferencia acumulada"
+                        value={formatoMoneda.format(caja.diferenciaAcumulada)}
+                        hint="Suma neta de cortes"
+                        accent={caja.diferenciaAcumulada < 0 ? 'red' : 'blue'}
+                    />
+                    <KpiCard
+                        label="Ingresos por visitas"
+                        value={formatoMoneda.format(asistencias.ingresosVisitas)}
+                        hint="Cobro de visitas diarias"
+                        accent="green"
+                    />
+                </SimpleGrid>
+            </SimpleGrid>
 
             <Paper className={classes.panelCard}>
                 <Group justify="space-between" mb="xs">
@@ -1203,21 +1123,15 @@ function SeccionTopProductos({ reporte }) {
 
     return (
         <Stack gap="md" component="section" aria-labelledby="sec-top-titulo">
-            <div className={classes.sectionHeader}>
-                <Group gap="xs">
-                    <ThemeIcon size={34} radius="md" color="orange" variant="light">
-                        <IconStar size={20} stroke={1.8} />
-                    </ThemeIcon>
-                    <div>
-                        <Title order={3} id="sec-top-titulo" className={classes.sectionTitle}>
-                            3. Top de Productos Vendidos
-                        </Title>
-                        <Text size="xs" c="#475569">
-                            Ranking #1..#15 por unidades e ingresos, existencias globales y desglose por almacén
-                        </Text>
-                    </div>
-                </Group>
-            </div>
+            <EncabezadoTabla
+                title="3. Top de Productos Vendidos"
+                icon={IconStar}
+                rightContent={(
+                    <Text size="xs" c="#475569">
+                        Ranking #1..#15 por unidades e ingresos, existencias globales y desglose por almacén
+                    </Text>
+                )}
+            />
 
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
                 <KpiCard
@@ -1377,7 +1291,7 @@ export function DashboardReportes() {
     const [fechaInicio, setFechaInicio] = useState(rangoInicial.fechaInicio);
     const [fechaFin, setFechaFin] = useState(rangoInicial.fechaFin);
     const [almacenSeleccionado, setAlmacenSeleccionado] = useState({ sucursalId, value: '' });
-    const [vistaReporte, setVistaReporte] = useState('todos');
+    const [reporteActivo, setReporteActivo] = useState(null);
 
     const almacenId = almacenSeleccionado.sucursalId === sucursalId ? almacenSeleccionado.value : '';
 
@@ -1495,33 +1409,42 @@ export function DashboardReportes() {
         });
     };
 
-    const exportarJson = () => {
-        const payload = {
-            generadoEl: new Date().toISOString(),
-            sucursal: {
-                id: sucursalId,
-                nombre: sucursalActiva?.nombre || `Sucursal #${sucursalId}`,
-            },
-            filtros: {
-                preset,
-                fechaInicio,
-                fechaFin,
-                almacenId: almacenId ? Number(almacenId) : null,
-                almacenNombre: almacenActualObj?.nombre || 'Todos los almacenes',
-            },
-            reportes,
-        };
-        descargarArchivo(
-            JSON.stringify(payload, null, 2),
-            `reporte-apexgym-sucursal-${sucursalId}-${fechaInicio}_a_${fechaFin}.json`,
-            'application/json;charset=utf-8;'
-        );
-        notifications.show({
-            title: 'Reporte exportado',
-            message: 'Se descargó el archivo JSON con los datos actuales.',
-            color: 'green',
-            icon: <IconCheck size={16} />,
-        });
+    const exportarPdf = async () => {
+        try {
+            const [{ pdf }, { DocumentoReportePdf }] = await Promise.all([
+                import('@react-pdf/renderer'),
+                import('./DocumentoReportePdf.jsx'),
+            ]);
+            const blob = await pdf(
+                <DocumentoReportePdf
+                    sucursalNombre={sucursalActiva?.nombre || `Sucursal #${sucursalId}`}
+                    almacenNombre={almacenActualObj?.nombre || 'Todos los almacenes'}
+                    filtros={{ fechaInicio, fechaFin }}
+                    reportes={reportes}
+                />
+            ).toBlob();
+            const url = URL.createObjectURL(blob);
+            const enlace = document.createElement('a');
+            enlace.href = url;
+            enlace.download = `reporte-apexgym-sucursal-${sucursalId}-${fechaInicio}_a_${fechaFin}.pdf`;
+            document.body.appendChild(enlace);
+            enlace.click();
+            document.body.removeChild(enlace);
+            URL.revokeObjectURL(url);
+            notifications.show({
+                title: 'Reporte exportado',
+                message: 'Se descargó el archivo PDF con los datos actuales.',
+                color: 'green',
+                icon: <IconCheck size={16} />,
+            });
+        } catch (err) {
+            notifications.show({
+                title: 'Error al exportar PDF',
+                message: err?.message || 'No se pudo generar el documento PDF.',
+                color: 'red',
+                icon: <IconAlertCircle size={16} />,
+            });
+        }
     };
 
     const opcionesAlmacen = useMemo(() => [
@@ -1534,55 +1457,38 @@ export function DashboardReportes() {
 
     return (
         <Stack className={classes.page} gap="md">
-            <Paper className={classes.heroBar}>
-                <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                    <Group gap="sm" align="center">
-                        <ThemeIcon size={46} radius="md" color="orange" variant="filled">
-                            <IconReportAnalytics size={26} stroke={1.8} />
-                        </ThemeIcon>
-                        <div>
-                            <Text className={classes.heroEyebrow}>Inteligencia operativa</Text>
-                            <Title order={2} className={classes.heroTitle}>
-                                Dashboard y Reportes
-                            </Title>
-                            <Group gap="xs" mt={4} wrap="wrap">
-                                <Badge
-                                    variant="filled"
-                                    color="orange"
-                                    leftSection={<IconBuildingStore size={12} />}
-                                    size="sm"
-                                >
-                                    {sucursalActiva?.nombre || `Sucursal #${sucursalId}`}
-                                </Badge>
-                                {almacenActualObj && (
-                                    <Badge
-                                        variant="light"
-                                        color="yellow"
-                                        leftSection={<IconBuildingWarehouse size={12} />}
-                                        size="sm"
-                                    >
-                                        {almacenActualObj.nombre}
-                                    </Badge>
-                                )}
-                                {desdeCacheOffline && (
-                                    <Badge variant="light" color="cyan" size="sm">
-                                        Datos locales (sin conexión)
-                                    </Badge>
-                                )}
-                                {ultimaActualizacion && (
-                                    <Text className={classes.heroSubtitle}>
-                                        Actualizado: {ultimaActualizacion.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                                    </Text>
-                                )}
-                            </Group>
-                        </div>
-                    </Group>
-
-                    <Group gap="sm" wrap="wrap">
+            <EncabezadoTabla
+                title="Dashboard y Reportes"
+                icon={IconReportAnalytics}
+                rightContent={(
+                    <Group gap="xs" wrap="wrap" justify="flex-end">
+                        <Badge
+                            variant="light"
+                            color="orange"
+                            leftSection={<IconBuildingStore size={12} />}
+                            size="md"
+                        >
+                            {sucursalActiva?.nombre || `Sucursal #${sucursalId}`}
+                        </Badge>
+                        {almacenActualObj && (
+                            <Badge
+                                variant="light"
+                                color="blue"
+                                leftSection={<IconBuildingWarehouse size={12} />}
+                                size="md"
+                            >
+                                {almacenActualObj.nombre}
+                            </Badge>
+                        )}
+                        {desdeCacheOffline && (
+                            <Badge variant="light" color="cyan" size="md">
+                                Datos locales (sin conexión)
+                            </Badge>
+                        )}
                         <Button
                             className={classes.actionBtn}
-                            variant="white"
-                            color="dark"
+                            variant="default"
+                            size="sm"
                             leftSection={<IconRefresh size={16} />}
                             loading={cargando}
                             disabled={rangoInvalido}
@@ -1595,7 +1501,8 @@ export function DashboardReportes() {
                             <Menu.Target>
                                 <Button
                                     className={classes.actionBtn}
-                                    color="orange"
+                                    color="apex"
+                                    size="sm"
                                     leftSection={<IconDownload size={16} />}
                                     rightSection={<IconChevronDown size={14} />}
                                     disabled={cargando}
@@ -1606,22 +1513,22 @@ export function DashboardReportes() {
                             <Menu.Dropdown>
                                 <Menu.Label>Formato de descarga</Menu.Label>
                                 <Menu.Item
+                                    leftSection={<IconFileTypePdf size={16} color="#DC2626" />}
+                                    onClick={exportarPdf}
+                                >
+                                    Exportar PDF (.pdf)
+                                </Menu.Item>
+                                <Menu.Item
                                     leftSection={<IconFileSpreadsheet size={16} color="#15803D" />}
                                     onClick={exportarCsv}
                                 >
                                     Exportar CSV (.csv)
                                 </Menu.Item>
-                                <Menu.Item
-                                    leftSection={<IconFileCode size={16} color="#1D4ED8" />}
-                                    onClick={exportarJson}
-                                >
-                                    Exportar JSON (.json)
-                                </Menu.Item>
                             </Menu.Dropdown>
                         </Menu>
                     </Group>
-                </Group>
-            </Paper>
+                )}
+            />
 
             <Paper className={classes.filterPanel}>
                 <Stack gap="sm">
@@ -1682,19 +1589,7 @@ export function DashboardReportes() {
                         </Group>
                     </Group>
 
-                    <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-                        <SegmentedControl
-                            size="xs"
-                            color="indigo"
-                            value={vistaReporte}
-                            onChange={setVistaReporte}
-                            data={[
-                                { value: 'todos', label: 'Vista completa (3 reportes)' },
-                                { value: 'ventas', label: '1. Ventas' },
-                                { value: 'rendimiento', label: '2. Rendimiento' },
-                                { value: 'top', label: '3. Top productos' },
-                            ]}
-                        />
+                    <Group justify="flex-end" align="center" wrap="wrap" gap="sm">
                         <Text size="xs" c="#475569">
                             Mostrando del <strong>{formatearFechaCorta(fechaInicio)}</strong> al{' '}
                             <strong>{formatearFechaCorta(fechaFin)}</strong>
@@ -1735,18 +1630,73 @@ export function DashboardReportes() {
                     </Group>
                 </Paper>
             ) : (
-                <Stack gap="xl">
-                    {(vistaReporte === 'todos' || vistaReporte === 'ventas') && (
-                        <SeccionVentas reporte={reportes.ventas} />
-                    )}
-                    {(vistaReporte === 'todos' || vistaReporte === 'rendimiento') && (
-                        <SeccionRendimiento reporte={reportes.rendimiento} />
-                    )}
-                    {(vistaReporte === 'todos' || vistaReporte === 'top') && (
-                        <SeccionTopProductos reporte={reportes.topProductos} />
-                    )}
-                </Stack>
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+                    <ModuloCard
+                        modulo={{
+                            nombre: 'Reporte de Ventas',
+                            descripcion: 'Ingresos totales, ticket promedio, desglose por método de pago y tendencia diaria.',
+                            imagenUrl: imgReporteVentas,
+                        }}
+                        icon={IconCashRegister}
+                        onClick={() => setReporteActivo('ventas')}
+                    />
+                    <ModuloCard
+                        modulo={{
+                            nombre: 'Rendimiento Operativo',
+                            descripcion: 'Membresías activas, vencimientos, retención de clientes y métricas de operación.',
+                            imagenUrl: imgReporteRendimiento,
+                        }}
+                        icon={IconTrendingUp}
+                        onClick={() => setReporteActivo('rendimiento')}
+                    />
+                    <ModuloCard
+                        modulo={{
+                            nombre: 'Top Productos',
+                            descripcion: 'Ranking de productos más vendidos, unidades desplazadas y participación en ingresos.',
+                            imagenUrl: imgReporteTopProductos,
+                        }}
+                        icon={IconStar}
+                        onClick={() => setReporteActivo('top')}
+                    />
+                </SimpleGrid>
             )}
+
+            <Modal
+                opened={Boolean(reporteActivo)}
+                onClose={() => setReporteActivo(null)}
+                fullScreen
+                radius={0}
+                zIndex={999999}
+                transitionProps={{ transition: 'slide-up', duration: 200 }}
+                title={
+                    <Group gap="sm">
+                        {reporteActivo === 'ventas' && <IconCashRegister size={22} stroke={1.9} color="#ffffff" />}
+                        {reporteActivo === 'rendimiento' && <IconTrendingUp size={22} stroke={1.9} color="#ffffff" />}
+                        {reporteActivo === 'top' && <IconStar size={22} stroke={1.9} color="#ffffff" />}
+                        <div>
+                            <Title order={4} fw={700} c="#ffffff">
+                                {reporteActivo === 'ventas'
+                                    ? 'Reporte de Ventas'
+                                    : reporteActivo === 'rendimiento'
+                                        ? 'Rendimiento Operativo'
+                                        : 'Top Productos'}
+                            </Title>
+                            <Text size="xs" c="rgba(255, 255, 255, 0.8)">
+                                {sucursalActiva?.nombre || `Sucursal #${sucursalId}`} · {formatearFechaCorta(fechaInicio)} al {formatearFechaCorta(fechaFin)}
+                            </Text>
+                        </div>
+                    </Group>
+                }
+                classNames={{
+                    body: classes.reportModalBody,
+                }}
+            >
+                <div className={classes.reportModalContainer}>
+                    {reporteActivo === 'ventas' && <SeccionVentas reporte={reportes.ventas} />}
+                    {reporteActivo === 'rendimiento' && <SeccionRendimiento reporte={reportes.rendimiento} />}
+                    {reporteActivo === 'top' && <SeccionTopProductos reporte={reportes.topProductos} />}
+                </div>
+            </Modal>
         </Stack>
     );
 }

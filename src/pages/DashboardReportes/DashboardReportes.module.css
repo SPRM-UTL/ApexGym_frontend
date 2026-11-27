@@ -5,34 +5,15 @@
     min-width: 0;
 }
 
-.heroBar {
-    background: linear-gradient(135deg, var(--ag-color-secondary, #1B1F3A) 0%, #262C52 100%);
-    color: #ffffff;
-    border-radius: 12px;
-    padding: 18px 20px;
-    border-bottom: 3px solid var(--ag-color-primary, #FF6A00);
-    box-shadow: 0 6px 20px rgba(27, 31, 58, 0.14);
+.reportModalBody {
+    padding: 0 var(--mantine-spacing-lg) var(--mantine-spacing-lg);
+    background-color: var(--ag-color-surface);
+    min-height: calc(100vh - 69px);
 }
 
-.heroEyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ag-color-tertiary, #FFCC66);
-}
-
-.heroTitle {
-    color: #ffffff;
-    font-size: 1.45rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-}
-
-.heroSubtitle {
-    color: #D7E3FF;
-    font-size: 0.875rem;
+.reportModalContainer {
+    max-width: 1280px;
+    margin: 0 auto;
 }
 
 .filterPanel {

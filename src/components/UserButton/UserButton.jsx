@@ -1,7 +1,6 @@
 import { Avatar, Group, Text, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { resolverUrlImagen } from '../../scripts/constantes.js';
-import { NavbarNotificaciones } from '../NavbarNotificaciones/NavbarNotificaciones.jsx';
 import { SidebarUsuario } from '../SidebarUsuario/SidebarUsuario.jsx';
 import classes from './UserButton.module.css';
 
@@ -19,11 +18,9 @@ export function UserButton({ usuario }) {
 
     return (
         <Group gap="xs" wrap="nowrap" className={classes.wrapper}>
-            {usuario && <NavbarNotificaciones />}
-
             <UnstyledButton
                 className={classes.user}
-                aria-label="Información del usuario actual y notificaciones"
+                aria-label="Información del usuario actual"
                 onClick={open}
             >
                 <Group gap="sm" wrap="nowrap">
