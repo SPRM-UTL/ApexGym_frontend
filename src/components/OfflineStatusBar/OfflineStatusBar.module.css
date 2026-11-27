@@ -1,4 +1,3 @@
-
 /* Botón de acción flotante */
 .fab {
   position: fixed !important;
@@ -13,6 +12,16 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fabOnline {
+  background-color: var(--ag-color-success) !important;
+  color: #ffffff !important;
+}
+
+.fabOffline {
+  background-color: var(--ag-color-danger) !important;
+  color: #ffffff !important;
 }
 
 .fab:hover {
@@ -33,135 +42,223 @@
   }
 }
 
-.bar {
+/* Drawer homologado con SidebarUsuario */
+.drawerHeader {
+  background-color: var(--ag-color-surface-elevated);
+  border-bottom: 1px solid var(--ag-color-border);
+  padding: 16px var(--mantine-spacing-lg);
+}
+
+.drawerTitle {
+  color: var(--ag-text-primary) !important;
+}
+
+.drawerClose {
+  min-width: 36px !important;
+  min-height: 36px !important;
+  color: var(--ag-text-muted) !important;
+}
+
+.drawerClose:hover {
+  background-color: #f1f5f9 !important;
+  color: var(--ag-text-primary) !important;
+}
+
+.drawerBody {
+  padding: var(--mantine-spacing-lg);
+  background-color: var(--ag-color-surface);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 16px;
-
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-
-  background-color: transparent;
-  border: none;
-  box-shadow: none;
+  gap: var(--mantine-spacing-md);
+  min-height: calc(100vh - 64px);
 }
 
-/* Estado sin conexión */
-.barOffline {
-  background-color: transparent;
-  border: none;
+/* Tarjeta Hero de estado */
+.statusHero {
+  position: relative;
+  overflow: hidden;
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-radius: var(--mantine-radius-md);
+  background-color: var(--ag-color-surface-elevated);
+  border: 1px solid var(--ag-color-border);
+  box-shadow:
+    0 10px 24px rgba(5, 6, 10, 0.05),
+    0 2px 6px rgba(5, 6, 10, 0.03);
+  text-align: center;
 }
 
-/* Información de estados */
-.statusCluster {
+.statusHero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.statusHeroOnline::before {
+  background: linear-gradient(90deg, var(--ag-color-success) 0%, #22c55e 100%);
+}
+
+.statusHeroOffline::before {
+  background: linear-gradient(90deg, var(--ag-color-danger) 0%, #f97316 100%);
+}
+
+.heroIconCircle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin: 0 auto var(--mantine-spacing-sm);
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 9px;
-
-  width: 100%;
-  min-width: 0;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Etiquetas */
-.statusCluster :global(.mantine-Badge-root) {
-  max-width: 100%;
-  min-height: 26px;
-  height: auto;
-  padding: 5px 9px;
+.heroIconOnline {
+  background-color: rgba(22, 163, 74, 0.12);
+  color: var(--ag-color-success);
+  border: 2px solid rgba(22, 163, 74, 0.35);
+}
 
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: 650;
-  white-space: normal;
+.heroIconOffline {
+  background-color: var(--ag-color-danger-soft);
+  color: var(--ag-color-danger);
+  border: 2px solid rgba(220, 38, 38, 0.35);
+}
+
+.heroTitle {
+  color: var(--ag-text-primary) !important;
+  font-size: 1.2rem !important;
+  font-weight: 800 !important;
+  line-height: 1.3;
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.heroSubtitle {
+  color: var(--ag-text-muted) !important;
+  font-size: 0.84rem !important;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.heroBadgeRow {
+  display: flex;
+  justify-content: center;
 }
 
 .badgeOnline {
   background-color: var(--ag-color-success) !important;
   color: #ffffff !important;
-  font-weight: 700;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
 }
 
 .badgeOffline {
   background-color: var(--ag-color-danger) !important;
   color: #ffffff !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+}
+
+/* Tarjetas de información (homologadas con SidebarUsuario) */
+.infoCard {
+  background-color: var(--ag-color-surface-elevated);
+  border: 1px solid var(--ag-color-border);
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-md);
+  box-shadow:
+    0 4px 12px rgba(5, 6, 10, 0.03),
+    0 1px 3px rgba(5, 6, 10, 0.02);
+}
+
+.cardSectionTitle {
+  font-size: 0.8rem;
   font-weight: 700;
-}
-
-.badgeLocalYes {
-  background-color: var(--ag-color-info-soft) !important;
-  color: var(--ag-color-info) !important;
-  border: 1px solid rgba(29, 78, 216, 0.25);
-  font-weight: 700;
-}
-
-.badgeLocalNo {
-  background-color: var(--ag-color-warning-soft) !important;
-  color: var(--ag-color-warning) !important;
-  border: 1px solid rgba(180, 83, 9, 0.25);
-  font-weight: 700;
-}
-
-.badgePending {
-  background-color: var(--ag-color-warning) !important;
-  color: #ffffff !important;
-  font-weight: 700;
-}
-
-.badgeClear {
-  background-color: #e2e8f0 !important;
-  color: var(--ag-text-primary) !important;
-  font-weight: 600;
-}
-
-/* Última sincronización */
-.syncTimestamp {
-  display: block;
-  width: 100%;
-  margin-top: 2px;
-
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--ag-text-muted);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.5;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(5, 6, 10, 0.08);
+}
+
+.infoRow:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.infoRow:first-of-type {
+  padding-top: 0;
+}
+
+.infoIconWrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: var(--ag-color-primary-soft);
+  border: 1px solid var(--ag-color-primary-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ag-color-primary-dark);
+  flex-shrink: 0;
+}
+
+.infoMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.infoLabel {
+  font-size: 0.76rem;
+  color: var(--ag-text-muted);
+  line-height: 1.2;
+}
+
+.infoValue {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ag-text-primary);
+  line-height: 1.3;
+}
+
+/* Alertas */
+.warningBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: var(--mantine-spacing-sm);
+  padding: 9px 11px;
+  color: var(--ag-color-warning);
+  background-color: var(--ag-color-warning-soft);
+  border-radius: 7px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .errorText {
-  width: 100%;
+  margin-top: var(--mantine-spacing-sm);
   padding: 9px 11px;
-
   color: var(--ag-color-danger);
   background-color: var(--ag-color-danger-soft);
   border-radius: 7px;
-
-  font-size: 11px;
+  font-size: 0.76rem;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 /* Acciones */
-.actionsCluster {
-  display: grid !important;
+.actionsGrid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px !important;
-
-  width: 100%;
-  margin-top: 2px;
-}
-
-/* Botones */
-.actionsCluster :global(.mantine-Button-root) {
-  width: 100%;
-  min-width: 0;
-  min-height: 38px;
-  padding: 0 9px;
-
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 650;
-  transition: background-color 0.2s, border-color 0.2s;
+  gap: 9px;
 }
 
 .btnPrimary {
@@ -190,27 +287,37 @@
   border-color: var(--ag-color-primary) !important;
 }
 
+.btnDiagnostic {
+  color: var(--ag-text-muted) !important;
+  font-weight: 600;
+}
+
+.btnDiagnostic:hover {
+  color: var(--ag-text-primary) !important;
+  background-color: var(--ag-color-surface) !important;
+}
+
 /* Input de importación */
 .hiddenInput {
   display: none;
 }
 
-/* Diagnóstico */
-.bar :global(.mantine-Modal-content) {
-  border-radius: 12px;
+/* Modal de diagnóstico en pantalla completa */
+.diagModalBody {
+  padding: var(--mantine-spacing-lg);
+  background-color: var(--ag-color-surface);
+  min-height: calc(100vh - 69px);
 }
 
-/* Adaptación a paneles estrechos */
-@media (max-width: 400px) {
-  .bar {
-    gap: 13px;
-  }
+.diagContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
 
-  .actionsCluster {
-    grid-template-columns: 1fr;
-  }
-
-  .actionsCluster :global(.mantine-Button-root) {
-    min-height: 40px;
-  }
+.catalogList {
+  display: flex;
+  flex-direction: column;
 }

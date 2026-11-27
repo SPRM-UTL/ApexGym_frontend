@@ -51,6 +51,7 @@ import {
 import classes from './Dashboard.module.css';
 import logoImg from '../../assets/apex_gym_large.png';
 import OfflineStatusBar from '../../components/OfflineStatusBar/OfflineStatusBar.jsx';
+import NotificacionesFab from '../../components/NavbarNotificaciones/NotificacionesFab.jsx';
 
 const iconoModulo = (nombre) => {
     if (nombre === 'Usuarios') {
@@ -366,7 +367,7 @@ export function Dashboard({ children, onLogout }) {
                 >
                     <Image
                         radius="md"
-                        h={44}
+                        h={60}
                         w="auto"
                         fit="contain"
                         src={logoImg}
@@ -438,6 +439,7 @@ export function Dashboard({ children, onLogout }) {
                     )}
 
                     <OfflineStatusBar />
+                    <NotificacionesFab />
 
                     <UserButton usuario={usuarioActual} />
 

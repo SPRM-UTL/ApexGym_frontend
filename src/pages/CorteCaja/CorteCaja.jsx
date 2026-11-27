@@ -59,8 +59,31 @@ import { api } from '../../scripts/services/api.js';
 import { CrudCatalogo } from '../../components/CrudCatalogo/CrudCatalogo.jsx';
 import { generarPdfCorte } from '../../scripts/generarPdfCorte.js';
 import { DENOMINACIONES, desglosarMonto } from '../../scripts/cajaUtils.js';
-import { SectionCard } from '../../components/SectionCard/SectionCard.jsx';
+import { EncabezadoTabla } from '../../components/TablaRegistros/TablaRegistros.jsx';
 import classes from './CorteCaja.module.css';
+
+function SectionCard({ icon, title, rightAmount, rightAmountColor, children }) {
+    const IconComp = icon?.type ?? null;
+    return (
+        <Stack gap="sm">
+            <EncabezadoTabla
+                title={title}
+                icon={IconComp}
+                rightContent={rightAmount ? (
+                    <Badge
+                        variant="light"
+                        size="lg"
+                        radius="sm"
+                        style={rightAmountColor ? { color: rightAmountColor } : undefined}
+                    >
+                        {rightAmount}
+                    </Badge>
+                ) : undefined}
+            />
+            {children}
+        </Stack>
+    );
+}
 
 const ETIQUETAS_METODO_PAGO = {
     EFECTIVO: 'Efectivo',
@@ -633,57 +656,80 @@ function CorteForm({ form, errors, onChange, fieldOptions }) {
             {/* ── Card 2: Conteo y Arqueo de Efectivo ── */}
             <SectionCard
                 icon={<IconCash size={22} stroke={1.8} />}
-                iconBg="#FFF4EC"
-                iconColor="#FF6A00"
                 title="Conteo y Arqueo de Efectivo"
-                subtitle="Desglose por denominación de billetes y monedas"
-                collapsible={true}
-                defaultOpen={true}
+                rightAmount={`$${efectivoContado.toFixed(2)}`}
+                rightAmountColor="#FF6A00"
             >
                 <Stack gap="sm">
-                    <Table withTableBorder withColumnBorders style={{ fontSize: 13 }}>
-                        <Table.Thead>
-                            <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
-                                <Table.Th>Denominación</Table.Th>
-                                <Table.Th style={{ width: 120, textAlign: 'center' }}>Cantidad</Table.Th>
-                                <Table.Th style={{ textAlign: 'right', width: 140 }}>Subtotal</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {DENOMINACIONES.map((d) => {
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                        {[
+                            { titulo: 'Billetes', tipo: 'billete', color: 'blue' },
+                            { titulo: 'Monedas', tipo: 'moneda', color: 'orange' },
+                        ].map((grupo) => {
+                            const lista = DENOMINACIONES.filter((d) => d.tipo === grupo.tipo);
+                            const subtotalGrupo = lista.reduce((acc, d) => {
                                 const cantStr = conteoCierre[d.valor] ?? '';
                                 const cantNum = cantStr === '' ? 0 : Number(cantStr);
-                                const subtotal = d.valor * cantNum;
+                                return acc + d.valor * cantNum;
+                            }, 0);
 
-                                return (
-                                    <Table.Tr key={d.valor}>
-                                        <Table.Td fw={600} style={{ color: '#1E293B' }}>{d.label}</Table.Td>
-                                        <Table.Td style={{ padding: 4 }}>
-                                            <NumberInput
-                                                size="xs"
-                                                min={0}
-                                                max={1000}
-                                                clampBehavior="strict"
-                                                allowDecimal={false}
-                                                placeholder="0"
-                                                value={cantStr}
-                                                onChange={(v) => actualizarConteoCierre(d.valor, v)}
-                                                styles={{ input: { textAlign: 'center', fontWeight: 600 } }}
-                                            />
-                                        </Table.Td>
-                                        <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
-                                            ${subtotal.toFixed(2)}
-                                        </Table.Td>
-                                    </Table.Tr>
-                                );
-                            })}
-                        </Table.Tbody>
-                    </Table>
+                            return (
+                                <Paper key={grupo.tipo} p="sm" radius="md" withBorder style={{ backgroundColor: '#FFFFFF' }}>
+                                    <Group justify="space-between" mb="xs">
+                                        <Text fw={700} size="xs" tt="uppercase" c="#475569">
+                                            {grupo.titulo}
+                                        </Text>
+                                        <Badge color={grupo.color} variant="light" size="sm" radius="sm">
+                                            ${subtotalGrupo.toFixed(2)}
+                                        </Badge>
+                                    </Group>
+                                    <Table withTableBorder withColumnBorders style={{ fontSize: 12.5 }}>
+                                        <Table.Thead>
+                                            <Table.Tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                <Table.Th>Denom.</Table.Th>
+                                                <Table.Th style={{ width: 88, textAlign: 'center' }}>Cant.</Table.Th>
+                                                <Table.Th style={{ textAlign: 'right', width: 92 }}>Subtotal</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {lista.map((d) => {
+                                                const cantStr = conteoCierre[d.valor] ?? '';
+                                                const cantNum = cantStr === '' ? 0 : Number(cantStr);
+                                                const subtotal = d.valor * cantNum;
 
-                    <Paper p="xs" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
+                                                return (
+                                                    <Table.Tr key={d.valor}>
+                                                        <Table.Td fw={600} style={{ color: '#1E293B' }}>{d.label}</Table.Td>
+                                                        <Table.Td style={{ padding: 4 }}>
+                                                            <NumberInput
+                                                                size="xs"
+                                                                min={0}
+                                                                max={1000}
+                                                                clampBehavior="strict"
+                                                                allowDecimal={false}
+                                                                placeholder="0"
+                                                                value={cantStr}
+                                                                onChange={(v) => actualizarConteoCierre(d.valor, v)}
+                                                                styles={{ input: { textAlign: 'center', fontWeight: 600 } }}
+                                                            />
+                                                        </Table.Td>
+                                                        <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                                            ${subtotal.toFixed(2)}
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                );
+                                            })}
+                                        </Table.Tbody>
+                                    </Table>
+                                </Paper>
+                            );
+                        })}
+                    </SimpleGrid>
+
+                    <Paper p="sm" radius="md" withBorder style={{ backgroundColor: '#FFF4EC', borderColor: '#FFD8A8' }}>
                         <Group justify="space-between" align="center">
-                            <Text fw={700} size="xs" c="#FF6A00">TOTAL EFECTIVO CONTADO:</Text>
-                            <Text fw={800} size="md" c="#FF6A00">${efectivoContado.toFixed(2)}</Text>
+                            <Text fw={700} size="xs" c="#9A3412" tt="uppercase">Total efectivo contado (físico)</Text>
+                            <Text fw={800} size="lg" c="#EA580C">${efectivoContado.toFixed(2)}</Text>
                         </Group>
                     </Paper>
                 </Stack>
