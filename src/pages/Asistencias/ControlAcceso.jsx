@@ -110,6 +110,7 @@ export function ControlAcceso() {
 
     // Flujo de confirmación manual de socio seleccionado
     const [socioSeleccionado, setSocioSeleccionado] = useState(null);
+    const [validacionSocioManual, setValidacionSocioManual] = useState(null);
     const [validandoMembresia, setValidandoMembresia] = useState(false);
     const [registrandoIngreso, setRegistrandoIngreso] = useState(false);
     const [observacionesIngreso, setObservacionesIngreso] = useState('');
@@ -117,6 +118,7 @@ export function ControlAcceso() {
     // Referencias
     const inputBusquedaRef = useRef(null);
     const html5QrCodeRef = useRef(null);
+    const procesandoQrRef = useRef(false);
 
     const enfocarBusqueda = useCallback(() => {
         setTimeout(() => {
@@ -184,9 +186,11 @@ export function ControlAcceso() {
     // Control de la cámara Web para escaneo QR
     useEffect(() => {
         if (!modalCamaraAbierto) {
+            procesandoQrRef.current = false;
             return;
         }
 
+        procesandoQrRef.current = false;
         let isMounted = true;
         const startScanner = async () => {
             try {
@@ -211,7 +215,8 @@ export function ControlAcceso() {
                         },
                     },
                     (decodedText) => {
-                        // QR detectado con éxito
+                        if (procesandoQrRef.current) return;
+                        procesandoQrRef.current = true;
                         cerrarModalCamara();
                         procesarEscaneoRapido(decodedText);
                     },
@@ -302,6 +307,7 @@ export function ControlAcceso() {
         setBusqueda('');
         setMostrarResultados(false);
         setSocioSeleccionado(null);
+        setValidacionSocioManual(null);
 
         try {
             setBuscando(true);
@@ -363,9 +369,20 @@ export function ControlAcceso() {
         }
     };
 
+    const calcularDiasRestantesCalendario = (fechaFin) => {
+        if (!fechaFin) return 0;
+        const fin = new Date(fechaFin);
+        if (Number.isNaN(fin.getTime())) return 0;
+        const hoy = new Date();
+        const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        const finUtc = Date.UTC(fin.getUTCFullYear(), fin.getUTCMonth(), fin.getUTCDate());
+        return Math.max(0, Math.round((finUtc - hoyUtc) / (1000 * 60 * 60 * 24)));
+    };
+
     // Seleccionar socio desde la lista desplegable para revisión manual
     const seleccionarSocio = async (cliente) => {
         setSocioSeleccionado(cliente);
+        setValidacionSocioManual(null);
         setMostrarResultados(false);
         setBusqueda('');
         setObservacionesIngreso('');
@@ -376,12 +393,14 @@ export function ControlAcceso() {
             const membresiaActiva = res.data;
 
             if (membresiaActiva && membresiaActiva.estadoMembresia?.nombre === 'Vigente') {
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                const fin = new Date(membresiaActiva.fechaFin);
-                fin.setHours(0, 0, 0, 0);
-                const diffTime = fin.getTime() - hoy.getTime();
-                const diasRestantes = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                const diasRestantes = calcularDiasRestantesCalendario(membresiaActiva.fechaFin);
+
+                setValidacionSocioManual({
+                    acceso: true,
+                    membresia: membresiaActiva,
+                    diasRestantes,
+                    fechaExpiracion: membresiaActiva.fechaFin,
+                });
 
                 mostrarSemaforo({
                     acceso: true,
@@ -408,6 +427,13 @@ export function ControlAcceso() {
                     mensajeDetalle = `Membresía Vencida el ${d}/${m}/${y}`;
                 }
 
+                setValidacionSocioManual({
+                    acceso: false,
+                    membresia: ultima,
+                    diasRestantes: 0,
+                    fechaExpiracion: ultima?.fechaFin || null,
+                });
+
                 mostrarSemaforo({
                     acceso: false,
                     codigo: 'ACCESO_DENEGADO',
@@ -422,6 +448,12 @@ export function ControlAcceso() {
             }
         } catch (err) {
             console.error('Error pre-validando membresía:', err);
+            setValidacionSocioManual({
+                acceso: false,
+                membresia: null,
+                diasRestantes: 0,
+                fechaExpiracion: null,
+            });
             mostrarSemaforo({
                 acceso: false,
                 codigo: 'ERROR',
@@ -454,6 +486,7 @@ export function ControlAcceso() {
                 });
 
                 setSocioSeleccionado(null);
+                setValidacionSocioManual(null);
                 setObservacionesIngreso('');
                 setRefreshHistorialKey((k) => k + 1);
                 enfocarBusqueda();
@@ -474,6 +507,7 @@ export function ControlAcceso() {
 
     const cancelarSeleccion = () => {
         setSocioSeleccionado(null);
+        setValidacionSocioManual(null);
         setResultadoSemaforo(null);
         setObservacionesIngreso('');
         enfocarBusqueda();
@@ -762,7 +796,7 @@ export function ControlAcceso() {
                                 withBorder
                                 style={{
                                     borderTop: `6px solid ${
-                                        resultadoSemaforo?.acceso ? '#2b8a3e' : '#c92a2a'
+                                        validacionSocioManual?.acceso ? '#2b8a3e' : '#c92a2a'
                                     }`,
                                     backgroundColor: '#ffffff'
                                 }}
@@ -778,7 +812,7 @@ export function ControlAcceso() {
                                             color="apex"
                                             style={{
                                                 border: `3px solid ${
-                                                    resultadoSemaforo?.acceso ? '#2b8a3e' : '#c92a2a'
+                                                    validacionSocioManual?.acceso ? '#2b8a3e' : '#c92a2a'
                                                 }`
                                             }}
                                         >
@@ -833,15 +867,17 @@ export function ControlAcceso() {
 
                                     <Button
                                         size="md"
-                                        color={resultadoSemaforo?.acceso ? 'green' : 'red'}
-                                        disabled={!resultadoSemaforo?.acceso}
+                                        color={validacionSocioManual?.acceso ? 'green' : 'red'}
+                                        disabled={validandoMembresia || !validacionSocioManual?.acceso}
                                         loading={registrandoIngreso}
                                         leftSection={<IconCheck size={20} />}
                                         onClick={confirmarIngresoManual}
                                     >
-                                        {resultadoSemaforo?.acceso
-                                            ? 'Confirmar Ingreso (Registrar Asistencia)'
-                                            : 'Ingreso Bloqueado (Membresía No Válida)'}
+                                        {validandoMembresia
+                                            ? 'Validando membresía...'
+                                            : validacionSocioManual?.acceso
+                                                ? 'Confirmar Ingreso (Registrar Asistencia)'
+                                                : 'Ingreso Bloqueado (Membresía No Válida)'}
                                     </Button>
                                 </Group>
                             </Paper>
