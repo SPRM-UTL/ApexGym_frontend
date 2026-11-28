@@ -408,11 +408,17 @@ export function ControlAcceso() {
             const dataError = err.response?.data?.data;
             const mensajeError = err.response?.data?.message || err.message || 'Acceso denegado: membresía no vigente o vencida';
 
+            // Cuando el acceso es denegado, enriquecer el cliente con fotoUrl si viene en el error
+            const clienteError = dataError?.cliente || null;
+            // Si no hay foto en dataError.cliente, usar la del objeto de búsqueda original
+            if (clienteError && !clienteError.usuario && cliente.usuario) {
+                clienteError.usuario = cliente.usuario;
+            }
             mostrarSemaforo({
                 acceso: false,
                 codigo: 'ACCESO_DENEGADO',
                 mensaje: mensajeError,
-                cliente: dataError?.cliente || cliente,
+                cliente: clienteError || cliente,
                 membresia: dataError?.membresia || null,
                 diasRestantes: 0,
                 fechaExpiracion: dataError?.membresia?.fechaFin || null,
