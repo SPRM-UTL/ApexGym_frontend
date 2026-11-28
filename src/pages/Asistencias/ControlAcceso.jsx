@@ -645,7 +645,7 @@ export function ControlAcceso() {
                 </Tabs.Panel>
             </Tabs>
 
-            {/* ══ MODAL SEMÁFORO — estilo full-screen (como DashboardReportes) ══ */}
+            {/* ══ MODAL SEMÁFORO — tamaño compacto con cabecera azul del sistema y foto ampliada ══ */}
             <Modal
                 opened={Boolean(resultadoSemaforo)}
                 onClose={() => {
@@ -653,15 +653,35 @@ export function ControlAcceso() {
                     setResultadoSemaforo(null);
                     enfocarBusqueda();
                 }}
-                fullScreen
-                radius={0}
+                centered
+                size={520}
+                radius="lg"
                 zIndex={999999}
-                withCloseButton={false}
-                padding={0}
+                title={
+                    <Group gap="sm" align="center">
+                        {resultadoSemaforo?.acceso ? (
+                            <IconCircleCheck size={22} color="#4ade80" />
+                        ) : (
+                            <IconCircleX size={22} color="#f87171" />
+                        )}
+                        <div>
+                            <Text fw={700} size="md" c="#ffffff" lh={1.2}>
+                                {resultadoSemaforo?.acceso ? 'Acceso Autorizado' : 'Acceso Denegado'}
+                            </Text>
+                            <Text size="xs" c="rgba(255, 255, 255, 0.75)">
+                                Control de Accesos y Visitas — ApexGym
+                            </Text>
+                        </div>
+                    </Group>
+                }
                 styles={{
-                    body: { height: '100%', padding: 0 },
-                    content: { height: '100%' },
-                    header: { display: 'none' },
+                    header: {
+                        backgroundColor: 'var(--ag-color-secondary, #1B1F3A)',
+                        padding: '14px 20px',
+                    },
+                    body: {
+                        padding: '20px 24px',
+                    },
                 }}
             >
                 {resultadoSemaforo && (() => {
@@ -675,150 +695,113 @@ export function ControlAcceso() {
                     const iniciales = `${resultadoSemaforo.cliente?.nombre?.charAt(0) || ''}${resultadoSemaforo.cliente?.apellidoPaterno?.charAt(0) || ''}`.toUpperCase();
 
                     return (
-                        <div style={{
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            backgroundColor: '#f8fafc'
-                        }}>
-                            {/* ── Barra superior coloreada ── */}
-                            <div style={{
-                                backgroundColor: color,
-                                padding: '12px 24px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
-                            }}>
-                                <Group gap="sm">
-                                    {resultadoSemaforo.acceso
-                                        ? <IconCircleCheck size={28} color="#fff" />
-                                        : <IconCircleX size={28} color="#fff" />
-                                    }
-                                    <div>
-                                        <Text fw={800} size="lg" c="#fff" lh={1}>
-                                            {resultadoSemaforo.acceso ? 'Acceso Autorizado' : 'Acceso Denegado'}
+                        <Stack align="center" gap="md">
+                            {/* Foto / Avatar ampliado */}
+                            <Avatar
+                                src={fotoUrl}
+                                size={200}
+                                radius={200}
+                                style={{
+                                    border: `5px solid ${color}`,
+                                    boxShadow: `0 0 30px ${resultadoSemaforo.acceso ? 'rgba(21,128,61,0.25)' : 'rgba(185,28,28,0.25)'}`,
+                                }}
+                            >
+                                <Text size="4rem" fw={700} c={color}>{iniciales}</Text>
+                            </Avatar>
+
+                            {/* Badges de estado y método */}
+                            <Group gap="xs" justify="center" wrap="wrap">
+                                <Badge size="md" variant="filled" color={resultadoSemaforo.acceso ? 'green' : 'red'} radius="sm">
+                                    {resultadoSemaforo.acceso ? 'ACCESO AUTORIZADO' : 'ACCESO DENEGADO'}
+                                </Badge>
+                                {resultadoSemaforo.metodo && (
+                                    <Badge size="sm" variant="light" color="gray" radius="sm">
+                                        {resultadoSemaforo.metodo}
+                                    </Badge>
+                                )}
+                                {resultadoSemaforo.advertencia && (
+                                    <Badge size="sm" variant="filled" color="yellow" radius="sm"
+                                        leftSection={<IconAlertTriangle size={13} />}>
+                                        ¡VENCE PRONTO!
+                                    </Badge>
+                                )}
+                            </Group>
+
+                            {/* Mensaje principal y Nombre del socio */}
+                            <Stack gap={2} align="center">
+                                <Title order={3} ta="center" c={color}>
+                                    {resultadoSemaforo.mensaje}
+                                </Title>
+                                {resultadoSemaforo.cliente && (
+                                    <Group gap="xs" align="center" justify="center">
+                                        <Text size="md" fw={700} c="dark">
+                                            {resultadoSemaforo.cliente.nombre} {resultadoSemaforo.cliente.apellidoPaterno} {resultadoSemaforo.cliente.apellidoMaterno || ''}
                                         </Text>
-                                        <Text size="xs" c="rgba(255,255,255,0.75)">Control de Accesos y Visitas — ApexGym</Text>
-                                    </div>
-                                </Group>
+                                        <Badge size="xs" variant="outline" color="gray">
+                                            {formatoIdentificador(resultadoSemaforo.cliente.id)}
+                                        </Badge>
+                                    </Group>
+                                )}
+                            </Stack>
+
+                            {/* Tarjeta de membresía */}
+                            {resultadoSemaforo.membresia && (
+                                <Paper
+                                    p="xs"
+                                    px="md"
+                                    radius="md"
+                                    withBorder
+                                    style={{
+                                        width: '100%',
+                                        backgroundColor: colorLight,
+                                        borderColor: color
+                                    }}
+                                >
+                                    <Group justify="space-between" wrap="nowrap">
+                                        <div>
+                                            <Text size="10px" c="dimmed" fw={700}>PLAN</Text>
+                                            <Text size="sm" fw={700} c="dark">
+                                                {resultadoSemaforo.membresia.tipoMembresia?.nombre || 'General'}
+                                            </Text>
+                                        </div>
+                                        {resultadoSemaforo.fechaExpiracion && (
+                                            <div style={{ textAlign: 'right' }}>
+                                                <Text size="10px" c="dimmed" fw={700}>VENCE EL</Text>
+                                                <Text size="sm" fw={700} c="dark">
+                                                    {new Date(resultadoSemaforo.fechaExpiracion).toLocaleDateString('es-MX', { timeZone: 'UTC' })}
+                                                </Text>
+                                                <Text size="xs" c={resultadoSemaforo.advertencia ? 'orange' : 'dimmed'}>
+                                                    {resultadoSemaforo.diasRestantes === 0
+                                                        ? '⚠ Vence hoy'
+                                                        : `${resultadoSemaforo.diasRestantes} días restantes`}
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </Group>
+                                </Paper>
+                            )}
+
+                            {/* Barra inferior: texto de auto-cierre y botón cerrar */}
+                            <Group justify="space-between" align="center" style={{ width: '100%' }} mt="xs">
+                                <Text size="xs" c="dimmed">
+                                    {resultadoSemaforo.acceso
+                                        ? '✓ Cerrando en 5 segundos...'
+                                        : '⚠ Cerrando en 7 segundos...'}
+                                </Text>
                                 <Button
-                                    variant="white"
-                                    color={resultadoSemaforo.acceso ? 'green' : 'red'}
-                                    size="sm"
+                                    size="xs"
+                                    variant="subtle"
+                                    color="gray"
                                     onClick={() => {
                                         if (temporizadorSemaforo) clearTimeout(temporizadorSemaforo);
                                         setResultadoSemaforo(null);
                                         enfocarBusqueda();
                                     }}
-                                    style={{ fontWeight: 700 }}
                                 >
-                                    ✕ Cerrar
+                                    Cerrar
                                 </Button>
-                            </div>
-
-                            {/* ── Contenido central ── */}
-                            <div style={{
-                                flex: 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '32px 24px'
-                            }}>
-                                <Stack align="center" gap="xl" style={{ maxWidth: 480, width: '100%' }}>
-
-                                    {/* Foto / Avatar grande */}
-                                    <Avatar
-                                        src={fotoUrl}
-                                        size={160}
-                                        radius={160}
-                                        style={{
-                                            border: `5px solid ${color}`,
-                                            boxShadow: `0 0 40px ${resultadoSemaforo.acceso ? 'rgba(21,128,61,0.35)' : 'rgba(185,28,28,0.35)'}`,
-                                        }}
-                                    >
-                                        <Text size="3rem" fw={700} c={color}>{iniciales}</Text>
-                                    </Avatar>
-
-                                    {/* Badges */}
-                                    <Group gap="xs" justify="center" wrap="wrap">
-                                        <Badge size="lg" variant="filled" color={resultadoSemaforo.acceso ? 'green' : 'red'} radius="sm">
-                                            {resultadoSemaforo.acceso ? 'ACCESO AUTORIZADO' : 'ACCESO DENEGADO'}
-                                        </Badge>
-                                        {resultadoSemaforo.metodo && (
-                                            <Badge size="md" variant="light" color="gray" radius="sm">
-                                                {resultadoSemaforo.metodo}
-                                            </Badge>
-                                        )}
-                                        {resultadoSemaforo.advertencia && (
-                                            <Badge size="md" variant="filled" color="yellow" radius="sm"
-                                                leftSection={<IconAlertTriangle size={14} />}>
-                                                ¡VENCE PRONTO!
-                                            </Badge>
-                                        )}
-                                    </Group>
-
-                                    {/* Nombre */}
-                                    <Stack gap={4} align="center">
-                                        <Title order={2} ta="center" c={color}>
-                                            {resultadoSemaforo.mensaje}
-                                        </Title>
-                                        {resultadoSemaforo.cliente && (
-                                            <Text size="lg" fw={600} c="dark" ta="center">
-                                                {resultadoSemaforo.cliente.nombre} {resultadoSemaforo.cliente.apellidoPaterno} {resultadoSemaforo.cliente.apellidoMaterno || ''}
-                                            </Text>
-                                        )}
-                                        {resultadoSemaforo.cliente && (
-                                            <Badge size="sm" variant="dot" color="gray">
-                                                {formatoIdentificador(resultadoSemaforo.cliente.id)}
-                                            </Badge>
-                                        )}
-                                    </Stack>
-
-                                    {/* Tarjeta de membresía */}
-                                    {resultadoSemaforo.membresia && (
-                                        <Paper
-                                            p="md"
-                                            radius="md"
-                                            withBorder
-                                            style={{
-                                                width: '100%',
-                                                backgroundColor: colorLight,
-                                                borderColor: color
-                                            }}
-                                        >
-                                            <Group justify="space-between" wrap="wrap" gap="xs">
-                                                <Stack gap={2}>
-                                                    <Text size="xs" c="dimmed" fw={600}>PLAN</Text>
-                                                    <Text size="md" fw={700} c="dark">
-                                                        {resultadoSemaforo.membresia.tipoMembresia?.nombre || 'General'}
-                                                    </Text>
-                                                </Stack>
-                                                {resultadoSemaforo.fechaExpiracion && (
-                                                    <Stack gap={2} align="flex-end">
-                                                        <Text size="xs" c="dimmed" fw={600}>VENCE EL</Text>
-                                                        <Text size="md" fw={700} c="dark">
-                                                            {new Date(resultadoSemaforo.fechaExpiracion).toLocaleDateString('es-MX', { timeZone: 'UTC' })}
-                                                        </Text>
-                                                        <Text size="xs" c={resultadoSemaforo.advertencia ? 'orange' : 'dimmed'}>
-                                                            {resultadoSemaforo.diasRestantes === 0
-                                                                ? '⚠ Vence hoy'
-                                                                : `${resultadoSemaforo.diasRestantes} días restantes`}
-                                                        </Text>
-                                                    </Stack>
-                                                )}
-                                            </Group>
-                                        </Paper>
-                                    )}
-
-                                    {/* Texto de auto-cierre */}
-                                    <Text size="sm" c="dimmed" ta="center">
-                                        {resultadoSemaforo.acceso
-                                            ? '✓ Registro guardado. Cerrando en 5 segundos...'
-                                            : '⚠ Acceso denegado. Cerrando en 7 segundos...'}
-                                    </Text>
-                                </Stack>
-                            </div>
-                        </div>
+                            </Group>
+                        </Stack>
                     );
                 })()}
             </Modal>
